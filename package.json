@@ -1,0 +1,60 @@
+{
+  "name": "rabbit-relay",
+  "version": "1.0.0",
+  "description": "A RabbitMQ-based event framework",
+  "type": "commonjs",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/cjs/index.d.ts",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "exports": {
+    ".": {
+      "require": "./dist/cjs/index.js",
+      "import": "./dist/esm/index.js"
+    },
+    "./dedupe": {
+      "require": "./dist/cjs/utils/dedupe.js",
+      "import": "./dist/esm/utils/dedupe.js"
+    }
+  },
+  "scripts": {
+    "build": "npm run build:cjs && npm run build:esm",
+    "build:cjs": "tsc -p tsconfig.cjs.json",
+    "build:esm": "tsc -p tsconfig.esm.json",
+    "prepublishOnly": "npm run build",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
+  },
+  "keywords": [
+    "rabbitmq",
+    "rabbit-relay",
+    "amqplib",
+    "amqp",
+    "events",
+    "messaging"
+  ],
+  "author": "BitSpacer Labs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bitspacerlabs/rabbit-relay.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bitspacerlabs/rabbit-relay/issues"
+  },
+  "homepage": "https://github.com/bitspacerlabs/rabbit-relay#readme",
+  "license": "MIT",
+  "dependencies": {
+    "amqplib": "^0.10.5",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.8",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.8.3",
+    "vitepress": "^2.0.0-alpha.12"
+  }
+}
