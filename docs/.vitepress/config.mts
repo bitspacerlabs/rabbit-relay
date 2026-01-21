@@ -2,6 +2,7 @@ import { defineConfig } from 'vitepress'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
+  base: '/rabbit-relay/',
   title: "Rabbit Relay",
   description: "Reliable, type-safe RabbitMQ event framework for Node.js",
   head: [
