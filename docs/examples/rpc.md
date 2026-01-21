@@ -60,7 +60,3 @@ npx ts-node-dev --transpile-only examples/04-rpc/client.ts
 - The client logs the response
 - Each request maps to exactly one reply
 
-
-## More examples
-
-- **[RPC advanced](/examples/rpc-advanced)** – Advanced example

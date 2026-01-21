@@ -41,7 +41,3 @@ npx ts-node-dev --transpile-only examples/03-publisher-confirms/publisher.ts
 - Failed publishes are detected immediately
 - No silent message loss
 
-
-## More examples
-
-- **[Deduplication](/examples/deduplication)** – Prevent duplicate message processing
