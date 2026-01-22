@@ -45,7 +45,7 @@ beforeProcess → handler → afterProcess
 A plugin is a plain object with optional async hooks.
 
 ```ts
-import type { EventEnvelope } from "rabbit-relay";
+import type { EventEnvelope } from "@bitspacerlabs/rabbit-relay";
 
 export interface Plugin {
   beforeProduce?(event: EventEnvelope): Promise<void>;
@@ -73,7 +73,7 @@ All hooks must be `async` and return `Promise<void>`.
 Plugins are registered **once at process startup**.
 
 ```ts
-import { pluginManager } from "rabbit-relay";
+import { pluginManager } from "@bitspacerlabs/rabbit-relay";
 import { loggerPlugin } from "./loggerPlugin";
 
 pluginManager.register(loggerPlugin());
@@ -88,7 +88,7 @@ pluginManager.register(loggerPlugin());
 ## Minimal plugin example
 
 ```ts
-import type { Plugin } from "rabbit-relay";
+import type { Plugin } from "@bitspacerlabs/rabbit-relay";
 
 export function loggerPlugin(): Plugin {
   return {

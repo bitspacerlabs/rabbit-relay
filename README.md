@@ -46,7 +46,7 @@ npm install @bitspacerlabs/rabbit-relay
 ## Minimal Examples
 
 ```ts
-import { RabbitMQBroker, event } from "rabbit-relay";
+import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay;
 
 const broker = new RabbitMQBroker("example.service");
 
@@ -63,7 +63,7 @@ await api.send({ message: "hello world" });
 
 
 ```ts
-import { RabbitMQBroker, event } from "rabbit-relay";
+import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
 
 const broker = new RabbitMQBroker("example.publisher");
 

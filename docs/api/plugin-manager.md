@@ -36,7 +36,7 @@ All hooks are optional and asynchronous.
 Plugins are registered once at startup.
 
 ```ts
-import { pluginManager } from "rabbit-relay";
+import { pluginManager } from "@bitspacerlabs/rabbit-relay";
 
 pluginManager.use({
   async beforeProduce(ev) {

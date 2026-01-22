@@ -9,7 +9,7 @@ This page explains how to define factories, publish events (with or without help
 ## TL;DR
 
 ```ts
-import { RabbitMQBroker, event } from "rabbit-relay";
+import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
 
 // 1) Define the payload
 type OrderCreated = {
@@ -75,7 +75,7 @@ export interface EventEnvelope<T = unknown> {
 Factories are created with `event(name, version).of<T>()`. They stamp envelope fields and enforce the payload type.
 
 ```ts
-import { event } from "rabbit-relay";
+import { event } from "@bitspacerlabs/rabbit-relay";
 
 type PaymentProcessed = {
   orderId: string;
@@ -96,7 +96,7 @@ Use factories anywhere you need to produce events—services, jobs, or tests.
 ### Option A: Produce directly
 
 ```ts
-import { RabbitMQBroker } from "rabbit-relay";
+import { RabbitMQBroker } from "@bitspacerlabs/rabbit-relay";
 import { makePaymentProcessed } from "./events";
 
 const broker = new RabbitMQBroker("payments_service");
@@ -118,7 +118,7 @@ await iface.produce(
 `.with()` creates a small, typed publish API from your factories.
 
 ```ts
-import { event, RabbitMQBroker } from "rabbit-relay";
+import { event, RabbitMQBroker } from "@bitspacerlabs/rabbit-relay";
 
 type ShippingStarted = { orderId: string; trackingId: string };
 const makeShippingStarted = event("shippingStarted", "v1").of<ShippingStarted>();
@@ -142,7 +142,7 @@ Use this style when a service **owns** a set of events and publishes them freque
 Handlers are keyed by the **event name**. The payload is typed inside the handler.
 
 ```ts
-import type { EventEnvelope } from "rabbit-relay";
+import type { EventEnvelope } from "@bitspacerlabs/rabbit-relay";
 
 type OrderCreated = { orderId: string; total: number };
 
@@ -208,7 +208,7 @@ TypeScript types disappear at runtime. For runtime safety, validate in plugin ho
 
 ```ts
 import { z } from "zod";
-import { event } from "rabbit-relay";
+import { event } from "@bitspacerlabs/rabbit-relay";
 
 export const OrderCreatedSchema = z.object({
   orderId: z.string().min(1),
@@ -244,7 +244,7 @@ await broker.queue("q").exchange("ex", {
 Group factories per domain and export a single object:
 
 ```ts
-import { event } from "rabbit-relay";
+import { event } from "@bitspacerlabs/rabbit-relay";
 
 export type OrderCreated = { orderId: string; total: number };
 export type PaymentProcessed = { orderId: string; status: "paid" | "failed"; txnId?: string };

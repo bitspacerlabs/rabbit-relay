@@ -37,7 +37,7 @@ export type ScheduleTaskData = {
 ## Publish (recommended: `with()` API)
 
 ```ts
-import { RabbitMQBroker, event } from "rabbit-relay";
+import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
 import { SchedulerEvents, type ScheduleTaskData } from "./events.js";
 
 (async () => {
@@ -73,8 +73,8 @@ import { SchedulerEvents, type ScheduleTaskData } from "./events.js";
 ## Consume
 
 ```ts
-import { RabbitMQBroker } from "rabbit-relay";
-import type { EventEnvelope } from "rabbit-relay";
+import { RabbitMQBroker } from "@bitspacerlabs/rabbit-relay";
+import type { EventEnvelope } from "@bitspacerlabs/rabbit-relay";
 import { SchedulerEvents, type ScheduleTaskData } from "./events.js";
 
 (async () => {
@@ -111,7 +111,7 @@ import { SchedulerEvents, type ScheduleTaskData } from "./events.js";
 ## Publish without `with()` (explicit style)
 
 ```ts
-import { RabbitMQBroker, event } from "rabbit-relay";
+import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
 import { SchedulerEvents, type ScheduleTaskData } from "./events.js";
 
 (async () => {

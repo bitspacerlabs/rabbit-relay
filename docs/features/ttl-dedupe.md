@@ -35,7 +35,7 @@ Handlers should still be idempotent when possible.
 ## Basic usage
 
 ```ts
-import { makeMemoryDedupe } from "rabbit-relay";
+import { makeMemoryDedupe } from "@bitspacerlabs/rabbit-relay";
 
 const dedupe = makeMemoryDedupe({
   ttlMs: 5 * 60_000, // remember IDs for 5 minutes
