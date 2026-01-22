@@ -4,13 +4,13 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/rabbit-relay">
-    <img src="https://img.shields.io/npm/v/rabbit-relay.svg?style=flat-square" alt="NPM Version">
+    <img src="https://img.shields.io/npm/v/@bitspacerlabs/rabbit-relay.svg?style=flat-square" alt="NPM Version">
   </a>
   <a href="https://github.com/bitspacerlabs/rabbit-relay">
-    <img src="https://img.shields.io/github/stars/bitspacerlabs/rabbit-relay.svg?style=flat-square" alt="GitHub Stars">
+    <img src="https://img.shields.io/github/stars/@bitspacerlabs/rabbit-relay.svg?style=flat-square" alt="GitHub Stars">
   </a>
   <a href="https://github.com/bitspacerlabs/rabbit-relay/issues">
-    <img src="https://img.shields.io/github/issues/bitspacerlabs/rabbit-relay.svg?style=flat-square" alt="Issues">
+    <img src="https://img.shields.io/github/issues/@bitspacerlabs/rabbit-relay.svg?style=flat-square" alt="Issues">
   </a>
   <a href="https://opensource.org/licenses/MIT">
     <img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License">
@@ -38,7 +38,7 @@ https://bitspacerlabs.github.io/rabbit-relay/
 ## Installation
 
 ```bash
-npm install rabbit-relay
+npm install @bitspacerlabs/rabbit-relay
 ```
 
 ---
