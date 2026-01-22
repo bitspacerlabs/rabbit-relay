@@ -1,6 +1,6 @@
 {
   "name": "@bitspacerlabs/rabbit-relay",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "A RabbitMQ-based event framework",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",

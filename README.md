@@ -87,4 +87,4 @@ await pub.produce(hello({ msg: "world" }));
 
 ## License
 
-MIT © BitSpacerLabs
+MIT © BitSpacer Labs
