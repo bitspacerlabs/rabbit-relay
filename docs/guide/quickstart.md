@@ -7,7 +7,7 @@ This guide walks you through publishing and consuming your **first typed event**
 ## Install
 
 ```bash
-npm install rabbit-relay
+npm install @bitspacerlabs/rabbit-relay
 ```
 
 ---
