@@ -47,10 +47,10 @@ NOTE:
 **amqplib is powerful, but it’s low-level.** Rabbit Relay keeps “real RabbitMQ concepts” (exchanges, queues, routing keys),
 and adds:
 
-- ✅ **Type-safe events** (typed payloads + versioning)
-- ✅ **Cleaner publish / consume APIs** (less boilerplate)
-- ✅ **Explicit topology & ownership** (no hidden abstractions)
-- ✅ **Reliable defaults** (so every service doesn’t reinvent the same setup)
+- **Type-safe events** (typed payloads + versioning)
+- **Cleaner publish / consume APIs** (less boilerplate)
+- **Explicit topology & ownership** (no hidden abstractions)
+- **Reliable defaults** (so every service doesn’t reinvent the same setup)
 
 If you already use RabbitMQ and you want a better TypeScript developer experience, Rabbit Relay is for you.
 
