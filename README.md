@@ -31,6 +31,8 @@ NOTE:
 </p>
 
 <p align="center">
+  <a href="https://bitspacerlabs.github.io/rabbit-relay/">Docs</a>
+  ·
   <a href="https://github.com/bitspacerlabs/rabbit-relay/tree/main/examples">Examples</a>
   ·
   <a href="https://github.com/bitspacerlabs/rabbit-relay/issues">Issues</a>
