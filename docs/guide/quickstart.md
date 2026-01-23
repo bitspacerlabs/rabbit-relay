@@ -38,7 +38,7 @@ export type ScheduleTaskData = {
 
 ```ts
 import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
-import { SchedulerEvents, type ScheduleTaskData } from "./events.js";
+import { SchedulerEvents, type ScheduleTaskData } from "./events";
 
 (async () => {
   // Create a broker instance for this service
@@ -75,7 +75,7 @@ import { SchedulerEvents, type ScheduleTaskData } from "./events.js";
 ```ts
 import { RabbitMQBroker } from "@bitspacerlabs/rabbit-relay";
 import type { EventEnvelope } from "@bitspacerlabs/rabbit-relay";
-import { SchedulerEvents, type ScheduleTaskData } from "./events.js";
+import { SchedulerEvents, type ScheduleTaskData } from "./events";
 
 (async () => {
   // Create a broker instance for this service
@@ -112,7 +112,7 @@ import { SchedulerEvents, type ScheduleTaskData } from "./events.js";
 
 ```ts
 import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
-import { SchedulerEvents, type ScheduleTaskData } from "./events.js";
+import { SchedulerEvents, type ScheduleTaskData } from "./events";
 
 (async () => {
   const broker = new RabbitMQBroker("scheduler_service");
