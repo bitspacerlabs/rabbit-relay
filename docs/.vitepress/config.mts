@@ -3,19 +3,24 @@ import { defineConfig } from 'vitepress'
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   base: '/rabbit-relay/',
-  title: "Rabbit Relay",
-  description: "Reliable, type-safe RabbitMQ event framework for Node.js",
+  title: 'Rabbit Relay',
+  description: 'Reliable, type-safe RabbitMQ event framework for Node.js',
+
   head: [
-    ['link', { rel: 'icon', href: '/rabbit-relay-mini-dark.svg' }],
+    // Favicons
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: 'rabbit-relay-mini.svg' }],
+    ['link', { rel: 'icon', type: 'image/png', href: 'favicon.png' }],
   ],
+
   themeConfig: {
     logo: {
-      light: '/rabbit-relay-mini.svg',
-      dark: '/rabbit-relay-mini-dark.svg',
+      light: 'rabbit-relay-mini.svg',
+      dark: 'rabbit-relay-mini-dark.svg',
       alt: 'Rabbit Relay Logo',
       width: 24,
-      height: 28
+      height: 28,
     },
+
     // top navigation
     nav: [
       { text: 'Guide', link: '/guide/quickstart' },
@@ -31,7 +36,7 @@ export default defineConfig({
           { text: 'What is Rabbit Relay?', link: '/guide/what-is-rabbit-relay' },
           { text: 'Quickstart', link: '/guide/quickstart' },
           { text: 'Configuration', link: '/guide/configuration' },
-        ]
+        ],
       },
       {
         text: 'Core Features',
@@ -43,7 +48,7 @@ export default defineConfig({
           { text: 'Auto Reconnect', link: '/features/reconnect' },
           { text: 'TTL De-dupe', link: '/features/ttl-dedupe' },
           { text: 'Plugin Hooks', link: '/features/plugins' },
-        ]
+        ],
       },
       {
         text: 'Examples',
@@ -54,7 +59,7 @@ export default defineConfig({
           { text: 'DLQ', link: '/examples/dlq' },
           { text: 'Plugins', link: '/examples/plugins' },
           { text: 'Backpressure', link: '/examples/backpressure' },
-        ]
+        ],
       },
       {
         text: 'API Reference',
@@ -62,18 +67,18 @@ export default defineConfig({
           { text: 'RabbitMQBroker', link: '/api/rabbitmq-broker' },
           { text: 'EventEnvelope', link: '/api/event-envelope' },
           { text: 'PluginManager', link: '/api/plugin-manager' },
-        ]
-      }
+        ],
+      },
     ],
 
     // footer/social
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/bitspacerlabs/rabbit-relay' }
+      { icon: 'github', link: 'https://github.com/bitspacerlabs/rabbit-relay' },
     ],
 
     footer: {
       message: 'Released under the MIT License.',
-      copyright: 'Copyright © 2026 BitSpacerLabs'
-    }
-  }
+      copyright: 'Copyright © 2026 BitSpacerLabs',
+    },
+  },
 })
