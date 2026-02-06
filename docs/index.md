@@ -53,7 +53,7 @@ features:
     details: Extend behavior with lightweight hooks for logging and metrics.
 ---
 
-## ⚡ Example
+## Example
 
 ```ts
 import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
