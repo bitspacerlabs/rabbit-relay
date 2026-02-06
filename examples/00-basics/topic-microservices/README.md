@@ -11,7 +11,6 @@
 - `paymentsService.ts`
 - `shippingService.ts`
 - `notificationsService.ts`
-- `example-plugin-definition.ts` / `example-plugin-instance.ts` (how to plug metrics/tracing)
 
 **Run (suggested order)**
 ```bash
@@ -27,6 +26,6 @@ npx ts-node-dev --transpile-only examples/00-basics/topic-microservices/ordersSe
 ```
 
 **Expect**
-- payments logs `orderCreated` → emits `paymentProcessed`
-- shipping logs `paymentProcessed` → emits `shippingStarted`
+- payments logs `orderCreated` -> emits `paymentProcessed`
+- shipping logs `paymentProcessed` -> emits `shippingStarted`
 - notifications logs the flow (depending on your handlers)

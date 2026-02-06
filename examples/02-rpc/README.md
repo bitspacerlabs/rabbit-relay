@@ -1,76 +1,72 @@
-# RPC – Basics
+## RPC (Basics)
 
-**What it shows:** request/response (RPC-style) communication built on top of RabbitMQ messaging using temporary reply queues and correlation IDs.
+This example shows **RPC-style request/response** using RabbitMQ.
 
-This demonstrates how to perform **asynchronous RPC over RabbitMQ** with timeouts, concurrency, and safe failure handling.
-
----
-
-**Files**
-- `responder.ts` – RPC server that handles requests and returns replies
-- `requester.single.ts` – sends a single RPC request and awaits a reply
-- `requester.load.ts` *(optional)* – sends many concurrent RPC requests to demonstrate throughput and backpressure
+A requester sends a message and waits for a reply from a responder.
 
 ---
 
-**Run**
+### Files
+
+- `responder.ts`  
+  Handles `payments.charge` requests and returns a response.
+
+- `requester.ts`  
+  Sends one RPC request and waits for the reply.
+
+---
+
+### Run
+
 ```bash
-# terminal 1 – start the RPC responder
-npx ts-node-dev --transpile-only examples/rpc/responder.ts
+# terminal 1 – start the responder
+npx ts-node-dev --transpile-only examples/02-rpc/responder.ts
 
-# terminal 2 – send a single RPC request
-npx ts-node-dev --transpile-only examples/rpc/requester.single.ts
-
-# (optional) terminal 3 – run concurrent RPC load
-npx ts-node-dev --transpile-only examples/rpc/requester.load.ts
+# terminal 2 – run the requester
+npx ts-node-dev --transpile-only examples/02-rpc/requester.ts
 ```
 
 ---
 
-**Expect**
-- the requester publishes a request message with a temporary reply queue
-- the responder processes the request and sends a reply
-- the requester resolves with the responder’s response
-- if the responder throws, the requester receives `null`
-- if the responder is slow or unavailable, the requester times out
+### Expected Output
+
+**Requester**
+```
+[Requester] sending charge request
+[Requester] reply: { ok: true, transactionId: "txn_ab12cd" }
+```
+
+**Responder**
+```
+[Responder] waiting for payments.charge
+[Responder] charging 42 USD for o-1001
+```
 
 ---
 
-**How it works**
-- the requester publishes a message with:
-  - `replyTo` set to a temporary, exclusive queue
-  - a unique `correlationId`
-- the responder processes the message and publishes a reply to `replyTo`
-- the requester listens on the temporary queue and matches replies by `correlationId`
-- the temporary queue is deleted after the reply or timeout
+### How it works
+
+1. The requester publishes a message with:
+   - `expectsReply: true`
+   - a timeout
+
+2. The library:
+   - creates a temporary reply queue
+   - sets `replyTo` and `correlationId`
+
+3. The responder:
+   - processes the request
+   - returns a value
+
+4. The requester:
+   - receives the reply
+   - resolves the promise
 
 ---
 
-**Environment variables**
-- `TIMEOUT_MS` – how long the requester waits for a reply (default: 3–5s)
-- `CONCURRENCY` – max in-flight requests (load test)
-- `N` – total number of requests to send (load test)
-- `SLOW_MS` – artificial delay in the responder (for testing)
-- `FAIL_IF_AMOUNT=1` – simulate responder failures
+### Takeaway
 
----
-
-**Production notes**
-
-- This is **asynchronous RPC over messaging**, not synchronous HTTP
-- Requests may timeout even if the responder eventually processes them
-- Retries may result in duplicate processing
-- Handlers should be **idempotent**
-- This pattern is production-safe for internal services and workflows
-
-For stronger guarantees (exactly-once effects), combine with:
-- database constraints
-- idempotency keys
-- transactional outbox patterns
-
----
-
-**Notes**
-- RabbitMQ does not provide built-in RPC semantics; this is an application-level pattern
-- This implementation follows standard AMQP RPC best practices
-- Temporary reply queues are process-local and cleaned up automatically
+- This is **messaging-based RPC**, not HTTP
+- Replies are normal messages
+- Timeouts are expected
+- Use this pattern for internal service communication
