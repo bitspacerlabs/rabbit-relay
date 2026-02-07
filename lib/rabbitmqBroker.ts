@@ -111,7 +111,7 @@ export class RabbitMQBroker {
       produceMany,
       with: <U extends Record<string, (...args: any[]) => EventEnvelope>>(events: U) => {
         // keep original behavior (dynamic require) to avoid import cycles
-        const { augmentEvents } = require("../eventFactories") as {
+        const { augmentEvents } = require("./eventFactories") as {
           augmentEvents: <X extends object>(ev: Record<string, any>, brk: any) => X;
         };
         const augmented = augmentEvents(events, brokerInterface);
