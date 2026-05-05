@@ -12,7 +12,7 @@ npm install @bitspacerlabs/rabbit-relay
 
 ---
 
-## Define an event (shared contract)
+## Define an event contract
 
 This file defines **event names and payloads only**.
 It contains **no RabbitMQ logic** and can be shared across services.
@@ -20,95 +20,19 @@ It contains **no RabbitMQ logic** and can be shared across services.
 ```ts
 // events.ts
 
-// Event routing keys used by RabbitMQ
 export const SchedulerEvents = {
   ScheduleTask: "scheduler.scheduleTask",
 } as const;
 
-// Payload carried by the event
 export type ScheduleTaskData = {
-  id: string;    // task identifier
-  when: number; // timestamp (ms)
+  id: string;
+  when: number;
 };
 ```
 
 ---
 
-## Publish (recommended: `with()` API)
-
-```ts
-import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
-import { SchedulerEvents, type ScheduleTaskData } from "./events";
-
-(async () => {
-  // Create a broker instance for this service
-  const broker = new RabbitMQBroker("scheduler_service");
-
-  // Declare the queue and exchange used for publishing
-  const pub = await broker.queue("scheduler_publish_queue")
-    .exchange("scheduler_exchange", {
-      exchangeType: "topic",
-    });
-
-  // Create a typed event factory using the shared contract
-  // This attaches:
-  // - event name
-  // - version
-  // - payload typing
-  const scheduleTask = event(SchedulerEvents.ScheduleTask, "v1").of<ScheduleTaskData>();
-
-  // Convert event factories into a service-like API
-  const api = pub.with({ scheduleTask });
-
-  // Publish the event using a typed method
-  await api.scheduleTask({
-    id: "task-1",
-    when: Date.now() + 5000,
-  });
-})();
-```
-
----
-
-## Consume
-
-```ts
-import { RabbitMQBroker } from "@bitspacerlabs/rabbit-relay";
-import type { EventEnvelope } from "@bitspacerlabs/rabbit-relay";
-import { SchedulerEvents, type ScheduleTaskData } from "./events";
-
-(async () => {
-  // Create a broker instance for this service
-  const broker = new RabbitMQBroker("scheduler_worker");
-
-  // Declare the queue and bind it to the exchange
-  // The generic type defines which events this exchange can emit
-  const sub = await broker
-    .queue("scheduler_worker_queue")
-    .exchange<{
-      [SchedulerEvents.ScheduleTask]: EventEnvelope<ScheduleTaskData>;
-    }>(
-      "scheduler_exchange",
-      {
-        exchangeType: "topic",
-        routingKey: "scheduler.*", // RabbitMQ routing pattern
-      }
-    );
-
-  // Register a handler for the event
-  // The key must match the event name exactly
-  sub.handle(SchedulerEvents.ScheduleTask, async (_id, ev) => {
-    console.log("Task received:", ev.data);
-  });
-
-  // Start consuming messages
-  await sub.consume();
-})();
-```
-
----
-
-## Publish without `with()` (explicit style)
+## Publish
 
 ```ts
 import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
@@ -123,17 +47,140 @@ import { SchedulerEvents, type ScheduleTaskData } from "./events";
       exchangeType: "topic",
     });
 
-  const scheduleTask =
-    event(SchedulerEvents.ScheduleTask, "v1")
-      .of<ScheduleTaskData>();
+  const scheduleTask = event(
+    SchedulerEvents.ScheduleTask,
+    "v1"
+  ).of<ScheduleTaskData>();
 
-  const evt = scheduleTask({
-    id: "task-2",
-    when: Date.now() + 10_000,
+  await pub.produce(
+    scheduleTask({
+      id: "task-1",
+      when: Date.now() + 5000,
+    })
+  );
+
+  await broker.close();
+})();
+```
+
+---
+
+## Publish with the `with()` API
+
+`with()` converts event factories into a small typed API.
+
+```ts
+const api = pub.with({ scheduleTask });
+
+await api.scheduleTask({
+  id: "task-2",
+  when: Date.now() + 10_000,
+});
+```
+
+---
+
+## Consume
+
+```ts
+import { RabbitMQBroker, type EventEnvelope } from "@bitspacerlabs/rabbit-relay";
+import { SchedulerEvents, type ScheduleTaskData } from "./events";
+
+(async () => {
+  const broker = new RabbitMQBroker("scheduler_worker");
+
+  const sub = await broker
+    .queue("scheduler_worker_queue")
+    .exchange<{
+      [SchedulerEvents.ScheduleTask]: EventEnvelope<ScheduleTaskData>;
+    }>("scheduler_exchange", {
+      exchangeType: "topic",
+      routingKey: "scheduler.*",
+    });
+
+  sub.handle(SchedulerEvents.ScheduleTask, async (_id, ev) => {
+    console.log("Task received:", ev.data);
   });
 
-  await pub.produce(evt);
+  await sub.consume({
+    prefetch: 10,
+    concurrency: 5,
+  });
 })();
+```
+
+---
+
+## Add retries and DLQ
+
+For production consumers, prefer bounded retries with a dead-letter queue.
+
+```ts
+const sub = await broker
+  .queue("scheduler_worker_queue")
+  .exchange<{
+    [SchedulerEvents.ScheduleTask]: EventEnvelope<ScheduleTaskData>;
+  }>("scheduler_exchange", {
+    exchangeType: "topic",
+    routingKey: "scheduler.*",
+    deadLetter: {
+      exchange: "scheduler.dlx",
+      queue: "scheduler.dlq",
+      routingKey: "scheduler.dead",
+      autoDeclare: true,
+    },
+  });
+
+sub.handle(SchedulerEvents.ScheduleTask, async (_id, ev) => {
+  console.log("Task received:", ev.data);
+});
+
+await sub.consume({
+  prefetch: 10,
+  concurrency: 5,
+  onError: "retry",
+  retry: {
+    attempts: 3,
+    then: "dead-letter",
+  },
+});
+```
+
+---
+
+## Publish with native AMQP options
+
+Use `publish()` when you need per-message RabbitMQ options.
+
+```ts
+await pub.publish(scheduleTask({ id: "task-3", when: Date.now() }), {
+  amqp: {
+    publish: {
+      persistent: true,
+      priority: 5,
+    },
+  },
+});
+```
+
+---
+
+## Health checks
+
+```ts
+const health = await broker.health();
+console.log(health);
+```
+
+---
+
+## Graceful shutdown
+
+```ts
+process.on("SIGTERM", async () => {
+  await broker.close();
+  process.exit(0);
+});
 ```
 
 ---
@@ -141,7 +188,9 @@ import { SchedulerEvents, type ScheduleTaskData } from "./events";
 ## Summary
 
 - Contracts define event names and payloads
-- Publishers own events and versions
+- Publishers create typed event envelopes
 - Consumers explicitly declare what they handle
-- RabbitMQ routing remains visible
-- `with()` is convenience, not magic
+- `prefetch` controls RabbitMQ delivery pressure
+- `concurrency` controls parallel handler execution
+- Retry + DLQ gives safer production failure handling
+- Native `amqplib` options remain available when needed

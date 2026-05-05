@@ -38,7 +38,7 @@ Plugins are registered once at startup.
 ```ts
 import { pluginManager } from "@bitspacerlabs/rabbit-relay";
 
-pluginManager.use({
+pluginManager.register({
   async beforeProduce(ev) {
     console.log("Publishing", ev.name);
   },

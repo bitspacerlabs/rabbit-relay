@@ -167,3 +167,22 @@ export async function closeRabbitMQ(): Promise<void> {
     // already closed
   }
 }
+
+export function getRabbitMQHealthState() {
+  const isOpen = (resource: any): boolean => {
+    if (!resource) return false;
+
+    // amqplib channels/connections do not expose a perfect public "isOpen" API.
+    // This is a best-effort check using known internal flags.
+    if (resource.connection?.stream?.destroyed === true) return false;
+    if (resource.stream?.destroyed === true) return false;
+
+    return true;
+  };
+
+  return {
+    connected: isOpen(conn),
+    channelOpen: isOpen(ch),
+    confirmChannelOpen: isOpen(cch),
+  };
+}

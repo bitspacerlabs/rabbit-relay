@@ -1,7 +1,7 @@
 # Configuration
 
 Rabbit Relay uses **sensible defaults** and a small set of configuration options.
-Most applications only need to set a broker URL and (optionally) a connection name.
+Most applications only need to set a broker URL and then tune publishing and consuming per use case.
 
 ---
 
@@ -27,6 +27,7 @@ export RABBITMQ_URL=amqp://user:password@localhost
 Optional human-readable connection name shown in the RabbitMQ Management UI.
 
 This is useful when:
+
 - running multiple services
 - debugging connections
 - inspecting clients in production
@@ -35,52 +36,103 @@ This is useful when:
 export AMQP_CONN_NAME=app:dev
 ```
 
-If not set, RabbitMQ will generate a default connection name.
+If not set, Rabbit Relay generates a connection name from the Node.js process and hostname.
+
+---
+
+## Broker-level options
+
+Broker defaults are passed to the constructor.
+
+```ts
+const broker = new RabbitMQBroker("orders-service", {
+  exchangeType: "topic",
+  durable: true,
+  publisherConfirms: false,
+});
+```
+
+These defaults can be overridden when declaring an exchange.
+
+---
+
+## Topology options
+
+```ts
+const sub = await broker
+  .queue("orders.q")
+  .exchange("orders.ex", {
+    exchangeType: "topic",
+    routingKey: "orders.*",
+    durable: true,
+  });
+```
+
+Common options:
+
+| Option | Description |
+|---|---|
+| `exchangeType` | `topic`, `direct`, `fanout`, or `headers` |
+| `routingKey` | Binding key used between queue and exchange |
+| `durable` | Whether queue/exchange should survive broker restarts |
+| `publisherConfirms` | Whether publishes wait for broker confirmation |
+| `passiveQueue` | Check queue exists instead of declaring it |
+| `queueArgs` | RabbitMQ queue arguments |
+| `deadLetter` | Built-in DLQ helper |
+| `amqp` | Native `amqplib` passthrough options |
 
 ---
 
 ## Performance tuning
 
-Rabbit Relay exposes a few knobs to control throughput and backpressure.
-These options are configured per consumer when calling `consume()`.
+Rabbit Relay exposes two main consumer controls: `prefetch` and `concurrency`.
+
+```ts
+await sub.consume({
+  prefetch: 50,
+  concurrency: 10,
+});
+```
 
 ### `prefetch`
 
-Maximum number of **unacknowledged messages** allowed on the channel.
+Maximum number of **unacknowledged messages** RabbitMQ can deliver to this consumer.
 
-- Controls backpressure
-- Prevents consumers from being overwhelmed
-- Lower values = safer, higher values = more throughput
-
----
+- Controls RabbitMQ delivery pressure
+- Prevents unlimited unacked messages
+- Lower values are safer
+- Higher values may improve throughput
 
 ### `concurrency`
 
-Maximum number of handlers executed **in parallel**.
+Maximum number of handlers Rabbit Relay runs **in parallel**.
 
-- Defaults to the value of `prefetch`
-- Should usually be ≤ `prefetch`
-- Useful when handlers perform I/O or async work
+- Defaults to `prefetch`
+- Should usually be less than or equal to `prefetch`
+- Protects database pools, APIs, CPU, and memory
 
 ---
 
-### `publisherConfirms`
+## Publisher confirms
 
-Enable RabbitMQ **publisher confirms**.
-
-- Uses a confirm channel
-- Publisher waits for broker acknowledgements
-- Safer for critical events
-- Slightly lower throughput
-
-Configured when declaring an exchange:
+Enable RabbitMQ **publisher confirms** when your application must know that RabbitMQ accepted the message.
 
 ```ts
-.exchange("my_exchange", {
-  exchangeType: "topic",
-  publisherConfirms: true
-});
+const pub = await broker
+  .queue("orders.publisher.q")
+  .exchange("orders.ex", {
+    exchangeType: "topic",
+    publisherConfirms: true,
+  });
 ```
+
+With confirms enabled:
+
+- Rabbit Relay publishes through a confirm channel
+- publish calls wait for broker acknowledgement
+- failures are surfaced to the caller
+
+Use this for critical event boundaries.
 
 ---
 
@@ -90,59 +142,120 @@ Error behavior is configured when starting a consumer.
 
 ```ts
 await sub.consume({
-  prefetch: 50,
-  concurrency: 10,
-  onError: "ack" | "requeue" | "dead-letter",
+  onError: "ack" | "requeue" | "dead-letter" | "retry",
 });
 ```
 
-### Error modes
+### `ack`
 
-#### `ack` (default)
+Default. Errors are logged and the message is acknowledged.
 
-- Errors are swallowed
-- Message is acknowledged
-- No retry
+### `requeue`
 
-Best for:
-- non-critical events
-- idempotent handlers
-- logging or metrics consumers
+The message is negatively acknowledged and requeued.
+
+Use carefully because this can create infinite retry loops.
+
+### `dead-letter`
+
+The message is negatively acknowledged with `requeue=false`.
+
+RabbitMQ routes it to a DLQ if the queue has dead-letter configuration.
+
+### `retry`
+
+Rabbit Relay republishes the message for a bounded number of attempts.
+
+```ts
+await sub.consume({
+  onError: "retry",
+  retry: {
+    attempts: 3,
+    then: "dead-letter",
+  },
+});
+```
 
 ---
 
-#### `requeue`
+## Dead-letter queues
 
-- Message is negatively acknowledged
-- Requeued to the same queue
-- May be redelivered immediately
+Rabbit Relay can configure dead-letter routing for a queue.
 
-Best for:
-- transient failures
-- temporary downstream outages
+```ts
+const sub = await broker
+  .queue("orders.q")
+  .exchange("orders.ex", {
+    exchangeType: "topic",
+    routingKey: "orders.*",
+    deadLetter: {
+      exchange: "orders.dlx",
+      queue: "orders.dlq",
+      routingKey: "orders.dead",
+      autoDeclare: true,
+    },
+  });
+```
 
-⚠️ Be careful to avoid infinite retry loops.
+With `autoDeclare: true`, Rabbit Relay declares the DLX, DLQ, and binding.
+
+If your infrastructure manages RabbitMQ topology, omit `autoDeclare` and create DLQ resources externally.
 
 ---
 
-#### `dead-letter`
+## Native amqplib passthrough
 
-- Message is negatively acknowledged
-- Not requeued
-- Routed to a **dead-letter exchange** (if configured)
+Rabbit Relay does not block native RabbitMQ features.
 
-Best for:
-- poison messages
-- validation errors
-- manual inspection workflows
+```ts
+await broker
+  .queue("orders.q", {
+    amqp: {
+      queue: {
+        arguments: {
+          "x-queue-type": "quorum",
+        },
+      },
+    },
+  })
+  .exchange("orders.ex", {
+    exchangeType: "topic",
+    amqp: {
+      exchange: {
+        alternateExchange: "orders.alt",
+      },
+    },
+  });
+```
 
-> **Note:** Dead-lettering requires the queue to be configured with a DLX.
+Use this for advanced queue, exchange, binding, publish, or consume options.
+
+---
+
+## Health and shutdown
+
+Use `health()` for operational checks.
+
+```ts
+const health = await broker.health();
+```
+
+Use `close()` during shutdown.
+
+```ts
+process.on("SIGTERM", async () => {
+  await broker.close();
+  process.exit(0);
+});
+```
 
 ---
 
 ## Notes and best practices
 
-- RabbitMQ bindings are **persistent** — changing routing keys does not remove old bindings
-- Use queue versioning or recreate queues when changing routing behavior
+- RabbitMQ bindings are persistent; changing routing keys does not remove old bindings
+- Queue arguments are immutable; changing DLQ or quorum settings may require queue recreation
 - Tune `prefetch` and `concurrency` together
-- Enable `publisherConfirms` only when delivery guarantees matter
+- Use retries with DLQs instead of infinite requeue loops
+- Enable `publisherConfirms` for critical event boundaries
+- Keep handlers idempotent because RabbitMQ delivery is at-least-once

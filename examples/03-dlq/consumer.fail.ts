@@ -16,10 +16,11 @@ type OrderCreated = {
       {
         exchangeType: "topic",
         routingKey: "order.created",
-
-        // MUST MATCH publisher queueArgs
-        queueArgs: {
-          "x-dead-letter-exchange": "orders.dlq.exchange",
+        deadLetter: {
+          exchange: "orders.dlx",
+          queue: "orders.dlq",
+          routingKey: "orders.dead",
+          autoDeclare: true,
         },
       }
     );
@@ -28,7 +29,7 @@ type OrderCreated = {
     console.log("[payments] processing", ev.data);
 
     if (ev.data.amount > 1000) {
-      console.log("[payments] payment failed → DLQ");
+      console.log("[payments] payment failed -> DLQ");
       throw new Error("payment rejected");
     }
 
@@ -36,8 +37,15 @@ type OrderCreated = {
   });
 
   await sub.consume({
-    onError: "dead-letter", // THIS is the key
+    prefetch: 10,
+    concurrency: 2,
+    onError: "dead-letter",
   });
 
   console.log("[payments] listening");
+
+  process.on("SIGTERM", async () => {
+    await broker.close();
+    process.exit(0);
+  });
 })();

@@ -96,4 +96,8 @@ export class ReconnectController {
       }
     }
   }
+
+  public isClosed() {
+    return this.closed;
+  }
 }

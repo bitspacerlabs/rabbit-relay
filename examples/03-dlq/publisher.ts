@@ -16,10 +16,11 @@ type OrderCreated = {
       {
         exchangeType: "topic",
         routingKey: "order.created",
-
-        // DLQ CONFIG — declared ONCE here
-        queueArgs: {
-          "x-dead-letter-exchange": "orders.dlq.exchange",
+        deadLetter: {
+          exchange: "orders.dlx",
+          queue: "orders.dlq",
+          routingKey: "orders.dead",
+          autoDeclare: true,
         },
       }
     );
@@ -32,4 +33,5 @@ type OrderCreated = {
   );
 
   console.log("[publisher] orders sent");
+  await broker.close();
 })();

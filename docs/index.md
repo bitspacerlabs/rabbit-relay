@@ -26,31 +26,31 @@ features:
 
   - icon: 🛡️
     title: Publisher Confirms
-    details: Wait for broker acknowledgements to guarantee message delivery.
+    details: Wait for broker acknowledgements when critical messages must be accepted by RabbitMQ.
 
   - icon: 🔁
     title: Built-in RPC
-    details: Request–reply messaging with correlation IDs and timeouts handled.
+    details: Request–reply messaging with correlation IDs, reply queues, and timeouts handled.
 
   - icon: 🚦
-    title: Backpressure Control
-    details: Automatically pauses publishing when channels are saturated.
+    title: Backpressure & Concurrency
+    details: Control channel pressure with prefetch and protect services with real handler concurrency.
 
   - icon: 🚨
-    title: Failure Routing
-    details: Route failures to retries or dead-letter queues with zero boilerplate.
+    title: Retry & Dead-Letter Queues
+    details: Use bounded retries and DLQ routing for predictable failure handling.
 
   - icon: 🔄
     title: Auto Reconnect
-    details: Restores connections, channels, queues, and bindings automatically.
+    details: Restore channels, topology, bindings, and consumers after temporary outages.
 
-  - icon: 🧬
-    title: Duplicate Guard
-    details: Prevents reprocessing with TTL-based message de-duplication.
+  - icon: 🧰
+    title: amqplib Escape Hatch
+    details: Pass native AMQP options or access the raw channel when advanced RabbitMQ features are needed.
 
-  - icon: 🧩
-    title: Plugin Hooks
-    details: Extend behavior with lightweight hooks for logging and metrics.
+  - icon: 🩺
+    title: Health & Shutdown
+    details: Inspect broker health and close consumers, channels, and connections cleanly.
 ---
 
 ## Example
@@ -72,5 +72,4 @@ const pub = await broker
 await pub.produce(
   charge({ orderId: "ORD-1", amount: 99.5 })
 );
-
 ```

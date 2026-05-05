@@ -7,12 +7,29 @@ import {
   ConsumeOptions,
   QueueConfig,
   PublishOptions,
+  BrokerHealth,
 } from "./types";
 import { ReconnectController } from "./reconnect";
 import { createAssertTopology } from "./topology";
 import { createConsumer } from "./consumer";
 import { createPublisher } from "./publisher";
-import { closeRabbitMQ } from "./config";
+import { closeRabbitMQ, getRabbitMQHealthState } from "./config";
+
+type RegisteredConsumer = {
+  queueName: string;
+  getState: () => {
+    isConsuming: boolean;
+    prefetchCount: number;
+    concurrency: number;
+    activeHandlers: number;
+    pendingMessages: number;
+    onError: "ack" | "requeue" | "dead-letter" | "retry";
+    retry?: {
+      attempts: number;
+      then: "ack" | "requeue" | "dead-letter";
+    };
+  };
+};
 
 export class RabbitMQBroker {
   private peerName: string;
@@ -20,6 +37,7 @@ export class RabbitMQBroker {
 
   private reconnect: ReconnectController;
   private activeConsumers: Array<{ stop(): Promise<void> }> = [];
+  private registeredConsumers: RegisteredConsumer[] = [];
 
   constructor(peerName: string, config: ExchangeConfig = {}) {
     this.peerName = peerName;
@@ -30,6 +48,7 @@ export class RabbitMQBroker {
       publisherConfirms: config.publisherConfirms ?? false,
       queueArgs: config.queueArgs,
       passiveQueue: config.passiveQueue ?? false,
+      deadLetter: config.deadLetter,
       amqp: config.amqp,
     };
 
@@ -60,6 +79,32 @@ export class RabbitMQBroker {
 
     this.reconnect.close();
     await closeRabbitMQ();
+  }
+
+  public async health(): Promise<BrokerHealth> {
+    const rabbit = getRabbitMQHealthState();
+
+    return {
+      peerName: this.peerName,
+      connected: rabbit.connected,
+      channelOpen: rabbit.channelOpen,
+      confirmChannelOpen: rabbit.confirmChannelOpen,
+      reconnecting: this.reconnect.isReconnecting(),
+      consumers: this.registeredConsumers.map((consumer) => {
+        const state = consumer.getState();
+
+        return {
+          queue: consumer.queueName,
+          active: state.isConsuming,
+          prefetch: state.prefetchCount,
+          concurrency: state.concurrency,
+          activeHandlers: state.activeHandlers,
+          pendingMessages: state.pendingMessages,
+          onError: state.onError,
+          retry: state.retry,
+        };
+      }),
+    };
   }
 
   public queue(queueName: string, queueConfig: QueueConfig = {}) {
@@ -98,6 +143,11 @@ export class RabbitMQBroker {
     const consumer = createConsumer({
       queueName,
       handlers,
+    });
+
+    this.registeredConsumers.push({
+      queueName,
+      getState: consumer.getState,
     });
 
     const publisher = createPublisher({
@@ -160,6 +210,7 @@ export class RabbitMQBroker {
       produceMany,
       publish,
       withChannel,
+      health: () => this.health(),
       with: <U extends Record<string, (...args: any[]) => EventEnvelope>>(events: U) => {
         // keep original behavior (dynamic require) to avoid import cycles
         const { augmentEvents } = require("./eventFactories") as {
