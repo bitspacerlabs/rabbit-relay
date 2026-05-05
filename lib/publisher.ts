@@ -2,9 +2,24 @@ import { Channel, Options } from "amqplib";
 import { getRabbitMQConfirmChannel } from "./config";
 import { pluginManager } from "./pluginManager";
 import { EventEnvelope, EventMeta } from "./eventFactories";
-import { ExchangeConfig, InternalCfg } from "./types";
+import { ExchangeConfig, InternalCfg, PublishOptions } from "./types";
 import { publishWithBackpressure, maybeWaitForConfirms } from "./backpressure";
 import { generateUuid } from "./uuid";
+
+function buildPublishProps(event: EventEnvelope, opts?: PublishOptions): Options.Publish {
+  const nativePublish = opts?.amqp?.publish ?? {};
+  const baseHeaders = event.meta?.headers ?? {};
+  const nativeHeaders = nativePublish.headers ?? {};
+
+  return {
+    messageId: event.id,
+    type: event.name,
+    timestamp: Math.floor((event.time ?? Date.now()) / 1000),
+    correlationId: event.meta?.corrId,
+    ...nativePublish,
+    headers: { ...baseHeaders, ...nativeHeaders },
+  };
+}
 
 export function createPublisher(params: {
   exchangeName: string;
@@ -19,6 +34,7 @@ export function createPublisher(params: {
     if (exchangeConfig.publisherConfirms ?? defaultCfg.publisherConfirms) {
       return getRabbitMQConfirmChannel();
     }
+
     return getChannel();
   };
 
@@ -38,42 +54,51 @@ export function createPublisher(params: {
     }
   };
 
-  const produceMany = async <TEvents extends Record<string, EventEnvelope>, K extends keyof TEvents>(
+  const publishOne = async (evt: EventEnvelope, opts?: PublishOptions): Promise<void> => {
+    await pluginManager.executeHook("beforeProduce", evt);
+
+    await safePublish((ch) => {
+      const props = buildPublishProps(evt, opts);
+
+      return publishWithBackpressure(
+        ch,
+        exchangeName,
+        opts?.routingKey ?? evt.name,
+        Buffer.from(JSON.stringify(evt)),
+        props
+      );
+    });
+
+    await pluginManager.executeHook("afterProduce", evt, null);
+  };
+
+  const produceMany = async <
+    TEvents extends Record<string, EventEnvelope>,
+    K extends keyof TEvents
+  >(
     ...events: TEvents[K][]
   ): Promise<void> => {
     for (const evt of events) {
-      await pluginManager.executeHook("beforeProduce", evt);
-      await safePublish((ch) => {
-        const e = evt as any as EventEnvelope;
-        const props: Options.Publish = {
-          messageId: e.id, // idempotency key
-          type: e.name, // event name
-          timestamp: Math.floor((e.time ?? Date.now()) / 1000),
-          correlationId: e.meta?.corrId,
-          headers: e.meta?.headers,
-        };
-        return publishWithBackpressure(
-          ch,
-          exchangeName,
-          e.name,
-          Buffer.from(JSON.stringify(e)),
-          props
-        );
-      });
-      await pluginManager.executeHook("afterProduce", evt, null);
+      await publishOne(evt as EventEnvelope);
     }
   };
 
-  const produce = async <TEvents extends Record<string, EventEnvelope>, K extends keyof TEvents>(
+  const produce = async <
+    TEvents extends Record<string, EventEnvelope>,
+    K extends keyof TEvents
+  >(
     ...events: TEvents[K][]
   ): Promise<void | unknown> => {
     // Back-compat: upgrade legacy "wait" (if present) to meta fields
     if (events.length === 1 && (events[0] as any)?.wait) {
       const first: any = events[0];
       const w = first.wait as { source?: string; timeout?: number };
+
       first.meta = first.meta || {};
+
       if (first.meta.expectsReply !== true) first.meta.expectsReply = true;
       if (w?.timeout != null && first.meta.timeoutMs == null) first.meta.timeoutMs = w.timeout;
+
       if (w?.source) {
         first.meta.headers = { ...(first.meta.headers || {}), source: w.source };
       }
@@ -84,13 +109,12 @@ export function createPublisher(params: {
       const evt = events[0] as EventEnvelope & { meta?: EventMeta };
       const correlationId = generateUuid();
 
-      const rpcCh = await getChannel(); // pin for reply consumer/ack
+      const rpcCh = await getChannel();
       const temp = await rpcCh.assertQueue("", { exclusive: true, autoDelete: true });
 
       await pluginManager.executeHook("beforeProduce", evt);
-      await safePublish(async () => {
-        // use (confirm) pub channel for the request publish
-        const pubCh = await getPubChannel();
+
+      await safePublish(async (pubCh) => {
         const props: Options.Publish = {
           messageId: evt.id,
           type: evt.name,
@@ -99,6 +123,7 @@ export function createPublisher(params: {
           headers: evt.meta?.headers,
           replyTo: temp.queue,
         };
+
         await publishWithBackpressure(
           pubCh,
           exchangeName,
@@ -112,13 +137,16 @@ export function createPublisher(params: {
 
       return await new Promise((resolve, reject) => {
         let ctag: string | undefined;
+
         const timer = setTimeout(async () => {
           try {
             if (ctag) await rpcCh.cancel(ctag);
           } catch {}
+
           try {
             await rpcCh.deleteQueue(temp.queue);
           } catch {}
+
           reject(new Error("Timeout waiting for reply"));
         }, timeoutMs);
 
@@ -130,6 +158,7 @@ export function createPublisher(params: {
               if (msg.properties.correlationId !== correlationId) return;
 
               clearTimeout(timer);
+
               try {
                 const reply = JSON.parse(msg.content.toString()).reply;
                 pluginManager.executeHook("afterProduce", evt, reply);
@@ -140,6 +169,7 @@ export function createPublisher(params: {
                     try {
                       if (ctag) await rpcCh.cancel(ctag);
                     } catch {}
+
                     try {
                       await rpcCh.deleteQueue(temp.queue);
                     } catch {}
@@ -162,5 +192,19 @@ export function createPublisher(params: {
     return produceMany<TEvents, K>(...events);
   };
 
-  return { produce, produceMany };
+  const publish = async <
+    TEvents extends Record<string, EventEnvelope>,
+    K extends keyof TEvents
+  >(
+    event: TEvents[K],
+    opts?: PublishOptions
+  ): Promise<void | unknown> => {
+    if ((event as any)?.meta?.expectsReply === true) {
+      return produce<TEvents, K>(event);
+    }
+
+    return publishOne(event as EventEnvelope, opts);
+  };
+
+  return { produce, produceMany, publish };
 }

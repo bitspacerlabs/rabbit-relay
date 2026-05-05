@@ -137,3 +137,33 @@ export async function getRabbitMQChannel(): Promise<Channel> {
 export async function getRabbitMQConfirmChannel(): Promise<ConfirmChannel> {
   return openConfirmChannelFresh();
 }
+
+export async function closeRabbitMQ(): Promise<void> {
+  const confirmChannel = cch;
+  const channel = ch;
+  const connection = conn;
+
+  cch = null;
+  cOpening = null;
+  ch = null;
+  opening = null;
+  conn = null;
+
+  try {
+    if (confirmChannel) await confirmChannel.close();
+  } catch {
+    // already closed
+  }
+
+  try {
+    if (channel) await channel.close();
+  } catch {
+    // already closed
+  }
+
+  try {
+    if (connection) await connection.close();
+  } catch {
+    // already closed
+  }
+}

@@ -12,6 +12,7 @@ export function createConsumer(params: {
 }) {
   const { queueName, handlers } = params;
 
+  let consumeOptions: ConsumeOptions | undefined;
   let consumerTag: string | undefined;
   let isConsuming = false;
   let consumeCh: Channel | null = null;
@@ -80,6 +81,7 @@ export function createConsumer(params: {
   async function startConsume(getChannel: () => Promise<Channel>, opts?: ConsumeOptions) {
     prefetchCount = opts?.prefetch ?? opts?.concurrency ?? 1;
     concurrency = opts?.concurrency ?? prefetchCount;
+    consumeOptions = opts;
 
     // Back-compat: if requeueOnError is set and onError not explicitly provided, use "requeue"
     onError = opts?.onError ?? (opts?.requeueOnError ? "requeue" : "ack");
@@ -89,7 +91,7 @@ export function createConsumer(params: {
 
     if (prefetchCount > 0) await ch.prefetch(prefetchCount, false);
 
-    const ok = await ch.consume(queueName, onMessage);
+    const ok = await ch.consume(queueName, onMessage, opts?.amqp?.consume);
     consumerTag = ok.consumerTag;
     isConsuming = true;
 
@@ -111,7 +113,7 @@ export function createConsumer(params: {
 
     if (prefetchCount > 0) await ch.prefetch(prefetchCount, false);
     consumeCh = ch;
-    const ok = await ch.consume(queueName, onMessage);
+    const ok = await ch.consume(queueName, onMessage, consumeOptions?.amqp?.consume);
     consumerTag = ok.consumerTag;
   }
 

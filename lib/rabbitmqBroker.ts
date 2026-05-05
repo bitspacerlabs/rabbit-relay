@@ -1,16 +1,25 @@
 import { Channel } from "amqplib";
 import { EventEnvelope } from "./eventFactories";
-import { ExchangeConfig, BrokerInterface, InternalCfg, ConsumeOptions } from "./types";
+import {
+  ExchangeConfig,
+  BrokerInterface,
+  InternalCfg,
+  ConsumeOptions,
+  QueueConfig,
+  PublishOptions,
+} from "./types";
 import { ReconnectController } from "./reconnect";
 import { createAssertTopology } from "./topology";
 import { createConsumer } from "./consumer";
 import { createPublisher } from "./publisher";
+import { closeRabbitMQ } from "./config";
 
 export class RabbitMQBroker {
   private peerName: string;
   private defaultCfg: InternalCfg;
 
   private reconnect: ReconnectController;
+  private activeConsumers: Array<{ stop(): Promise<void> }> = [];
 
   constructor(peerName: string, config: ExchangeConfig = {}) {
     this.peerName = peerName;
@@ -21,6 +30,7 @@ export class RabbitMQBroker {
       publisherConfirms: config.publisherConfirms ?? false,
       queueArgs: config.queueArgs,
       passiveQueue: config.passiveQueue ?? false,
+      amqp: config.amqp,
     };
 
     this.reconnect = new ReconnectController();
@@ -35,13 +45,30 @@ export class RabbitMQBroker {
     this.reconnect.onReconnect(cb);
   }
 
-  public queue(queueName: string) {
+  public async withChannel<T>(fn: (channel: Channel) => Promise<T> | T): Promise<T> {
+    const channel = await this.getChannel();
+    return fn(channel);
+  }
+
+  public async close(): Promise<void> {
+    const consumers = [...this.activeConsumers];
+    this.activeConsumers = [];
+
+    await Promise.all(
+      consumers.map((consumer) => consumer.stop().catch(() => undefined))
+    );
+
+    this.reconnect.close();
+    await closeRabbitMQ();
+  }
+
+  public queue(queueName: string, queueConfig: QueueConfig = {}) {
     return {
       exchange: async <TEvents extends Record<string, EventEnvelope>>(
         exchangeName: string,
         exchangeConfig: ExchangeConfig = {}
       ): Promise<BrokerInterface<TEvents>> => {
-        return this.exchange<TEvents>(exchangeName, queueName, exchangeConfig);
+        return this.exchange<TEvents>(exchangeName, queueName, queueConfig, exchangeConfig);
       },
     };
   }
@@ -49,11 +76,13 @@ export class RabbitMQBroker {
   private async exchange<TEvents extends Record<string, EventEnvelope>>(
     exchangeName: string,
     queueName: string,
+    queueConfig: QueueConfig = {},
     exchangeConfig: ExchangeConfig = {}
   ): Promise<BrokerInterface<TEvents>> {
     const assertTopology = createAssertTopology({
       exchangeName,
       queueName,
+      queueConfig,
       defaultCfg: this.defaultCfg,
       exchangeConfig,
     });
@@ -93,7 +122,15 @@ export class RabbitMQBroker {
     };
 
     const consume = async (opts?: ConsumeOptions): Promise<{ stop(): Promise<void> }> => {
-      return consumer.startConsume(() => this.getChannel(), opts);
+      const consumerHandle = await consumer.startConsume(() => this.getChannel(), opts);
+      this.activeConsumers.push(consumerHandle);
+
+      return {
+        stop: async () => {
+          await consumerHandle.stop();
+          this.activeConsumers = this.activeConsumers.filter((c) => c !== consumerHandle);
+        },
+      };
     };
 
     const produceMany = async <K extends keyof TEvents>(...events: TEvents[K][]): Promise<void> => {
@@ -104,17 +141,33 @@ export class RabbitMQBroker {
       return publisher.produce<TEvents, K>(...events);
     };
 
+    const publish = async <K extends keyof TEvents>(
+      event: TEvents[K],
+      opts?: PublishOptions
+    ): Promise<void | unknown> => {
+      return publisher.publish<TEvents, K>(event, opts);
+    };
+
+    const withChannel = async <T>(fn: (channel: Channel) => Promise<T> | T): Promise<T> => {
+      const channel = await this.getChannel();
+      return fn(channel);
+    };
+
     const brokerInterface: BrokerInterface<TEvents> = {
       handle,
       consume,
       produce,
       produceMany,
+      publish,
+      withChannel,
       with: <U extends Record<string, (...args: any[]) => EventEnvelope>>(events: U) => {
         // keep original behavior (dynamic require) to avoid import cycles
         const { augmentEvents } = require("./eventFactories") as {
           augmentEvents: <X extends object>(ev: Record<string, any>, brk: any) => X;
         };
+
         const augmented = augmentEvents(events, brokerInterface);
+
         return augmented as BrokerInterface<{ [K in keyof U]: ReturnType<U[K]> }> & {
           [K in keyof U]: (...args: Parameters<U[K]>) => ReturnType<U[K]>;
         };
