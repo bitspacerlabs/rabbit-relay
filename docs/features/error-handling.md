@@ -1,115 +1,141 @@
-# Error Handling & Dead-Letter Queues (DLQ)
+# Error Handling
 
-Rabbit Relay makes error handling **explicit and predictable**.
-When a consumer handler throws, you choose exactly what happens to the message.
+Rabbit Relay makes consumer failure behavior explicit.
 
-This page focuses on **behavior and usage**, not full infrastructure setups.
+When a handler throws, you choose what happens to the message.
 
 ---
 
-## Error handling modes
-
-Error behavior is configured when starting a consumer.
+## Error modes
 
 ```ts
 await sub.consume({
-  onError: "ack" | "requeue" | "dead-letter",
+  onError: "ack" | "requeue" | "dead-letter" | "retry",
 });
 ```
 
-### `ack` (default)
+---
 
-- The error is swallowed
-- The message is acknowledged
-- No retry occurs
+## `ack` default
 
-Use when:
-- handlers are idempotent
-- failures are acceptable
-- the event is informational (logs, metrics, signals)
+```ts
+await sub.consume({
+  onError: "ack",
+});
+```
+
+Behavior:
+
+- handler errors are logged
+- message is acknowledged
+- no retry occurs
+
+Use for non-critical events, logs, metrics, or handlers where failure should not block the queue.
 
 ---
 
-### `requeue`
+## `requeue`
 
-- The message is negatively acknowledged
-- Requeued to the **same queue**
-- May be redelivered immediately
+```ts
+await sub.consume({
+  onError: "requeue",
+});
+```
 
-Use when:
-- failures are transient
-- downstream dependencies may recover
+Behavior:
 
-⚠️ Be careful: this can create infinite retry loops.
+- message is negatively acknowledged
+- message is requeued
+- RabbitMQ may redeliver it immediately
 
----
-
-### `dead-letter`
-
-- The message is negatively acknowledged
-- Requeue is disabled
-- RabbitMQ routes the message to the queue’s **Dead‑Letter Exchange (DLX)**, if configured
-
-Use when:
-- the message is invalid or poisoned
-- retries are exhausted
-- failures require manual inspection
+Use carefully. This can create infinite loops if the error is not transient.
 
 ---
 
-## Dead‑Letter Queues (DLQ)
+## `dead-letter`
 
-A DLQ is a normal queue that receives messages that were rejected or expired.
+```ts
+await sub.consume({
+  onError: "dead-letter",
+});
+```
 
-Rabbit Relay does **not** create DLQs automatically.
-RabbitMQ handles routing to DLQs based on **queue arguments**.
+Behavior:
 
-At runtime, Rabbit Relay simply:
-- `ack`s on success
-- `nack`s with `requeue=false` when `onError: "dead-letter"` is set
+- message is negatively acknowledged
+- requeue is disabled
+- RabbitMQ routes the message to the configured DLQ
 
----
-
-## Retry vs DLQ (mental model)
-
-- **Retry** → send the message back for another attempt
-- **DLQ** → park the message for later inspection
-
-Common patterns:
-- retry once or twice, then DLQ
-- retry with delay (TTL), then DLQ
-- DLQ immediately for validation errors
-
-Rabbit Relay leaves retry strategy **explicitly in your control**.
+Use for poison messages, validation errors, and failures that need inspection.
 
 ---
 
-## Recommended practices
+## `retry`
 
-- Prefer `dead-letter` over infinite requeue loops
-- Keep handlers idempotent
-- Track attempts (in memory or storage) if retries are needed
-- Monitor DLQs and treat them as operational signals
+```ts
+await sub.consume({
+  onError: "retry",
+  retry: {
+    attempts: 3,
+    then: "dead-letter",
+  },
+});
+```
+
+Behavior:
+
+- Rabbit Relay republishes the message for another attempt
+- retry metadata is stored in headers
+- after max attempts, the final behavior is applied
+
+Common final behavior:
+
+```ts
+then: "dead-letter"
+```
 
 ---
 
-## What Rabbit Relay does not do
+## Recommended production pattern
 
-Rabbit Relay intentionally does **not**:
-- auto-retry forever
-- guess retry delays
-- manage DLQ topology
-- hide RabbitMQ semantics
+```ts
+const sub = await broker
+  .queue("orders.q")
+  .exchange("orders.ex", {
+    exchangeType: "topic",
+    routingKey: "orders.*",
+    deadLetter: {
+      exchange: "orders.dlx",
+      queue: "orders.dlq",
+      routingKey: "orders.dead",
+      autoDeclare: true,
+    },
+  });
 
-This keeps failure behavior visible and predictable.
+await sub.consume({
+  prefetch: 20,
+  concurrency: 5,
+  onError: "retry",
+  retry: {
+    attempts: 3,
+    then: "dead-letter",
+  },
+});
+```
+
+This gives you:
+
+- bounded retries
+- no infinite requeue loop
+- failed messages isolated in a DLQ
+- visible retry metadata
 
 ---
 
 ## Summary
 
-- Error handling is explicit and opt-in
-- `ack`, `requeue`, and `dead-letter` map directly to RabbitMQ behavior
-- DLQs are configured at the queue level
-- Retry strategies are application-driven
-
-Simple, explicit, and production-safe.
+- `ack` drops failed messages
+- `requeue` sends them back immediately
+- `dead-letter` parks them in a DLQ
+- `retry` retries a bounded number of times
+- Prefer retry + DLQ for production consumers

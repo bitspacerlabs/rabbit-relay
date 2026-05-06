@@ -2,7 +2,7 @@
 
 **What it shows:** how failed messages are routed to a Dead Letter Queue (DLQ) instead of being retried forever.
 
-This example demonstrates **pure RabbitMQ DLQ behavior** using queue configuration and consumer error handling.
+This example demonstrates Rabbit Relay's built-in `deadLetter` helper, which configures RabbitMQ DLQ arguments for you.
 
 ---
 
@@ -17,6 +17,33 @@ This example demonstrates **pure RabbitMQ DLQ behavior** using queue configurati
 
 - `consumer.dlq.ts`  
   Consumes messages from the Dead Letter Queue for inspection or recovery.
+
+---
+
+## Topology
+
+Rabbit Relay declares:
+
+```text
+orders.exchange  -> orders.queue
+orders.dlx       -> orders.dlq
+```
+
+Main messages use:
+
+```text
+exchange:    orders.exchange
+queue:       orders.queue
+routing key: order.created
+```
+
+Failed messages are routed to:
+
+```text
+exchange:    orders.dlx
+queue:       orders.dlq
+routing key: orders.dead
+```
 
 ---
 
@@ -47,25 +74,41 @@ npx ts-node-dev --transpile-only examples/03-dlq/publisher.ts
 
 ## How it works
 
-1. The main queue is declared with:
-   - `x-dead-letter-exchange`
-   - `x-dead-letter-routing-key`
-2. The consumer throws an error for poison messages.
-3. The broker `nack`s the message with `requeue=false`.
-4. RabbitMQ routes the message to the Dead Letter Exchange.
-5. The message appears in the DLQ.
+The main queue is declared with:
+
+```ts
+deadLetter: {
+  exchange: "orders.dlx",
+  queue: "orders.dlq",
+  routingKey: "orders.dead",
+  autoDeclare: true,
+}
+```
+
+When the consumer throws and uses:
+
+```ts
+await sub.consume({
+  onError: "dead-letter",
+});
+```
+
+Rabbit Relay calls `nack(requeue=false)`, and RabbitMQ routes the message to the DLQ.
 
 ---
 
-## Key points
+## Important note
 
-- DLQ behavior is configured **on the queue**, not in application logic
-- Consumers decide whether to:
-  - acknowledge (`ack`)
-  - retry (`requeue`)
-  - dead-letter (`requeue=false`)
-- Dead-lettered messages are **not lost**
-- DLQs enable debugging, alerting, and safe recovery
+RabbitMQ queue arguments are immutable.
+
+If you previously ran the old DLQ example with the same queue names, RabbitMQ may reject the updated declaration with a precondition error.
+
+For local development, delete the old queues/exchanges or reset the Docker volume:
+
+```bash
+docker compose -f examples/docker-compose.yml down -v
+docker compose -f examples/docker-compose.yml up -d
+```
 
 ---
 
@@ -74,15 +117,13 @@ npx ts-node-dev --transpile-only examples/03-dlq/publisher.ts
 - Always monitor DLQ depth
 - DLQs are a safety mechanism, not a normal workflow
 - Investigate and fix poison messages
-- Consider adding:
-  - retry limits
-  - delayed retries
-  - DLQ reprocessors
+- Combine DLQs with bounded retries for transient failures
+- Keep handlers idempotent
 
 ---
 
-## Notes
+## Summary
 
-- RabbitMQ does not retry messages automatically
-- DLQ is a RabbitMQ feature, not a library feature
-- This example uses standard AMQP behavior
+- Rabbit Relay configures DLQ topology with `deadLetter`
+- Consumers choose when to dead-letter using `onError: "dead-letter"`
+- Failed messages are isolated instead of lost

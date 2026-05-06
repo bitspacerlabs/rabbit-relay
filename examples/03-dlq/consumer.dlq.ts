@@ -5,20 +5,26 @@ import type { EventEnvelope } from "../../lib";
   const broker = new RabbitMQBroker("dlq.consumer");
 
   const dlq = await broker
-    .queue("orders.dlq.queue")
+    .queue("orders.dlq")
     .exchange<Record<string, EventEnvelope>>(
-      "orders.dlq.exchange",
+      "orders.dlx",
       {
-        exchangeType: "fanout",
-        routingKey: "#",
+        exchangeType: "topic",
+        routingKey: "orders.dead",
       }
     );
 
   dlq.handle("*", async (_id, ev) => {
-    console.error("DLQ MESSAGE:", ev);
-    // store in DB, send Slack alert, etc.
+    console.error("[dlq] message received:", ev);
+    // Store in DB, send alert, expose to operations tooling, etc.
   });
 
-  await dlq.consume();
+  await dlq.consume({ prefetch: 10, concurrency: 2 });
+
   console.log("[dlq] listening");
+
+  process.on("SIGTERM", async () => {
+    await broker.close();
+    process.exit(0);
+  });
 })();
