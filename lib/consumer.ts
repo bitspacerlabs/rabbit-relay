@@ -3,7 +3,7 @@ import { pluginManager } from "./pluginManager";
 import { EventEnvelope } from "./eventFactories";
 import { ConsumeOptions } from "./types";
 import { publishWithBackpressure } from "./backpressure";
-import { Dedupe, makeMemoryDedupe } from "./utils/dedupe";
+import { Dedupe, DedupeOpts, makeMemoryDedupe } from "./utils/dedupe";
 
 export type HandlerMap = Map<
   string,
@@ -17,6 +17,10 @@ const LAST_ERROR_HEADER = "x-rabbit-relay-last-error";
 
 type ErrorAction = "ack" | "requeue" | "dead-letter" | "retry";
 type FinalRetryAction = "ack" | "requeue" | "dead-letter";
+
+type BuiltInDedupeConfig = DedupeOpts & {
+  enabled?: boolean;
+};
 
 export function createConsumer(params: {
   queueName: string;
@@ -42,21 +46,29 @@ export function createConsumer(params: {
   let activeHandlers = 0;
   let stopping = false;
 
+  function isDedupeInstance(value: unknown): value is Dedupe {
+    return (
+      typeof value === "object" &&
+      value !== null &&
+      "checkAndRemember" in value &&
+      typeof (value as Dedupe).checkAndRemember === "function"
+    );
+  }
+
   function resolveDedupe(opts?: ConsumeOptions): Dedupe | undefined {
     const configured = opts?.dedupe;
 
     if (!configured) return undefined;
 
-    if (
-      "checkAndRemember" in configured &&
-      typeof configured.checkAndRemember === "function"
-    ) {
+    if (isDedupeInstance(configured)) {
       return configured;
     }
 
-    if (configured.enabled === false) return undefined;
+    const config = configured as BuiltInDedupeConfig;
 
-    return makeMemoryDedupe(configured);
+    if (config.enabled === false) return undefined;
+
+    return makeMemoryDedupe(config);
   }
 
   function getRetryCount(msg: ConsumeMessage): number {
@@ -372,7 +384,7 @@ export function createConsumer(params: {
     if (concurrency > prefetchCount) {
       console.warn(
         `[broker] consume concurrency (${concurrency}) is greater than prefetch (${prefetchCount}). ` +
-          `Concurrency will be limited by RabbitMQ prefetch.`
+        `Concurrency will be limited by RabbitMQ prefetch.`
       );
     }
 
@@ -451,9 +463,9 @@ export function createConsumer(params: {
       retry:
         onError === "retry"
           ? {
-              attempts: retryAttempts,
-              then: retryThen,
-            }
+            attempts: retryAttempts,
+            then: retryThen,
+          }
           : undefined,
     };
   }
