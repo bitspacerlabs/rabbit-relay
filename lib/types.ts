@@ -71,6 +71,13 @@ export interface ExchangeConfig {
   queueArgs?: Options.AssertQueue["arguments"];
 
   /**
+   * Maximum serialized event size in bytes.
+   *
+   * Can be configured at broker/exchange level and overridden per publish/request.
+   */
+  maxMessageBytes?: number;
+
+  /**
    * If true, do NOT declare the queue; only check it exists.
    * Use this when a separate setup step has already created the queue with specific args.
    */
@@ -91,6 +98,12 @@ export interface ExchangeConfig {
 export interface PublishOptions {
   /** Override the routing key for this publish. Defaults to event.name. */
   routingKey?: string;
+
+  /**
+   * Maximum serialized event size in bytes for this publish/request.
+   * Overrides broker/exchange-level maxMessageBytes.
+   */
+  maxMessageBytes?: number;
 
   /** Native amqplib publish options. */
   amqp?: Pick<AmqpPassthroughOptions, "publish">;
@@ -208,6 +221,7 @@ export type InternalCfg = {
   durable: boolean;
   publisherConfirms: boolean;
   queueArgs?: Options.AssertQueue["arguments"];
+  maxMessageBytes?: number;
   passiveQueue: boolean;
   deadLetter?: DeadLetterConfig;
   amqp?: Pick<AmqpPassthroughOptions, "exchange" | "queue" | "bind">;

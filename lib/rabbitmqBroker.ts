@@ -48,6 +48,7 @@ export class RabbitMQBroker {
       durable: config.durable ?? true,
       publisherConfirms: config.publisherConfirms ?? false,
       queueArgs: config.queueArgs,
+      maxMessageBytes: config.maxMessageBytes,
       passiveQueue: config.passiveQueue ?? false,
       deadLetter: config.deadLetter,
       amqp: config.amqp,

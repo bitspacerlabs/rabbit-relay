@@ -3,3 +3,4 @@ export * from "./eventFactories";
 export * from "./pluginManager";
 export * from "./utils/dedupe";
 export * from "./types";
+export * from "./errors";

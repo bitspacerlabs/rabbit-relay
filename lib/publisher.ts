@@ -2,9 +2,15 @@ import { Channel, ConfirmChannel, Options } from "amqplib";
 import { getRabbitMQConfirmChannel } from "./config";
 import { pluginManager } from "./pluginManager";
 import { EventEnvelope, EventMeta } from "./eventFactories";
-import { ExchangeConfig, InternalCfg, PublishOptions, RequestOptions } from "./types";
+import {
+  ExchangeConfig,
+  InternalCfg,
+  PublishOptions,
+  RequestOptions,
+} from "./types";
 import { publishWithBackpressure, PublishChannel } from "./backpressure";
 import { generateUuid } from "./uuid";
+import { MessageTooLargeError } from "./errors";
 
 function buildPublishProps(
   event: EventEnvelope,
@@ -45,6 +51,26 @@ function buildRpcPublishProps(
   };
 }
 
+function assertMessageSize(
+  event: EventEnvelope,
+  content: Buffer,
+  maxMessageBytes?: number
+) {
+  if (maxMessageBytes == null) return;
+
+  if (!Number.isFinite(maxMessageBytes) || maxMessageBytes <= 0) {
+    throw new Error("[broker] maxMessageBytes must be a positive number");
+  }
+
+  if (content.length > maxMessageBytes) {
+    throw new MessageTooLargeError({
+      eventName: event.name,
+      sizeBytes: content.length,
+      maxBytes: maxMessageBytes,
+    });
+  }
+}
+
 export function createPublisher(params: {
   exchangeName: string;
   exchangeConfig: ExchangeConfig;
@@ -54,6 +80,23 @@ export function createPublisher(params: {
 }) {
   const { exchangeName, exchangeConfig, defaultCfg, getChannel, getBackoffMs } =
     params;
+
+  const resolveMaxMessageBytes = (opts?: PublishOptions): number | undefined => {
+    return (
+      opts?.maxMessageBytes ??
+      exchangeConfig.maxMessageBytes ??
+      defaultCfg.maxMessageBytes
+    );
+  };
+
+  const serializeEvent = (
+    event: EventEnvelope,
+    opts?: PublishOptions
+  ): Buffer => {
+    const content = Buffer.from(JSON.stringify(event));
+    assertMessageSize(event, content, resolveMaxMessageBytes(opts));
+    return content;
+  };
 
   const getPubChannel = async (): Promise<PublishChannel> => {
     if (exchangeConfig.publisherConfirms ?? defaultCfg.publisherConfirms) {
@@ -85,6 +128,8 @@ export function createPublisher(params: {
   ): Promise<void> => {
     await pluginManager.executeHook("beforeProduce", evt);
 
+    const content = serializeEvent(evt, opts);
+
     await safePublish((ch) => {
       const props = buildPublishProps(evt, opts);
 
@@ -92,7 +137,7 @@ export function createPublisher(params: {
         ch,
         exchangeName,
         opts?.routingKey ?? evt.name,
-        Buffer.from(JSON.stringify(evt)),
+        content,
         props
       );
     });
@@ -114,6 +159,8 @@ export function createPublisher(params: {
 
     await pluginManager.executeHook("beforeProduce", evt);
 
+    const content = serializeEvent(evt, opts);
+
     await safePublish(async (pubCh) => {
       const props = buildRpcPublishProps(evt, correlationId, temp.queue, opts);
 
@@ -121,7 +168,7 @@ export function createPublisher(params: {
         pubCh,
         exchangeName,
         opts?.routingKey ?? evt.name,
-        Buffer.from(JSON.stringify(evt)),
+        content,
         props
       );
     });
