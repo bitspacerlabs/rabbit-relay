@@ -7,6 +7,7 @@ import {
   ConsumeOptions,
   QueueConfig,
   PublishOptions,
+  RequestOptions,
   BrokerHealth,
 } from "./types";
 import { ReconnectController } from "./reconnect";
@@ -198,6 +199,16 @@ export class RabbitMQBroker {
       return publisher.publish<TEvents, K>(event, opts);
     };
 
+    const request = async <
+      TReply = unknown,
+      K extends keyof TEvents = keyof TEvents
+    >(
+      event: TEvents[K],
+      opts?: RequestOptions
+    ): Promise<TReply> => {
+      return publisher.request<TReply>(event as EventEnvelope, opts);
+    };
+
     const withChannel = async <T>(fn: (channel: Channel) => Promise<T> | T): Promise<T> => {
       const channel = await this.getChannel();
       return fn(channel);
@@ -209,6 +220,7 @@ export class RabbitMQBroker {
       produce,
       produceMany,
       publish,
+      request,
       withChannel,
       health: () => this.health(),
       with: <U extends Record<string, (...args: any[]) => EventEnvelope>>(events: U) => {

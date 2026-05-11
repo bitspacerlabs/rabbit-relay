@@ -95,6 +95,11 @@ export interface PublishOptions {
   amqp?: Pick<AmqpPassthroughOptions, "publish">;
 }
 
+export interface RequestOptions extends PublishOptions {
+  /** Timeout while waiting for RPC reply. Default: 5000. */
+  timeoutMs?: number;
+}
+
 export interface RetryOptions {
   /** Number of retry attempts before final failure behavior. */
   attempts: number;
@@ -150,6 +155,17 @@ export interface BrokerInterface<TEvents extends Record<string, EventEnvelope>> 
     event: TEvents[K],
     opts?: PublishOptions
   ): Promise<void | unknown>;
+
+  /**
+   * Send one event as an RPC-style request and wait for a typed reply.
+   *
+   * This is a cleaner alternative to manually setting:
+   * event.meta = { expectsReply: true, timeoutMs: ... }
+   */
+  request<TReply = unknown, K extends keyof TEvents = keyof TEvents>(
+    event: TEvents[K],
+    opts?: RequestOptions
+  ): Promise<TReply>;
 
   /** Escape hatch for advanced amqplib usage. */
   withChannel<T>(fn: (channel: Channel) => Promise<T> | T): Promise<T>;

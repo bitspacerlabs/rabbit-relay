@@ -2,7 +2,7 @@ import { Channel, ConfirmChannel, Options } from "amqplib";
 import { getRabbitMQConfirmChannel } from "./config";
 import { pluginManager } from "./pluginManager";
 import { EventEnvelope, EventMeta } from "./eventFactories";
-import { ExchangeConfig, InternalCfg, PublishOptions } from "./types";
+import { ExchangeConfig, InternalCfg, PublishOptions, RequestOptions } from "./types";
 import { publishWithBackpressure, PublishChannel } from "./backpressure";
 import { generateUuid } from "./uuid";
 
@@ -245,5 +245,20 @@ export function createPublisher(params: {
     return publishOne(event as EventEnvelope, opts);
   };
 
-  return { produce, produceMany, publish };
+  const request = async <TReply = unknown>(
+    event: EventEnvelope,
+    opts?: RequestOptions
+  ): Promise<TReply> => {
+    const evt = event as EventEnvelope & { meta?: EventMeta };
+
+    evt.meta = {
+      ...(evt.meta ?? {}),
+      expectsReply: true,
+      ...(opts?.timeoutMs != null ? { timeoutMs: opts.timeoutMs } : {}),
+    };
+
+    return requestOne(evt, opts) as Promise<TReply>;
+  };
+
+  return { produce, produceMany, publish, request };
 }
