@@ -3,6 +3,7 @@ import { pluginManager } from "./pluginManager";
 import { EventEnvelope } from "./eventFactories";
 import { ConsumeOptions } from "./types";
 import { publishWithBackpressure } from "./backpressure";
+import { Dedupe, makeMemoryDedupe } from "./utils/dedupe";
 
 export type HandlerMap = Map<
   string,
@@ -35,9 +36,28 @@ export function createConsumer(params: {
   let retryAttempts = 0;
   let retryThen: FinalRetryAction = "dead-letter";
 
+  let dedupe: Dedupe | undefined;
+
   const pendingMessages: ConsumeMessage[] = [];
   let activeHandlers = 0;
   let stopping = false;
+
+  function resolveDedupe(opts?: ConsumeOptions): Dedupe | undefined {
+    const configured = opts?.dedupe;
+
+    if (!configured) return undefined;
+
+    if (
+      "checkAndRemember" in configured &&
+      typeof configured.checkAndRemember === "function"
+    ) {
+      return configured;
+    }
+
+    if (configured.enabled === false) return undefined;
+
+    return makeMemoryDedupe(configured);
+  }
 
   function getRetryCount(msg: ConsumeMessage): number {
     const raw = msg.properties.headers?.[RETRY_COUNT_HEADER];
@@ -245,6 +265,16 @@ export function createConsumer(params: {
       return;
     }
 
+    if (dedupe && !dedupe.checkAndRemember(payload)) {
+      try {
+        ch.ack(msg);
+      } catch (e) {
+        console.error("Ack duplicate failed:", e);
+      }
+
+      return;
+    }
+
     const handler =
       (handlers.get(payload.name) as any) || (handlers.get("*") as any);
 
@@ -356,6 +386,8 @@ export function createConsumer(params: {
         "[broker] consume retry.attempts must be greater than 0 when onError='retry'"
       );
     }
+
+    dedupe = resolveDedupe(opts);
 
     stopping = false;
 

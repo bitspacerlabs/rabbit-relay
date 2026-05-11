@@ -1,5 +1,6 @@
 import { Channel, Options } from "amqplib";
 import { EventEnvelope } from "./eventFactories";
+import { Dedupe, DedupeOpts } from "./utils/dedupe";
 
 export interface AmqpPassthroughOptions {
   queue?: Options.AssertQueue;
@@ -111,6 +112,16 @@ export interface RetryOptions {
   then?: "ack" | "requeue" | "dead-letter";
 }
 
+export type ConsumeDedupeOptions =
+  | Dedupe
+  | (DedupeOpts & {
+      /**
+       * Enable/disable built-in memory dedupe.
+       * Default: true when dedupe config is provided.
+       */
+      enabled?: boolean;
+    });
+
 export interface ConsumeOptions {
   /** Max unacked messages this consumer can hold. Also default concurrency. */
   prefetch?: number;
@@ -126,6 +137,17 @@ export interface ConsumeOptions {
 
   /** Retry policy when onError is "retry". */
   retry?: RetryOptions;
+
+  /**
+   * Optional consumer-side de-duplication.
+   *
+   * Pass either:
+   * - a Dedupe instance, for example makeMemoryDedupe(...)
+   * - a config object, for example { enabled: true, ttlMs: 60000 }
+   *
+   * Duplicate messages are acknowledged and skipped.
+   */
+  dedupe?: ConsumeDedupeOptions;
 
   /** Native amqplib consume options. */
   amqp?: Pick<AmqpPassthroughOptions, "consume">;
