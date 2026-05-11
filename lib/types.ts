@@ -166,11 +166,34 @@ export interface ConsumeOptions {
   amqp?: Pick<AmqpPassthroughOptions, "consume">;
 }
 
+export interface ConsumeMiddlewareContext {
+  /** RabbitMQ delivery tag. */
+  id: string | number;
+
+  /** Parsed Rabbit Relay event envelope. */
+  event: EventEnvelope;
+
+  /** Queue currently consuming this message. */
+  queue: string;
+}
+
+export type ConsumeMiddleware = (
+  ctx: ConsumeMiddlewareContext,
+  next: () => Promise<void>
+) => Promise<void>;
+
 /**
  * Generic Broker Interface:
  * TEvents maps event name keys -> EventEnvelope types.
  */
 export interface BrokerInterface<TEvents extends Record<string, EventEnvelope>> {
+  /**
+   * Register local middleware for this broker interface.
+   *
+   * Middleware wraps handler execution for this queue/exchange binding only.
+   */
+  use(middleware: ConsumeMiddleware): BrokerInterface<TEvents>;
+
   handle<K extends keyof TEvents>(
     eventName: K | "*",
     handler: (id: string | number, event: TEvents[K]) => Promise<unknown>

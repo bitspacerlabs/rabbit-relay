@@ -1,7 +1,7 @@
 import { Channel, ConsumeMessage, Options } from "amqplib";
 import { pluginManager } from "./pluginManager";
 import { EventEnvelope } from "./eventFactories";
-import { ConsumeOptions } from "./types";
+import { ConsumeMiddleware, ConsumeMiddlewareContext, ConsumeOptions } from "./types";
 import { publishWithBackpressure } from "./backpressure";
 import { Dedupe, DedupeOpts, makeMemoryDedupe } from "./utils/dedupe";
 
@@ -25,8 +25,9 @@ type BuiltInDedupeConfig = DedupeOpts & {
 export function createConsumer(params: {
   queueName: string;
   handlers: HandlerMap;
+  middlewares: ConsumeMiddleware[];
 }) {
-  const { queueName, handlers } = params;
+  const { queueName, handlers, middlewares } = params;
 
   let consumerTag: string | undefined;
   let isConsuming = false;
@@ -69,6 +70,32 @@ export function createConsumer(params: {
     if (config.enabled === false) return undefined;
 
     return makeMemoryDedupe(config);
+  }
+
+  async function runMiddlewareChain(
+    ctx: ConsumeMiddlewareContext,
+    handler: () => Promise<void>
+  ): Promise<void> {
+    let index = -1;
+
+    async function dispatch(i: number): Promise<void> {
+      if (i <= index) {
+        throw new Error("[broker] next() called multiple times in middleware");
+      }
+
+      index = i;
+
+      const middleware = middlewares[i];
+
+      if (!middleware) {
+        await handler();
+        return;
+      }
+
+      await middleware(ctx, () => dispatch(i + 1));
+    }
+
+    await dispatch(0);
   }
 
   function getRetryCount(msg: ConsumeMessage): number {
@@ -293,9 +320,18 @@ export function createConsumer(params: {
     try {
       await pluginManager.executeHook("beforeProcess", id, payload);
 
-      if (handler) {
-        result = await handler(id, payload as any);
-      }
+      await runMiddlewareChain(
+        {
+          id,
+          event: payload,
+          queue: queueName,
+        },
+        async () => {
+          if (handler) {
+            result = await handler(id, payload as any);
+          }
+        }
+      );
 
       await pluginManager.executeHook("afterProcess", id, payload, result);
     } catch (err) {
@@ -463,9 +499,9 @@ export function createConsumer(params: {
       retry:
         onError === "retry"
           ? {
-            attempts: retryAttempts,
-            then: retryThen,
-          }
+              attempts: retryAttempts,
+              then: retryThen,
+            }
           : undefined,
     };
   }

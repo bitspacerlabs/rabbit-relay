@@ -9,6 +9,7 @@ import {
   PublishOptions,
   RequestOptions,
   BrokerHealth,
+  ConsumeMiddleware,
 } from "./types";
 import { ReconnectController } from "./reconnect";
 import { createAssertTopology } from "./topology";
@@ -142,9 +143,12 @@ export class RabbitMQBroker {
       (id: string | number, event: EventEnvelope) => Promise<unknown>
     >();
 
+    const middlewares: ConsumeMiddleware[] = [];
+
     const consumer = createConsumer({
       queueName,
       handlers,
+      middlewares,
     });
 
     this.registeredConsumers.push({
@@ -164,6 +168,11 @@ export class RabbitMQBroker {
       await assertTopology(ch);
       await consumer.resumeOnReconnect(ch);
     });
+
+    const use = (middleware: ConsumeMiddleware): BrokerInterface<TEvents> => {
+      middlewares.push(middleware);
+      return brokerInterface;
+    };
 
     const handle = <K extends keyof TEvents>(
       eventName: K | "*",
@@ -216,6 +225,7 @@ export class RabbitMQBroker {
     };
 
     const brokerInterface: BrokerInterface<TEvents> = {
+      use,
       handle,
       consume,
       produce,
