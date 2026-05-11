@@ -1,42 +1,38 @@
 # Configuration
 
-Rabbit Relay uses **sensible defaults** and a small set of configuration options.
+Rabbit Relay uses sensible defaults and a small set of configuration options.
+
 Most applications only need to set a broker URL and then tune publishing and consuming per use case.
 
 ---
 
 ## Environment variables
 
-Rabbit Relay reads configuration from environment variables at runtime.
-
 ### `RABBITMQ_URL`
 
-The RabbitMQ connection URL.
-
-- **Default:** `amqp://user:password@localhost`
-- Used by all publishers and consumers unless overridden
+RabbitMQ connection URL.
 
 ```bash
 export RABBITMQ_URL=amqp://user:password@localhost
+```
+
+Default:
+
+```text
+amqp://user:password@localhost
 ```
 
 ---
 
 ### `AMQP_CONN_NAME`
 
-Optional human-readable connection name shown in the RabbitMQ Management UI.
-
-This is useful when:
-
-- running multiple services
-- debugging connections
-- inspecting clients in production
+Optional human-readable connection name shown in RabbitMQ Management UI.
 
 ```bash
-export AMQP_CONN_NAME=app:dev
+export AMQP_CONN_NAME=app:orders-service
 ```
 
-If not set, Rabbit Relay generates a connection name from the Node.js process and hostname.
+If not set, Rabbit Relay generates a name from the process title, hostname, and process ID.
 
 ---
 
@@ -49,10 +45,11 @@ const broker = new RabbitMQBroker("orders-service", {
   exchangeType: "topic",
   durable: true,
   publisherConfirms: false,
+  maxMessageBytes: 256 * 1024,
 });
 ```
 
-These defaults can be overridden when declaring an exchange.
+These defaults can be overridden when declaring an exchange or publishing a message.
 
 ---
 
@@ -78,14 +75,13 @@ Common options:
 | `publisherConfirms` | Whether publishes wait for broker confirmation |
 | `passiveQueue` | Check queue exists instead of declaring it |
 | `queueArgs` | RabbitMQ queue arguments |
+| `maxMessageBytes` | Maximum serialized event size |
 | `deadLetter` | Built-in DLQ helper |
 | `amqp` | Native `amqplib` passthrough options |
 
 ---
 
-## Performance tuning
-
-Rabbit Relay exposes two main consumer controls: `prefetch` and `concurrency`.
+## Consumer tuning
 
 ```ts
 await sub.consume({
@@ -96,49 +92,38 @@ await sub.consume({
 
 ### `prefetch`
 
-Maximum number of **unacknowledged messages** RabbitMQ can deliver to this consumer.
-
-- Controls RabbitMQ delivery pressure
-- Prevents unlimited unacked messages
-- Lower values are safer
-- Higher values may improve throughput
+Maximum number of unacknowledged messages RabbitMQ can deliver.
 
 ### `concurrency`
 
-Maximum number of handlers Rabbit Relay runs **in parallel**.
+Maximum number of handlers Rabbit Relay runs in parallel.
 
-- Defaults to `prefetch`
-- Should usually be less than or equal to `prefetch`
-- Protects database pools, APIs, CPU, and memory
+Use both together to protect:
+
+- database pools
+- APIs
+- CPU
+- memory
 
 ---
 
-## Publisher confirms
-
-Enable RabbitMQ **publisher confirms** when your application must know that RabbitMQ accepted the message.
+## Consumer de-duplication
 
 ```ts
-const pub = await broker
-  .queue("orders.publisher.q")
-  .exchange("orders.ex", {
-    exchangeType: "topic",
-    publisherConfirms: true,
-  });
+await sub.consume({
+  dedupe: {
+    enabled: true,
+    ttlMs: 60_000,
+    maxKeys: 100_000,
+  },
+});
 ```
 
-With confirms enabled:
-
-- Rabbit Relay publishes through a confirm channel
-- publish calls wait for broker acknowledgement
-- failures are surfaced to the caller
-
-Use this for critical event boundaries.
+Duplicate messages are acknowledged and skipped.
 
 ---
 
 ## Error handling policy
-
-Error behavior is configured when starting a consumer.
 
 ```ts
 await sub.consume({
@@ -146,28 +131,12 @@ await sub.consume({
 });
 ```
 
-### `ack`
-
-Default. Errors are logged and the message is acknowledged.
-
-### `requeue`
-
-The message is negatively acknowledged and requeued.
-
-Use carefully because this can create infinite retry loops.
-
-### `dead-letter`
-
-The message is negatively acknowledged with `requeue=false`.
-
-RabbitMQ routes it to a DLQ if the queue has dead-letter configuration.
-
-### `retry`
-
-Rabbit Relay republishes the message for a bounded number of attempts.
+Recommended production pattern:
 
 ```ts
 await sub.consume({
+  prefetch: 20,
+  concurrency: 5,
   onError: "retry",
   retry: {
     attempts: 3,
@@ -179,8 +148,6 @@ await sub.consume({
 ---
 
 ## Dead-letter queues
-
-Rabbit Relay can configure dead-letter routing for a queue.
 
 ```ts
 const sub = await broker
@@ -197,15 +164,29 @@ const sub = await broker
   });
 ```
 
-With `autoDeclare: true`, Rabbit Relay declares the DLX, DLQ, and binding.
+---
 
-If your infrastructure manages RabbitMQ topology, omit `autoDeclare` and create DLQ resources externally.
+## Message size guard
+
+Set a max serialized message size:
+
+```ts
+const broker = new RabbitMQBroker("orders-service", {
+  maxMessageBytes: 256 * 1024,
+});
+```
+
+Override per publish:
+
+```ts
+await pub.publish(orderCreated(data), {
+  maxMessageBytes: 64 * 1024,
+});
+```
 
 ---
 
 ## Native amqplib passthrough
-
-Rabbit Relay does not block native RabbitMQ features.
 
 ```ts
 await broker
@@ -228,19 +209,13 @@ await broker
   });
 ```
 
-Use this for advanced queue, exchange, binding, publish, or consume options.
-
 ---
 
 ## Health and shutdown
 
-Use `health()` for operational checks.
-
 ```ts
 const health = await broker.health();
 ```
-
-Use `close()` during shutdown.
 
 ```ts
 process.on("SIGTERM", async () => {
@@ -253,9 +228,10 @@ process.on("SIGTERM", async () => {
 
 ## Notes and best practices
 
-- RabbitMQ bindings are persistent; changing routing keys does not remove old bindings
-- Queue arguments are immutable; changing DLQ or quorum settings may require queue recreation
+- RabbitMQ bindings are persistent
+- Queue arguments are immutable
 - Tune `prefetch` and `concurrency` together
 - Use retries with DLQs instead of infinite requeue loops
 - Enable `publisherConfirms` for critical event boundaries
-- Keep handlers idempotent because RabbitMQ delivery is at-least-once
+- Keep handlers idempotent
+- Keep messages small

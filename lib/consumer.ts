@@ -1,8 +1,9 @@
 import { Channel, ConsumeMessage, Options } from "amqplib";
 import { pluginManager } from "./pluginManager";
 import { EventEnvelope } from "./eventFactories";
-import { ConsumeOptions } from "./types";
+import { ConsumeMiddleware, ConsumeMiddlewareContext, ConsumeOptions } from "./types";
 import { publishWithBackpressure } from "./backpressure";
+import { Dedupe, DedupeOpts, makeMemoryDedupe } from "./utils/dedupe";
 
 export type HandlerMap = Map<
   string,
@@ -17,11 +18,16 @@ const LAST_ERROR_HEADER = "x-rabbit-relay-last-error";
 type ErrorAction = "ack" | "requeue" | "dead-letter" | "retry";
 type FinalRetryAction = "ack" | "requeue" | "dead-letter";
 
+type BuiltInDedupeConfig = DedupeOpts & {
+  enabled?: boolean;
+};
+
 export function createConsumer(params: {
   queueName: string;
   handlers: HandlerMap;
+  middlewares: ConsumeMiddleware[];
 }) {
-  const { queueName, handlers } = params;
+  const { queueName, handlers, middlewares } = params;
 
   let consumerTag: string | undefined;
   let isConsuming = false;
@@ -35,9 +41,62 @@ export function createConsumer(params: {
   let retryAttempts = 0;
   let retryThen: FinalRetryAction = "dead-letter";
 
+  let dedupe: Dedupe | undefined;
+
   const pendingMessages: ConsumeMessage[] = [];
   let activeHandlers = 0;
   let stopping = false;
+
+  function isDedupeInstance(value: unknown): value is Dedupe {
+    return (
+      typeof value === "object" &&
+      value !== null &&
+      "checkAndRemember" in value &&
+      typeof (value as Dedupe).checkAndRemember === "function"
+    );
+  }
+
+  function resolveDedupe(opts?: ConsumeOptions): Dedupe | undefined {
+    const configured = opts?.dedupe;
+
+    if (!configured) return undefined;
+
+    if (isDedupeInstance(configured)) {
+      return configured;
+    }
+
+    const config = configured as BuiltInDedupeConfig;
+
+    if (config.enabled === false) return undefined;
+
+    return makeMemoryDedupe(config);
+  }
+
+  async function runMiddlewareChain(
+    ctx: ConsumeMiddlewareContext,
+    handler: () => Promise<void>
+  ): Promise<void> {
+    let index = -1;
+
+    async function dispatch(i: number): Promise<void> {
+      if (i <= index) {
+        throw new Error("[broker] next() called multiple times in middleware");
+      }
+
+      index = i;
+
+      const middleware = middlewares[i];
+
+      if (!middleware) {
+        await handler();
+        return;
+      }
+
+      await middleware(ctx, () => dispatch(i + 1));
+    }
+
+    await dispatch(0);
+  }
 
   function getRetryCount(msg: ConsumeMessage): number {
     const raw = msg.properties.headers?.[RETRY_COUNT_HEADER];
@@ -245,15 +304,34 @@ export function createConsumer(params: {
       return;
     }
 
+    if (dedupe && !dedupe.checkAndRemember(payload)) {
+      try {
+        ch.ack(msg);
+      } catch (e) {
+        console.error("Ack duplicate failed:", e);
+      }
+
+      return;
+    }
+
     const handler =
       (handlers.get(payload.name) as any) || (handlers.get("*") as any);
 
     try {
       await pluginManager.executeHook("beforeProcess", id, payload);
 
-      if (handler) {
-        result = await handler(id, payload as any);
-      }
+      await runMiddlewareChain(
+        {
+          id,
+          event: payload,
+          queue: queueName,
+        },
+        async () => {
+          if (handler) {
+            result = await handler(id, payload as any);
+          }
+        }
+      );
 
       await pluginManager.executeHook("afterProcess", id, payload, result);
     } catch (err) {
@@ -342,7 +420,7 @@ export function createConsumer(params: {
     if (concurrency > prefetchCount) {
       console.warn(
         `[broker] consume concurrency (${concurrency}) is greater than prefetch (${prefetchCount}). ` +
-          `Concurrency will be limited by RabbitMQ prefetch.`
+        `Concurrency will be limited by RabbitMQ prefetch.`
       );
     }
 
@@ -356,6 +434,8 @@ export function createConsumer(params: {
         "[broker] consume retry.attempts must be greater than 0 when onError='retry'"
       );
     }
+
+    dedupe = resolveDedupe(opts);
 
     stopping = false;
 

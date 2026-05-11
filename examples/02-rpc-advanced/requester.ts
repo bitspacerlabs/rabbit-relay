@@ -2,7 +2,12 @@ import { RabbitMQBroker, event } from "../../lib";
 import type { EventEnvelope } from "../../lib";
 
 type AuthorizeReq = { orderId: string; amount: number; currency?: string };
-type AuthorizeRes = { orderId: string; approved: boolean; authId?: string; reason?: string };
+type AuthorizeRes = {
+  orderId: string;
+  approved: boolean;
+  authId?: string;
+  reason?: string;
+};
 
 (async () => {
   const EX = "rpc.demo";
@@ -40,29 +45,36 @@ type AuthorizeRes = { orderId: string; approved: boolean; authId?: string; reaso
         currency: "USD",
       });
 
-      req.meta = { expectsReply: true, timeoutMs: TIMEOUT };
-
       console.log(`[requester] → sending ${req.data.orderId} amount=${req.data.amount}`);
 
-      rpc.produce(req)
+      rpc
+        .request<AuthorizeRes>(req, {
+          timeoutMs: TIMEOUT,
+        })
         .then((reply) => {
-          console.log(`[requester] ← reply for ${req.data.orderId}:`, reply as AuthorizeRes);
+          console.log(`[requester] ← reply for ${req.data.orderId}:`, reply);
         })
         .catch((err) => {
           console.error(`[requester] ✖ error for ${req.data.orderId}:`, err.message);
         })
-        .finally(() => {
+        .finally(async () => {
           inFlight--;
           done++;
+
           if (done === TOTAL) {
             console.log("[requester] all requests completed");
+            await broker.close();
             process.exit(0);
           }
-          pump();
+
+          void pump();
         });
     }
   };
 
-  console.log(`[requester] sending ${TOTAL} RPCs (concurrency=${CONCURRENCY}, timeout=${TIMEOUT}ms)`);
-  pump();
+  console.log(
+    `[requester] sending ${TOTAL} RPCs (concurrency=${CONCURRENCY}, timeout=${TIMEOUT}ms)`
+  );
+
+  void pump();
 })();

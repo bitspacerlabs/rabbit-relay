@@ -34,6 +34,91 @@ export function expectReply(meta?: EventMeta, timeoutMs?: number): EventMeta {
   };
 }
 
+/**
+ * Merge metadata into an event envelope.
+ *
+ * Existing event metadata is preserved unless explicitly overridden.
+ * Headers are merged separately so existing headers are not lost.
+ */
+export function withMeta<T extends EventEnvelope>(
+  event: T,
+  meta: EventMeta
+): T {
+  event.meta = {
+    ...(event.meta ?? {}),
+    ...(meta ?? {}),
+    headers: {
+      ...(event.meta?.headers ?? {}),
+      ...(meta.headers ?? {}),
+    },
+  };
+
+  return event;
+}
+
+/**
+ * Merge application headers into an event envelope.
+ */
+export function withHeaders<T extends EventEnvelope>(
+  event: T,
+  headers: Record<string, string>
+): T {
+  return withMeta(event, {
+    headers,
+  });
+}
+
+/**
+ * Set or override the correlation ID for an event.
+ */
+export function withCorrelation<T extends EventEnvelope>(
+  event: T,
+  corrId: string
+): T {
+  return withMeta(event, {
+    corrId,
+  });
+}
+
+/**
+ * Set or override the causation ID for an event.
+ */
+export function withCausation<T extends EventEnvelope>(
+  event: T,
+  causationId: string
+): T {
+  return withMeta(event, {
+    causationId,
+  });
+}
+
+/**
+ * Create metadata for a child event caused by a parent event.
+ *
+ * Behavior:
+ * - preserves parent corrId if present
+ * - otherwise uses parent.id as the new corrId
+ * - sets causationId to parent.id
+ * - copies parent headers by default
+ * - allows overriding/adding metadata
+ */
+export function traceFrom(
+  parent: EventEnvelope,
+  meta?: EventMeta
+): EventMeta {
+  const { headers: extraHeaders, ...restMeta } = meta ?? {};
+
+  return {
+    corrId: parent.meta?.corrId ?? parent.id,
+    causationId: parent.id,
+    ...restMeta,
+    headers: {
+      ...(parent.meta?.headers ?? {}),
+      ...(extraHeaders ?? {}),
+    },
+  };
+}
+
 function randomId(): string {
   try {
     return (

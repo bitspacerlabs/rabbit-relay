@@ -44,7 +44,15 @@ export default defineConfig({
           { text: 'Typed Events & Factories', link: '/features/typed-events' },
           { text: 'Publisher Confirms', link: '/features/publisher-confirms' },
           { text: 'RPC Support', link: '/features/rpc' },
+          { text: 'Message Size Guard', link: '/features/message-size-guard' },
           { text: 'amqplib Escape Hatch', link: '/features/amqplib-escape-hatch' },
+        ],
+      },
+      {
+        text: 'Developer Experience',
+        items: [
+          { text: 'Middleware', link: '/features/middleware' },
+          { text: 'Headers & Tracing', link: '/features/headers-and-tracing' },
         ],
       },
       {
@@ -78,6 +86,7 @@ export default defineConfig({
           { text: 'Retry + DLQ', link: '/examples/retry-dlq' },
           { text: 'Escape Hatch', link: '/examples/escape-hatch' },
           { text: 'Health + Shutdown', link: '/examples/health-shutdown' },
+          { text: 'Developer Experience', link: '/examples/developer-experience' },
         ],
       },
       {

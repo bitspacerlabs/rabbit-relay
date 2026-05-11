@@ -2,7 +2,7 @@
 
 This example shows **RPC-style request/response** using RabbitMQ.
 
-A requester sends a message and waits for a reply from a responder.
+A requester sends a message and waits for a typed reply from a responder.
 
 ---
 
@@ -12,7 +12,7 @@ A requester sends a message and waits for a reply from a responder.
   Handles `payments.charge` requests and returns a response.
 
 - `requester.ts`  
-  Sends one RPC request and waits for the reply.
+  Sends one RPC request using the Phase 2 `request<TReply>()` API.
 
 ---
 
@@ -28,45 +28,15 @@ npx ts-node-dev --transpile-only examples/02-rpc/requester.ts
 
 ---
 
-### Expected Output
-
-**Requester**
-```
-[Requester] sending charge request
-[Requester] reply: { ok: true, transactionId: "txn_ab12cd" }
-```
-
-**Responder**
-```
-[Responder] waiting for payments.charge
-[Responder] charging 42 USD for o-1001
-```
-
----
-
 ### How it works
 
-1. The requester publishes a message with:
-   - `expectsReply: true`
-   - a timeout
+```ts
+const reply = await cli.request<Res>(
+  charge(payload),
+  { timeoutMs: 5000 }
+);
+```
 
-2. The library:
-   - creates a temporary reply queue
-   - sets `replyTo` and `correlationId`
+Rabbit Relay creates a temporary reply queue, sets `replyTo` and `correlationId`, publishes the request, and resolves with the typed reply.
 
-3. The responder:
-   - processes the request
-   - returns a value
-
-4. The requester:
-   - receives the reply
-   - resolves the promise
-
----
-
-### Takeaway
-
-- This is **messaging-based RPC**, not HTTP
-- Replies are normal messages
-- Timeouts are expected
-- Use this pattern for internal service communication
+The old `meta.expectsReply` style still works for backward compatibility.

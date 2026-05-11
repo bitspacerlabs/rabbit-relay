@@ -27,7 +27,7 @@ user / password
 npx ts-node-dev --transpile-only <path-to-example>
 ```
 
-Most examples require **multiple terminals** (publisher + consumer).
+Most examples require **multiple terminals**.
 
 ---
 
@@ -35,122 +35,79 @@ Most examples require **multiple terminals** (publisher + consumer).
 
 ### 00 — Basics
 
-Foundational routing patterns.
-
 - `direct/` — routing by key
 - `fanout/` — broadcast to all
 - `topic-microservices/` — simple multi-service flow
 
----
-
 ### 01 — Publisher Confirms + Dedupe
 
-Reliable publishing with broker acknowledgements.
-
 - confirm publishing
-- consumer-side de-duplication
-
----
+- consumer-side de-duplication with `consume({ dedupe })`
 
 ### 02 — RPC
 
-Request / reply over RabbitMQ.
-
-- request/reply pattern
+- typed `request<TReply>()`
 - timeouts
 - prefetch and concurrency
 
----
-
-### 03 — Dead Letter Queues (DLQ)
-
-Immediate failure routing using the built-in `deadLetter` helper.
+### 03 — Dead Letter Queues
 
 - failed messages
 - DLX/DLQ topology
 - `onError: "dead-letter"`
 
----
-
 ### 04 — Plugins
 
-Extending behavior without touching business logic.
-
-- plugin definition
-- lifecycle hooks
+- global lifecycle hooks
 - logging, metrics, headers, tracing
-
----
 
 ### 05 — Backpressure
 
-What happens when publishers are faster than consumers.
-
 - fast publisher
 - slow consumer
-- observable queue growth
-- natural RabbitMQ flow control
-
-This example demonstrates **healthy overload behavior**, not failure.
-
----
+- RabbitMQ flow control
 
 ### 06 — Retry + DLQ
-
-Bounded retries before dead-lettering.
 
 - `onError: "retry"`
 - retry metadata headers
 - final `then: "dead-letter"`
 
----
-
 ### 07 — amqplib Escape Hatch
 
-Native RabbitMQ / `amqplib` access when needed.
-
-- queue passthrough options
-- exchange passthrough options
+- queue/exchange passthrough options
 - publish options
 - raw channel access
 
----
-
 ### 08 — Health + Shutdown
-
-Production lifecycle APIs.
 
 - `broker.health()`
 - `broker.close()`
 - shutdown signal handling
 
+### 09 — Developer Experience
+
+- `request<TReply>()`
+- `withHeaders()`
+- `traceFrom()`
+- local middleware with `use()`
+- `consume({ dedupe })`
+- `maxMessageBytes`
+- `MessageTooLargeError`
+
 ---
 
 ## Housekeeping
-
-Useful commands while experimenting.
-
-### List queues
-
-```bash
-docker exec -it rabbitmq rabbitmqctl list_queues name messages_ready messages_unacknowledged arguments
-```
-
-### List exchanges
-
-```bash
-docker exec -it rabbitmq rabbitmqctl list_exchanges name type durable
-```
-
-### Delete a specific queue
-
-```bash
-docker exec -it rabbitmq rabbitmqctl delete_queue orders.queue
-```
 
 ### Reset local RabbitMQ data
 
 ```bash
 docker compose -f examples/docker-compose.yml down -v
 docker compose -f examples/docker-compose.yml up -d
+```
+
+### List queues
+
+```bash
+docker exec -it rabbitmq rabbitmqctl list_queues name messages_ready messages_unacknowledged arguments
 ```

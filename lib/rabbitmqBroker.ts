@@ -7,7 +7,9 @@ import {
   ConsumeOptions,
   QueueConfig,
   PublishOptions,
+  RequestOptions,
   BrokerHealth,
+  ConsumeMiddleware,
 } from "./types";
 import { ReconnectController } from "./reconnect";
 import { createAssertTopology } from "./topology";
@@ -47,6 +49,7 @@ export class RabbitMQBroker {
       durable: config.durable ?? true,
       publisherConfirms: config.publisherConfirms ?? false,
       queueArgs: config.queueArgs,
+      maxMessageBytes: config.maxMessageBytes,
       passiveQueue: config.passiveQueue ?? false,
       deadLetter: config.deadLetter,
       amqp: config.amqp,
@@ -140,9 +143,12 @@ export class RabbitMQBroker {
       (id: string | number, event: EventEnvelope) => Promise<unknown>
     >();
 
+    const middlewares: ConsumeMiddleware[] = [];
+
     const consumer = createConsumer({
       queueName,
       handlers,
+      middlewares,
     });
 
     this.registeredConsumers.push({
@@ -162,6 +168,11 @@ export class RabbitMQBroker {
       await assertTopology(ch);
       await consumer.resumeOnReconnect(ch);
     });
+
+    const use = (middleware: ConsumeMiddleware): BrokerInterface<TEvents> => {
+      middlewares.push(middleware);
+      return brokerInterface;
+    };
 
     const handle = <K extends keyof TEvents>(
       eventName: K | "*",
@@ -198,17 +209,29 @@ export class RabbitMQBroker {
       return publisher.publish<TEvents, K>(event, opts);
     };
 
+    const request = async <
+      TReply = unknown,
+      K extends keyof TEvents = keyof TEvents
+    >(
+      event: TEvents[K],
+      opts?: RequestOptions
+    ): Promise<TReply> => {
+      return publisher.request<TReply>(event as EventEnvelope, opts);
+    };
+
     const withChannel = async <T>(fn: (channel: Channel) => Promise<T> | T): Promise<T> => {
       const channel = await this.getChannel();
       return fn(channel);
     };
 
     const brokerInterface: BrokerInterface<TEvents> = {
+      use,
       handle,
       consume,
       produce,
       produceMany,
       publish,
+      request,
       withChannel,
       health: () => this.health(),
       with: <U extends Record<string, (...args: any[]) => EventEnvelope>>(events: U) => {

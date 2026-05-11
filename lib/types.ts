@@ -1,5 +1,6 @@
 import { Channel, Options } from "amqplib";
 import { EventEnvelope } from "./eventFactories";
+import { Dedupe, DedupeOpts } from "./utils/dedupe";
 
 export interface AmqpPassthroughOptions {
   queue?: Options.AssertQueue;
@@ -70,6 +71,13 @@ export interface ExchangeConfig {
   queueArgs?: Options.AssertQueue["arguments"];
 
   /**
+   * Maximum serialized event size in bytes.
+   *
+   * Can be configured at broker/exchange level and overridden per publish/request.
+   */
+  maxMessageBytes?: number;
+
+  /**
    * If true, do NOT declare the queue; only check it exists.
    * Use this when a separate setup step has already created the queue with specific args.
    */
@@ -91,8 +99,19 @@ export interface PublishOptions {
   /** Override the routing key for this publish. Defaults to event.name. */
   routingKey?: string;
 
+  /**
+   * Maximum serialized event size in bytes for this publish/request.
+   * Overrides broker/exchange-level maxMessageBytes.
+   */
+  maxMessageBytes?: number;
+
   /** Native amqplib publish options. */
   amqp?: Pick<AmqpPassthroughOptions, "publish">;
+}
+
+export interface RequestOptions extends PublishOptions {
+  /** Timeout while waiting for RPC reply. Default: 5000. */
+  timeoutMs?: number;
 }
 
 export interface RetryOptions {
@@ -105,6 +124,16 @@ export interface RetryOptions {
    */
   then?: "ack" | "requeue" | "dead-letter";
 }
+
+export type ConsumeDedupeOptions =
+  | Dedupe
+  | (DedupeOpts & {
+      /**
+       * Enable/disable built-in memory dedupe.
+       * Default: true when dedupe config is provided.
+       */
+      enabled?: boolean;
+    });
 
 export interface ConsumeOptions {
   /** Max unacked messages this consumer can hold. Also default concurrency. */
@@ -122,15 +151,49 @@ export interface ConsumeOptions {
   /** Retry policy when onError is "retry". */
   retry?: RetryOptions;
 
+  /**
+   * Optional consumer-side de-duplication.
+   *
+   * Pass either:
+   * - a Dedupe instance, for example makeMemoryDedupe(...)
+   * - a config object, for example { enabled: true, ttlMs: 60000 }
+   *
+   * Duplicate messages are acknowledged and skipped.
+   */
+  dedupe?: ConsumeDedupeOptions;
+
   /** Native amqplib consume options. */
   amqp?: Pick<AmqpPassthroughOptions, "consume">;
 }
+
+export interface ConsumeMiddlewareContext {
+  /** RabbitMQ delivery tag. */
+  id: string | number;
+
+  /** Parsed Rabbit Relay event envelope. */
+  event: EventEnvelope;
+
+  /** Queue currently consuming this message. */
+  queue: string;
+}
+
+export type ConsumeMiddleware = (
+  ctx: ConsumeMiddlewareContext,
+  next: () => Promise<void>
+) => Promise<void>;
 
 /**
  * Generic Broker Interface:
  * TEvents maps event name keys -> EventEnvelope types.
  */
 export interface BrokerInterface<TEvents extends Record<string, EventEnvelope>> {
+  /**
+   * Register local middleware for this broker interface.
+   *
+   * Middleware wraps handler execution for this queue/exchange binding only.
+   */
+  use(middleware: ConsumeMiddleware): BrokerInterface<TEvents>;
+
   handle<K extends keyof TEvents>(
     eventName: K | "*",
     handler: (id: string | number, event: TEvents[K]) => Promise<unknown>
@@ -151,6 +214,17 @@ export interface BrokerInterface<TEvents extends Record<string, EventEnvelope>> 
     opts?: PublishOptions
   ): Promise<void | unknown>;
 
+  /**
+   * Send one event as an RPC-style request and wait for a typed reply.
+   *
+   * This is a cleaner alternative to manually setting:
+   * event.meta = { expectsReply: true, timeoutMs: ... }
+   */
+  request<TReply = unknown, K extends keyof TEvents = keyof TEvents>(
+    event: TEvents[K],
+    opts?: RequestOptions
+  ): Promise<TReply>;
+
   /** Escape hatch for advanced amqplib usage. */
   withChannel<T>(fn: (channel: Channel) => Promise<T> | T): Promise<T>;
 
@@ -170,6 +244,7 @@ export type InternalCfg = {
   durable: boolean;
   publisherConfirms: boolean;
   queueArgs?: Options.AssertQueue["arguments"];
+  maxMessageBytes?: number;
   passiveQueue: boolean;
   deadLetter?: DeadLetterConfig;
   amqp?: Pick<AmqpPassthroughOptions, "exchange" | "queue" | "bind">;

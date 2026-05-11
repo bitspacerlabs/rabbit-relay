@@ -1,7 +1,8 @@
 # EventEnvelope
 
-`EventEnvelope` is the **canonical message format** used by Rabbit Relay.
-All events published and consumed by the framework conform to this shape.
+`EventEnvelope` is the canonical message format used by Rabbit Relay.
+
+All published and consumed messages use this shape.
 
 ---
 
@@ -9,74 +10,175 @@ All events published and consumed by the framework conform to this shape.
 
 ```ts
 type EventEnvelope<T = unknown> = {
-  id: string;          // unique identifier (used for idempotency & de-duplication)
-  name: string;        // event name (e.g. "scheduler.scheduleTask")
-  version?: string;   // optional semantic version (e.g. "v1")
-  time?: number;      // epoch timestamp (ms)
-  data: T;            // typed payload
-  meta?: EventMeta;   // optional metadata
+  id: string;
+  name: string;
+  v: string;
+  time: number;
+  data: T;
+  meta?: EventMeta;
 };
 
 type EventMeta = {
-  headers?: Record<string, unknown>;
-  corrId?: string;        // correlation id
-  expectsReply?: boolean; // RPC
-  timeoutMs?: number;     // RPC timeout
+  corrId?: string;
+  causationId?: string;
+  headers?: Record<string, string>;
+
+  expectsReply?: boolean;
+  timeoutMs?: number;
 };
 ```
+
+---
+
+## Fields
+
+| Field | Meaning |
+|---|---|
+| `id` | Unique event ID. Useful for idempotency and de-duplication |
+| `name` | Event name, also used as the default routing key |
+| `v` | Event version, for example `v1` |
+| `time` | Event creation time in epoch milliseconds |
+| `data` | Typed payload |
+| `meta` | Optional metadata for headers, tracing, and RPC |
 
 ---
 
 ## Creating envelopes
 
-You normally don’t create envelopes manually.
-Instead, use an **event factory**:
+Use an event factory:
 
 ```ts
-const scheduleTask =
-  event("scheduler.scheduleTask", "v1")
-    .of<{ id: string; when: number }>();
+import { event } from "@bitspacerlabs/rabbit-relay";
 
-const ev = scheduleTask({
-  id: "task-1",
-  when: Date.now(),
+const orderCreated = event("order.created", "v1").of<{
+  orderId: string;
+  amount: number;
+}>();
+
+const ev = orderCreated({
+  orderId: "o-1",
+  amount: 42,
 });
 ```
 
 Factories ensure:
-- correct event name
-- consistent versioning
+
+- consistent envelope shape
+- generated IDs
+- consistent timestamps
 - typed payloads
 
 ---
 
-## Metadata usage
+## Metadata helpers
 
-Metadata is optional and additive.
+Rabbit Relay provides helpers so you do not need to mutate `meta` manually.
+
+### Add headers
+
+```ts
+import { withHeaders } from "@bitspacerlabs/rabbit-relay";
+
+const ev = withHeaders(orderCreated({ orderId: "o-1", amount: 42 }), {
+  tenantId: "tenant-1",
+  source: "orders-service",
+});
+```
+
+### Add metadata
+
+```ts
+import { withMeta } from "@bitspacerlabs/rabbit-relay";
+
+const ev = withMeta(orderCreated({ orderId: "o-1", amount: 42 }), {
+  corrId: "corr-123",
+  headers: {
+    tenantId: "tenant-1",
+  },
+});
+```
+
+### Add correlation or causation
+
+```ts
+import {
+  withCorrelation,
+  withCausation,
+} from "@bitspacerlabs/rabbit-relay";
+
+const ev1 = withCorrelation(orderCreated(data), "corr-123");
+const ev2 = withCausation(orderCreated(data), "parent-event-id");
+```
+
+---
+
+## Tracing child events
+
+Use `traceFrom(parent)` when one event causes another event.
+
+```ts
+import { traceFrom } from "@bitspacerlabs/rabbit-relay";
+
+const child = paymentRequested(
+  {
+    orderId: ev.data.orderId,
+    amount: ev.data.amount,
+  },
+  traceFrom(ev)
+);
+```
+
+This:
+
+- preserves the parent `corrId`
+- uses `parent.id` as `causationId`
+- copies parent headers
+- lets you add extra headers
+
+```ts
+const child = paymentRequested(data, traceFrom(ev, {
+  headers: {
+    source: "payments-service",
+  },
+}));
+```
+
+---
+
+## RPC metadata
+
+RPC is enabled through metadata internally.
+
+You can still do this:
 
 ```ts
 ev.meta = {
-  corrId: "req-123",
-  headers: { source: "scheduler" },
+  expectsReply: true,
+  timeoutMs: 5000,
 };
 ```
 
-Metadata is commonly used for:
-- tracing
-- RPC
-- cross-service correlation
+But the cleaner API is:
+
+```ts
+const reply = await pub.request<Reply>(ev, {
+  timeoutMs: 5000,
+});
+```
 
 ---
 
 ## Notes
 
-- `id` is generated automatically by the factory
-- delivery semantics remain **at-least-once**
-- consumers should be idempotent
+- `EventEnvelope` is plain JSON
+- Delivery remains at-least-once
+- Consumers should be idempotent
+- Keep payloads small and publish references for large data
 
 ---
 
 ## Summary
 
 `EventEnvelope` is the stable contract between publishers and consumers.
-Factories help you create envelopes safely and consistently.
+
+Factories and helpers make it safer to create, enrich, trace, and publish events.
