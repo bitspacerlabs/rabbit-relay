@@ -92,6 +92,33 @@ export function withCausation<T extends EventEnvelope>(
   });
 }
 
+/**
+ * Create metadata for a child event caused by a parent event.
+ *
+ * Behavior:
+ * - preserves parent corrId if present
+ * - otherwise uses parent.id as the new corrId
+ * - sets causationId to parent.id
+ * - copies parent headers by default
+ * - allows overriding/adding metadata
+ */
+export function traceFrom(
+  parent: EventEnvelope,
+  meta?: EventMeta
+): EventMeta {
+  const { headers: extraHeaders, ...restMeta } = meta ?? {};
+
+  return {
+    corrId: parent.meta?.corrId ?? parent.id,
+    causationId: parent.id,
+    ...restMeta,
+    headers: {
+      ...(parent.meta?.headers ?? {}),
+      ...(extraHeaders ?? {}),
+    },
+  };
+}
+
 function randomId(): string {
   try {
     return (
