@@ -36,7 +36,7 @@ type Pong = {
       "dx.ping": EventEnvelope<Ping>;
     }>("dx.orders.ex", {
       exchangeType: "topic",
-      routingKey: "dx.*",
+      routingKey: "dx.#",
       publisherConfirms: true,
       maxMessageBytes: 256 * 1024,
     });

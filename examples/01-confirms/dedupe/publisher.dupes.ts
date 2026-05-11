@@ -16,7 +16,7 @@ type DemoEvent = EventEnvelope<Payload>;
     .exchange<{ "demo.dupe": DemoEvent }>(EXCHANGE, {
       exchangeType: "topic",
       routingKey: "#",
-      publisherConfirms: true, // optional but realistic
+      publisherConfirms: true,
     });
 
   const makeDupe = event("demo.dupe", "v1").of<Payload>();
@@ -26,18 +26,17 @@ type DemoEvent = EventEnvelope<Payload>;
   const SECOND_SEND_DELAY_MS = Number(process.env.DUP_SECOND_DELAY_MS ?? 100);
 
   async function sendPair() {
-    // ONE envelope -> same id twice
-    const ev = makeDupe({ seq });
+    const currentSeq = seq++;
+    const ev = makeDupe({ seq: currentSeq });
 
     await pub.produce(ev);
-    console.log(`[publisher] sent seq=${seq} id=${ev.id}`);
+    console.log(`[publisher] sent seq=${currentSeq} id=${ev.id}`);
 
     setTimeout(async () => {
       await pub.produce(ev);
-      console.log(`[publisher] sent DUPLICATE seq=${seq} id=${ev.id}`);
+      console.log(`[publisher] sent DUPLICATE seq=${currentSeq} id=${ev.id}`);
     }, SECOND_SEND_DELAY_MS);
 
-    seq++;
     setTimeout(sendPair, PAIR_DELAY_MS);
   }
 
