@@ -1,74 +1,137 @@
 # RPC (Request–Reply)
 
-Rabbit Relay supports a **request–reply (RPC) pattern** on top of RabbitMQ.
+Rabbit Relay supports a request–reply pattern on top of RabbitMQ.
 
-RPC allows a publisher to **send a request and wait for a single reply** from a consumer, using standard AMQP semantics (`replyTo`, `correlationId`, timeouts).
+RPC allows a publisher to send a request and wait for a single reply from a consumer, using standard AMQP semantics: `replyTo`, `correlationId`, and timeouts.
 
-RPC is **opt-in per message** and does not affect normal fire-and-forget events.
+RPC is opt-in per message and does not affect normal fire-and-forget events.
 
 ---
 
 ## When to use RPC
 
-Use RPC only when a workflow **requires a synchronous response**.
+Use RPC only when a workflow requires a direct response.
 
-If a workflow can be modeled as **events**, prefer events.
+Good examples:
+
+- validate a payment
+- check inventory
+- request a calculated value
+- ask another internal service for a decision
+
+If a workflow can be modeled as events, prefer events.
+
 RPC introduces tighter coupling and should be used deliberately.
 
 ---
 
-## Making an RPC request
+## Typed request API
 
-Any event can become an RPC request by setting metadata on its envelope.
+The recommended API is `request<TReply>()`.
 
 ```ts
-const req = makePriceLookup({ sku: "SKU-1" });
+type ChargeReply = {
+  ok: boolean;
+  transactionId?: string;
+  reason?: string;
+};
+
+const reply = await pub.request<ChargeReply>(
+  charge({
+    orderId: "o-1",
+    amount: 42,
+    currency: "USD",
+  }),
+  {
+    timeoutMs: 5000,
+  }
+);
+```
+
+This is cleaner than manually setting RPC metadata.
+
+---
+
+## Request options
+
+`request()` accepts the same per-message publish options as `publish()`, plus `timeoutMs`.
+
+```ts
+const reply = await pub.request<ChargeReply>(
+  charge(payload),
+  {
+    timeoutMs: 5000,
+    routingKey: "payments.charge",
+    maxMessageBytes: 64 * 1024,
+    amqp: {
+      publish: {
+        persistent: true,
+      },
+    },
+  }
+);
+```
+
+---
+
+## Handling an RPC request
+
+On the consumer side, the handler return value becomes the reply.
+
+```ts
+sub.handle("payments.charge", async (_id, ev) => {
+  if (ev.data.amount <= 0) {
+    return {
+      ok: false,
+      reason: "invalid amount",
+    };
+  }
+
+  return {
+    ok: true,
+    transactionId: "txn_123",
+  };
+});
+```
+
+Consumers do not need special RPC code.
+
+If the message has `replyTo`, Rabbit Relay sends the return value back.
+
+---
+
+## Backward compatibility
+
+The old metadata-based RPC style still works.
+
+```ts
+const req = charge(payload);
 
 req.meta = {
   expectsReply: true,
   timeoutMs: 5000,
 };
-```
 
-Publishing the event now **returns a promise that resolves with the reply**:
-
-```ts
 const reply = await pub.produce(req);
 ```
 
-- If a reply arrives → the promise resolves
-- If no reply arrives before `timeoutMs` → the promise rejects
-- If the responder throws → the promise resolves with `null`
-
----
-
-## Handling an RPC request (consumer)
-
-On the consumer side, **the handler return value becomes the reply**.
-
-```ts
-sub.handle("price.lookup", async (_id, ev) => {
-  return { price: 42 };
-});
-```
-
-If the handler:
-- returns a value → it is sent back as the reply
-- throws an error → a reply is still sent, with `null`
-
-Consumers **do not need to know** whether a message is RPC or not.
+Use `request<TReply>()` for new code.
 
 ---
 
 ## Timeouts and errors
 
-- Default timeout: **5000 ms**
-- Timeouts throw on the caller side
-- Handler errors do **not** throw on the caller side — they return `null`
+- Default timeout: `5000 ms`
+- Timeouts reject on the caller side
+- Handler errors return `null` as the reply
+- Publish failures reject
 
 ```ts
 try {
-  const reply = await pub.produce(req);
+  const reply = await pub.request<Reply>(req, {
+    timeoutMs: 5000,
+  });
+
   if (reply === null) {
     // responder failed
   }
@@ -79,40 +142,46 @@ try {
 
 ---
 
-## What Rabbit Relay manages for you
+## What Rabbit Relay manages
 
-When `meta.expectsReply = true`, Rabbit Relay automatically:
+For each RPC request, Rabbit Relay:
 
-- creates a temporary, exclusive reply queue
-- sets `replyTo` and `correlationId`
+- creates a temporary exclusive reply queue
+- sets `replyTo`
+- sets `correlationId`
 - matches replies to requests
-- enforces the timeout
-- cleans up resources
+- enforces timeout
+- cleans up the reply queue
 
 ---
 
-## What RPC does *not* guarantee
+## What RPC does not guarantee
 
-RPC does **not** provide:
+RPC does not provide:
+
 - exactly-once delivery
+- cancellation of in-flight work after timeout
 - transactional semantics across services
 - consumer-side success guarantees
+
+If a requester times out, the responder may still process the message later.
 
 ---
 
 ## Best practices
 
-- Prefer events over RPC where possible
-- Use RPC for **queries**, not workflows
+- Prefer events for workflows
+- Use RPC for short internal decisions or queries
+- Keep replies small
+- Keep timeouts short
+- Make RPC handlers idempotent
 - Avoid long-running handlers
-- Keep replies small and bounded
 
 ---
 
 ## Summary
 
-- RPC is opt-in per message
-- Enabled via `meta.expectsReply`
+- Use `request<TReply>()` for new RPC flows
 - Handler return value becomes the reply
 - Timeouts and failures are explicit
-- Built on standard RabbitMQ semantics
+- Built on normal RabbitMQ semantics

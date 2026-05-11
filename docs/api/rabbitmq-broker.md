@@ -2,7 +2,7 @@
 
 `RabbitMQBroker` is the main entry point for publishing and consuming events.
 
-It owns the RabbitMQ connection, topology declaration, publishing, consuming, reconnect behavior, shutdown, and health checks.
+It owns RabbitMQ connection handling, topology declaration, publishing, consuming, reconnect behavior, shutdown, and health checks.
 
 ---
 
@@ -13,6 +13,17 @@ const broker = new RabbitMQBroker("payments_service");
 ```
 
 The peer name identifies this broker in Rabbit Relay health output.
+
+You can also set broker-level defaults:
+
+```ts
+const broker = new RabbitMQBroker("orders_service", {
+  exchangeType: "topic",
+  durable: true,
+  publisherConfirms: true,
+  maxMessageBytes: 256 * 1024,
+});
+```
 
 ---
 
@@ -45,6 +56,7 @@ This:
   publisherConfirms?: boolean;
   passiveQueue?: boolean;
   queueArgs?: Record<string, unknown>;
+  maxMessageBytes?: number;
   deadLetter?: DeadLetterConfig;
   amqp?: {
     exchange?: Options.AssertExchange;
@@ -81,10 +93,11 @@ For normal publishing:
 await pub.produce(eventEnvelope);
 ```
 
-For per-message AMQP options:
+For per-message options:
 
 ```ts
 await pub.publish(eventEnvelope, {
+  maxMessageBytes: 64 * 1024,
   amqp: {
     publish: {
       persistent: true,
@@ -103,6 +116,33 @@ await api.orderCreated({ id: "o-1" });
 
 ---
 
+## Typed RPC request
+
+Use `request<TReply>()` for request/reply flows.
+
+```ts
+type ChargeReply = {
+  ok: boolean;
+  transactionId?: string;
+};
+
+const reply = await pub.request<ChargeReply>(
+  charge({
+    orderId: "o-1",
+    amount: 42,
+  }),
+  {
+    timeoutMs: 5000,
+  }
+);
+```
+
+This is the clean API for RPC.
+
+The old `meta.expectsReply` style still works for backward compatibility.
+
+---
+
 ## Consuming
 
 ```ts
@@ -113,13 +153,26 @@ sub.handle("orderCreated", async (_id, ev) => {
 await sub.consume({
   prefetch: 50,
   concurrency: 10,
-  onError: "retry",
-  retry: {
-    attempts: 3,
-    then: "dead-letter",
-  },
 });
 ```
+
+---
+
+## Local middleware
+
+Use middleware for local, queue-specific processing behavior.
+
+```ts
+sub.use(async (ctx, next) => {
+  console.log("before", ctx.event.name);
+  await next();
+  console.log("after", ctx.event.name);
+});
+```
+
+Middleware wraps the handler for this broker interface only.
+
+It is different from plugins, which are process-global.
 
 ---
 
@@ -135,11 +188,32 @@ type ConsumeOptions = {
     attempts: number;
     then?: "ack" | "requeue" | "dead-letter";
   };
+  dedupe?: Dedupe | {
+    enabled?: boolean;
+    ttlMs?: number;
+    maxKeys?: number;
+    keyOf?: (event: unknown) => string | undefined;
+  };
   amqp?: {
     consume?: Options.Consume;
   };
 };
 ```
+
+---
+
+## Dedupe option
+
+```ts
+await sub.consume({
+  dedupe: {
+    enabled: true,
+    ttlMs: 60_000,
+  },
+});
+```
+
+Duplicate messages are acknowledged and skipped before reaching the handler.
 
 ---
 
@@ -180,8 +254,6 @@ Health includes:
 ```ts
 await broker.close();
 ```
-
-This stops active consumers and closes RabbitMQ resources.
 
 Use it during process shutdown:
 

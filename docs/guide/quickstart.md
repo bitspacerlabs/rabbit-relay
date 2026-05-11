@@ -1,6 +1,6 @@
 # Quickstart
 
-This guide walks you through publishing and consuming your **first typed event** using **Rabbit Relay**.
+This guide walks you through publishing and consuming your first typed event using Rabbit Relay.
 
 ---
 
@@ -13,9 +13,6 @@ npm install @bitspacerlabs/rabbit-relay
 ---
 
 ## Define an event contract
-
-This file defines **event names and payloads only**.
-It contains **no RabbitMQ logic** and can be shared across services.
 
 ```ts
 // events.ts
@@ -35,16 +32,23 @@ export type ScheduleTaskData = {
 ## Publish
 
 ```ts
-import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
+import {
+  RabbitMQBroker,
+  event,
+  withHeaders,
+} from "@bitspacerlabs/rabbit-relay";
 import { SchedulerEvents, type ScheduleTaskData } from "./events";
 
 (async () => {
-  const broker = new RabbitMQBroker("scheduler_service");
+  const broker = new RabbitMQBroker("scheduler_service", {
+    maxMessageBytes: 256 * 1024,
+  });
 
   const pub = await broker
     .queue("scheduler_publish_queue")
     .exchange("scheduler_exchange", {
       exchangeType: "topic",
+      publisherConfirms: true,
     });
 
   const scheduleTask = event(
@@ -53,10 +57,15 @@ import { SchedulerEvents, type ScheduleTaskData } from "./events";
   ).of<ScheduleTaskData>();
 
   await pub.produce(
-    scheduleTask({
-      id: "task-1",
-      when: Date.now() + 5000,
-    })
+    withHeaders(
+      scheduleTask({
+        id: "task-1",
+        when: Date.now() + 5000,
+      }),
+      {
+        source: "scheduler_service",
+      }
+    )
   );
 
   await broker.close();
@@ -83,7 +92,11 @@ await api.scheduleTask({
 ## Consume
 
 ```ts
-import { RabbitMQBroker, type EventEnvelope } from "@bitspacerlabs/rabbit-relay";
+import {
+  RabbitMQBroker,
+  traceFrom,
+  type EventEnvelope,
+} from "@bitspacerlabs/rabbit-relay";
 import { SchedulerEvents, type ScheduleTaskData } from "./events";
 
 (async () => {
@@ -98,13 +111,23 @@ import { SchedulerEvents, type ScheduleTaskData } from "./events";
       routingKey: "scheduler.*",
     });
 
+  sub.use(async (ctx, next) => {
+    console.log("processing", ctx.event.name);
+    await next();
+  });
+
   sub.handle(SchedulerEvents.ScheduleTask, async (_id, ev) => {
     console.log("Task received:", ev.data);
+    console.log("Trace metadata for child event:", traceFrom(ev));
   });
 
   await sub.consume({
     prefetch: 10,
     concurrency: 5,
+    dedupe: {
+      enabled: true,
+      ttlMs: 60_000,
+    },
   });
 })();
 ```
@@ -148,12 +171,35 @@ await sub.consume({
 
 ---
 
+## Typed RPC
+
+Use `request<TReply>()` for request/reply flows.
+
+```ts
+type Reply = {
+  ok: boolean;
+};
+
+const reply = await pub.request<Reply>(
+  scheduleTask({
+    id: "task-rpc",
+    when: Date.now(),
+  }),
+  {
+    timeoutMs: 5000,
+  }
+);
+```
+
+---
+
 ## Publish with native AMQP options
 
 Use `publish()` when you need per-message RabbitMQ options.
 
 ```ts
 await pub.publish(scheduleTask({ id: "task-3", when: Date.now() }), {
+  maxMessageBytes: 64 * 1024,
   amqp: {
     publish: {
       persistent: true,
@@ -187,10 +233,11 @@ process.on("SIGTERM", async () => {
 
 ## Summary
 
-- Contracts define event names and payloads
 - Publishers create typed event envelopes
 - Consumers explicitly declare what they handle
-- `prefetch` controls RabbitMQ delivery pressure
-- `concurrency` controls parallel handler execution
-- Retry + DLQ gives safer production failure handling
-- Native `amqplib` options remain available when needed
+- `request<TReply>()` supports typed RPC
+- `withHeaders()` and `traceFrom()` help with metadata
+- middleware is local to a consumer flow
+- `consume({ dedupe })` skips duplicate messages
+- retry + DLQ gives safer production failure handling
+- native `amqplib` options remain available when needed
