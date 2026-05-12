@@ -152,6 +152,26 @@ export function createConsumer(params: {
     };
   }
 
+  function hydrateEventMetaFromMessage(
+    event: EventEnvelope,
+    msg: ConsumeMessage
+  ): EventEnvelope {
+    const headers = msg.properties.headers ?? {};
+
+    event.meta = {
+      ...(event.meta ?? {}),
+      ...(msg.properties.correlationId && !event.meta?.corrId
+        ? { corrId: msg.properties.correlationId }
+        : {}),
+      headers: {
+        ...(event.meta?.headers ?? {}),
+        ...headers,
+      } as Record<string, string>,
+    };
+
+    return event;
+  }
+
   function buildRetryPublishOptions(
     msg: ConsumeMessage,
     err: unknown,
@@ -361,6 +381,7 @@ export function createConsumer(params: {
 
     try {
       payload = JSON.parse(msg.content.toString()) as EventEnvelope;
+      payload = hydrateEventMetaFromMessage(payload, msg);
     } catch (err) {
       console.error("Invalid message payload:", err);
 
@@ -581,10 +602,10 @@ export function createConsumer(params: {
       retry:
         onError === "retry"
           ? {
-              attempts: retryAttempts,
-              then: retryThen,
-              ...(retryDelayMs != null ? { delayMs: retryDelayMs } : {}),
-            }
+            attempts: retryAttempts,
+            then: retryThen,
+            ...(retryDelayMs != null ? { delayMs: retryDelayMs } : {}),
+          }
           : undefined,
     };
   }
