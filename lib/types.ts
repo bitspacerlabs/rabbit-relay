@@ -119,6 +119,14 @@ export interface RetryOptions {
   attempts: number;
 
   /**
+   * Fixed retry delay in milliseconds.
+   *
+   * If omitted, retry remains immediate for backward compatibility.
+   * If provided, Rabbit Relay uses RabbitMQ TTL + DLX delayed retry queues.
+   */
+  delayMs?: number;
+
+  /**
    * What to do after retry attempts are exhausted.
    * Default: "dead-letter"
    */
@@ -261,6 +269,7 @@ export interface ConsumerHealth {
   retry?: {
     attempts: number;
     then: "ack" | "requeue" | "dead-letter";
+    delayMs?: number;
   };
 }
 

@@ -11,6 +11,7 @@ export type HandlerMap = Map<
 >;
 
 const RETRY_COUNT_HEADER = "x-rabbit-relay-retry-count";
+const RETRY_DELAY_HEADER = "x-rabbit-relay-retry-delay-ms";
 const FIRST_FAILED_AT_HEADER = "x-rabbit-relay-first-failed-at";
 const LAST_FAILED_AT_HEADER = "x-rabbit-relay-last-failed-at";
 const LAST_ERROR_HEADER = "x-rabbit-relay-last-error";
@@ -24,10 +25,11 @@ type BuiltInDedupeConfig = DedupeOpts & {
 
 export function createConsumer(params: {
   queueName: string;
+  exchangeName: string;
   handlers: HandlerMap;
   middlewares: ConsumeMiddleware[];
 }) {
-  const { queueName, handlers, middlewares } = params;
+  const { queueName, exchangeName, handlers, middlewares } = params;
 
   let consumerTag: string | undefined;
   let isConsuming = false;
@@ -39,6 +41,7 @@ export function createConsumer(params: {
   let consumeOptions: ConsumeOptions | undefined;
 
   let retryAttempts = 0;
+  let retryDelayMs: number | undefined;
   let retryThen: FinalRetryAction = "dead-letter";
 
   let dedupe: Dedupe | undefined;
@@ -98,6 +101,14 @@ export function createConsumer(params: {
     await dispatch(0);
   }
 
+  function getRetryExchangeName(): string {
+    return `${queueName}.retry.exchange`;
+  }
+
+  function getRetryQueueName(): string {
+    return `${queueName}.retry.${retryDelayMs}.queue`;
+  }
+
   function getRetryCount(msg: ConsumeMessage): number {
     const raw = msg.properties.headers?.[RETRY_COUNT_HEADER];
 
@@ -133,6 +144,7 @@ export function createConsumer(params: {
     return {
       ...(msg.properties.headers ?? {}),
       [RETRY_COUNT_HEADER]: retryCount + 1,
+      ...(retryDelayMs != null ? { [RETRY_DELAY_HEADER]: retryDelayMs } : {}),
       [FIRST_FAILED_AT_HEADER]:
         msg.properties.headers?.[FIRST_FAILED_AT_HEADER] ?? now,
       [LAST_FAILED_AT_HEADER]: now,
@@ -142,14 +154,15 @@ export function createConsumer(params: {
 
   function buildRetryPublishOptions(
     msg: ConsumeMessage,
-    err: unknown
+    err: unknown,
+    opts: { preserveExpiration: boolean }
   ): Options.Publish {
     return {
       contentType: msg.properties.contentType,
       contentEncoding: msg.properties.contentEncoding,
       correlationId: msg.properties.correlationId,
       replyTo: msg.properties.replyTo,
-      expiration: msg.properties.expiration,
+      ...(opts.preserveExpiration ? { expiration: msg.properties.expiration } : {}),
       messageId: msg.properties.messageId,
       timestamp: msg.properties.timestamp,
       type: msg.properties.type,
@@ -160,7 +173,28 @@ export function createConsumer(params: {
     };
   }
 
-  async function republishForRetry(
+  async function assertDelayedRetryTopology(ch: Channel): Promise<void> {
+    if (retryDelayMs == null) return;
+
+    const retryExchange = getRetryExchangeName();
+    const retryQueue = getRetryQueueName();
+
+    await ch.assertExchange(retryExchange, "topic", {
+      durable: true,
+    });
+
+    await ch.assertQueue(retryQueue, {
+      durable: true,
+      arguments: {
+        "x-message-ttl": retryDelayMs,
+        "x-dead-letter-exchange": exchangeName,
+      },
+    });
+
+    await ch.bindQueue(retryQueue, retryExchange, "#");
+  }
+
+  async function republishForImmediateRetry(
     msg: ConsumeMessage,
     err: unknown
   ): Promise<void> {
@@ -177,8 +211,43 @@ export function createConsumer(params: {
       msg.fields.exchange,
       msg.fields.routingKey,
       msg.content,
-      buildRetryPublishOptions(msg, err)
+      buildRetryPublishOptions(msg, err, { preserveExpiration: true })
     );
+  }
+
+  async function republishForDelayedRetry(
+    msg: ConsumeMessage,
+    err: unknown
+  ): Promise<void> {
+    const ch = consumeCh;
+
+    if (!ch) {
+      throw new Error(
+        "Cannot delayed-retry message because consumer channel is not available"
+      );
+    }
+
+    await assertDelayedRetryTopology(ch);
+
+    await publishWithBackpressure(
+      ch,
+      getRetryExchangeName(),
+      msg.fields.routingKey,
+      msg.content,
+      buildRetryPublishOptions(msg, err, { preserveExpiration: false })
+    );
+  }
+
+  async function republishForRetry(
+    msg: ConsumeMessage,
+    err: unknown
+  ): Promise<void> {
+    if (retryDelayMs != null) {
+      await republishForDelayedRetry(msg, err);
+      return;
+    }
+
+    await republishForImmediateRetry(msg, err);
   }
 
   function applyFinalFailureAction(ch: Channel, msg: ConsumeMessage) {
@@ -427,6 +496,7 @@ export function createConsumer(params: {
     onError = opts?.onError ?? (opts?.requeueOnError ? "requeue" : "ack");
 
     retryAttempts = opts?.retry?.attempts ?? 0;
+    retryDelayMs = opts?.retry?.delayMs;
     retryThen = opts?.retry?.then ?? "dead-letter";
 
     if (onError === "retry" && retryAttempts <= 0) {
@@ -435,12 +505,22 @@ export function createConsumer(params: {
       );
     }
 
+    if (onError === "retry" && retryDelayMs != null) {
+      if (!Number.isFinite(retryDelayMs) || retryDelayMs <= 0) {
+        throw new Error(
+          "[broker] consume retry.delayMs must be a positive number when provided"
+        );
+      }
+    }
+
     dedupe = resolveDedupe(opts);
 
     stopping = false;
 
     const ch = await getChannel();
     consumeCh = ch;
+
+    await assertDelayedRetryTopology(ch);
 
     await ch.prefetch(prefetchCount, false);
 
@@ -474,6 +554,8 @@ export function createConsumer(params: {
   async function resumeOnReconnect(ch: Channel) {
     if (!isConsuming) return;
 
+    await assertDelayedRetryTopology(ch);
+
     await ch.prefetch(prefetchCount, false);
 
     consumeCh = ch;
@@ -501,6 +583,7 @@ export function createConsumer(params: {
           ? {
               attempts: retryAttempts,
               then: retryThen,
+              ...(retryDelayMs != null ? { delayMs: retryDelayMs } : {}),
             }
           : undefined,
     };

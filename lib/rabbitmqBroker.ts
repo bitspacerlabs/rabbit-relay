@@ -29,6 +29,7 @@ type RegisteredConsumer = {
     retry?: {
       attempts: number;
       then: "ack" | "requeue" | "dead-letter";
+      delayMs?: number;
     };
   };
 };
@@ -147,6 +148,7 @@ export class RabbitMQBroker {
 
     const consumer = createConsumer({
       queueName,
+      exchangeName,
       handlers,
       middlewares,
     });
