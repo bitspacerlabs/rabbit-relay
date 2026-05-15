@@ -12,7 +12,7 @@ import {
   ConsumeMiddleware,
 } from "./types";
 import { ReconnectController } from "./reconnect";
-import { createAssertTopology } from "./topology";
+import { createAssertTopology, createTopologyPlan } from "./topology";
 import { createConsumer } from "./consumer";
 import { createPublisher } from "./publisher";
 import { closeRabbitMQ, getRabbitMQHealthState } from "./config";
@@ -21,6 +21,11 @@ import {
   LifecycleEventName,
   LifecycleHandler,
 } from "./lifecycle";
+import {
+  TopologyPlan,
+  emptyTopologyPlan,
+  mergeTopologyPlans,
+} from "./topologyPlan";
 
 type RegisteredConsumer = {
   queueName: string;
@@ -45,6 +50,7 @@ export class RabbitMQBroker {
 
   private reconnect: ReconnectController;
   private lifecycle = new LifecycleEmitter();
+  private topologyPlan: TopologyPlan = emptyTopologyPlan();
 
   private activeConsumers: Array<{ stop(): Promise<void> }> = [];
   private registeredConsumers: RegisteredConsumer[] = [];
@@ -79,6 +85,10 @@ export class RabbitMQBroker {
     handler: LifecycleHandler<K>
   ): () => void {
     return this.lifecycle.on(eventName, handler);
+  }
+
+  public planTopology(): TopologyPlan {
+    return mergeTopologyPlans(this.topologyPlan);
   }
 
   private async getChannel(): Promise<Channel> {
@@ -155,6 +165,16 @@ export class RabbitMQBroker {
     queueConfig: QueueConfig = {},
     exchangeConfig: ExchangeConfig = {}
   ): Promise<BrokerInterface<TEvents>> {
+    const topologyPlan = createTopologyPlan({
+      exchangeName,
+      queueName,
+      queueConfig,
+      defaultCfg: this.defaultCfg,
+      exchangeConfig,
+    });
+
+    this.topologyPlan = mergeTopologyPlans(this.topologyPlan, topologyPlan);
+
     const assertTopology = createAssertTopology({
       exchangeName,
       queueName,
@@ -229,6 +249,10 @@ export class RabbitMQBroker {
       return this.lifecycle.on(eventName, handler);
     };
 
+    const planTopology = (): TopologyPlan => {
+      return mergeTopologyPlans(topologyPlan);
+    };
+
     const handle = <K extends keyof TEvents>(
       eventName: K | "*",
       handler: (id: string | number, event: TEvents[K]) => Promise<unknown>
@@ -282,6 +306,7 @@ export class RabbitMQBroker {
     const brokerInterface: BrokerInterface<TEvents> = {
       use,
       on,
+      planTopology,
       handle,
       consume,
       produce,

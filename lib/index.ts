@@ -6,3 +6,4 @@ export * from "./types";
 export * from "./errors";
 export * from "./lifecycle";
 export * from "./otel";
+export * from "./topologyPlan";

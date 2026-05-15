@@ -1,5 +1,16 @@
 import { Channel, Options } from "amqplib";
-import { DeadLetterConfig, ExchangeConfig, InternalCfg, QueueConfig } from "./types";
+import {
+  DeadLetterConfig,
+  ExchangeConfig,
+  InternalCfg,
+  QueueConfig,
+} from "./types";
+import {
+  TopologyBindingPlan,
+  TopologyExchangePlan,
+  TopologyPlan,
+  TopologyQueuePlan,
+} from "./topologyPlan";
 
 function mergeArguments(
   ...args: Array<Options.AssertQueue["arguments"] | undefined>
@@ -13,6 +24,38 @@ function mergeBindArguments(
 ): Record<string, unknown> | undefined {
   const merged = Object.assign({}, ...args.filter(Boolean));
   return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+function toRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object") return undefined;
+
+  const obj = value as Record<string, unknown>;
+  const clean: Record<string, unknown> = {};
+
+  for (const [key, val] of Object.entries(obj)) {
+    if (val !== undefined) {
+      clean[key] = val;
+    }
+  }
+
+  return Object.keys(clean).length > 0 ? clean : undefined;
+}
+
+function omitKeys<T extends Record<string, unknown>>(
+  value: T | undefined,
+  keys: string[]
+): Record<string, unknown> | undefined {
+  if (!value) return undefined;
+
+  const clean: Record<string, unknown> = {};
+
+  for (const [key, val] of Object.entries(value)) {
+    if (!keys.includes(key) && val !== undefined) {
+      clean[key] = val;
+    }
+  }
+
+  return Object.keys(clean).length > 0 ? clean : undefined;
 }
 
 function buildDeadLetterQueueArguments(
@@ -75,6 +118,7 @@ export function mergeInternalCfg(
     publisherConfirms:
       exchangeConfig.publisherConfirms ?? defaultCfg.publisherConfirms,
     queueArgs: exchangeConfig.queueArgs ?? defaultCfg.queueArgs,
+    maxMessageBytes: exchangeConfig.maxMessageBytes ?? defaultCfg.maxMessageBytes,
     passiveQueue: exchangeConfig.passiveQueue ?? defaultCfg.passiveQueue,
     deadLetter: exchangeConfig.deadLetter ?? defaultCfg.deadLetter,
     amqp: {
@@ -91,6 +135,113 @@ export function mergeInternalCfg(
         ...(exchangeConfig.amqp?.bind ?? {}),
       },
     },
+  };
+}
+
+export function createTopologyPlan(params: {
+  exchangeName: string;
+  queueName: string;
+  queueConfig?: QueueConfig;
+  defaultCfg: InternalCfg;
+  exchangeConfig: ExchangeConfig;
+}): TopologyPlan {
+  const { exchangeName, queueName, queueConfig, defaultCfg, exchangeConfig } =
+    params;
+
+  const cfg = mergeInternalCfg(defaultCfg, exchangeConfig);
+
+  const exchanges: TopologyExchangePlan[] = [];
+  const queues: TopologyQueuePlan[] = [];
+  const bindings: TopologyBindingPlan[] = [];
+
+  const exchangeOptions: Options.AssertExchange = {
+    durable: cfg.durable,
+    ...(cfg.amqp?.exchange ?? {}),
+  };
+
+  exchanges.push({
+    name: exchangeName,
+    type: cfg.exchangeType,
+    durable: cfg.durable,
+    options: omitKeys(
+      exchangeOptions as Record<string, unknown>,
+      ["durable"]
+    ),
+  });
+
+  if (cfg.deadLetter?.autoDeclare) {
+    if (!cfg.deadLetter.queue) {
+      throw new Error(
+        "[broker] deadLetter.queue is required when deadLetter.autoDeclare=true"
+      );
+    }
+
+    const dlxType = cfg.deadLetter.exchangeType ?? "topic";
+    const dlqRoutingKey = cfg.deadLetter.routingKey ?? "#";
+
+    exchanges.push({
+      name: cfg.deadLetter.exchange,
+      type: dlxType,
+      durable: cfg.durable,
+      options: toRecord(cfg.deadLetter.exchangeOptions),
+    });
+
+    queues.push({
+      name: cfg.deadLetter.queue,
+      durable: cfg.durable,
+      arguments: toRecord(cfg.deadLetter.queueOptions?.arguments),
+      options: omitKeys(
+        cfg.deadLetter.queueOptions as Record<string, unknown> | undefined,
+        ["durable", "arguments"]
+      ),
+    });
+
+    bindings.push({
+      queue: cfg.deadLetter.queue,
+      exchange: cfg.deadLetter.exchange,
+      routingKey: dlqRoutingKey,
+      arguments: toRecord(cfg.deadLetter.bindArguments),
+    });
+  }
+
+  const queueAmqpOptions = {
+    ...(cfg.amqp?.queue ?? {}),
+    ...(queueConfig?.amqp?.queue ?? {}),
+  } as Options.AssertQueue;
+
+  const deadLetterArgs = buildDeadLetterQueueArguments(cfg.deadLetter);
+
+  const mergedArgs = mergeArguments(
+    cfg.queueArgs,
+    deadLetterArgs,
+    cfg.amqp?.queue?.arguments,
+    queueConfig?.amqp?.queue?.arguments
+  );
+
+  queues.push({
+    name: queueName,
+    durable: cfg.durable,
+    passive: cfg.passiveQueue || undefined,
+    arguments: toRecord(mergedArgs),
+    options: omitKeys(
+      queueAmqpOptions as Record<string, unknown>,
+      ["durable", "arguments"]
+    ),
+  });
+
+  const bindArgs = mergeBindArguments(cfg.amqp?.bind);
+
+  bindings.push({
+    queue: queueName,
+    exchange: exchangeName,
+    routingKey: cfg.routingKey,
+    arguments: toRecord(bindArgs),
+  });
+
+  return {
+    exchanges,
+    queues,
+    bindings,
   };
 }
 

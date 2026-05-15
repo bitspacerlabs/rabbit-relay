@@ -2,6 +2,7 @@ import { Channel, Options } from "amqplib";
 import { EventEnvelope } from "./eventFactories";
 import { Dedupe, DedupeOpts } from "./utils/dedupe";
 import { LifecycleEventName, LifecycleHandler } from "./lifecycle";
+import { TopologyPlan } from "./topologyPlan";
 
 export interface AmqpPassthroughOptions {
   queue?: Options.AssertQueue;
@@ -212,6 +213,13 @@ export interface BrokerInterface<TEvents extends Record<string, EventEnvelope>> 
     eventName: K,
     handler: LifecycleHandler<K>
   ): () => void;
+
+  /**
+   * Return the RabbitMQ topology this broker interface represents.
+   *
+   * This is read-only and does not contact RabbitMQ.
+   */
+  planTopology(): TopologyPlan;
 
   handle<K extends keyof TEvents>(
     eventName: K | "*",
