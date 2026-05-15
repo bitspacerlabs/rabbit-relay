@@ -5,3 +5,4 @@ export * from "./utils/dedupe";
 export * from "./types";
 export * from "./errors";
 export * from "./lifecycle";
+export * from "./otel";
