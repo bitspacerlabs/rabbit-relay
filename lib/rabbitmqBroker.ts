@@ -30,6 +30,11 @@ import {
   TopologyValidationResult,
   validateTopologyPlan,
 } from "./topologyValidation";
+import {
+  DlqRedriveOptions,
+  DlqRedriveResult,
+  redriveDlq,
+} from "./dlqRedrive";
 
 type RegisteredConsumer = {
   queueName: string;
@@ -98,6 +103,13 @@ export class RabbitMQBroker {
   public async validateTopology(): Promise<TopologyValidationResult> {
     const channel = await this.getChannel();
     return validateTopologyPlan(channel, this.planTopology());
+  }
+
+  public async redriveDlq(
+    options: DlqRedriveOptions
+  ): Promise<DlqRedriveResult> {
+    const channel = await this.getChannel();
+    return redriveDlq(channel, options);
   }
 
   private async getChannel(): Promise<Channel> {
@@ -267,6 +279,13 @@ export class RabbitMQBroker {
       return validateTopologyPlan(channel, planTopology());
     };
 
+    const redriveDlqFromInterface = async (
+      options: DlqRedriveOptions
+    ): Promise<DlqRedriveResult> => {
+      const channel = await this.getChannel();
+      return redriveDlq(channel, options);
+    };
+
     const handle = <K extends keyof TEvents>(
       eventName: K | "*",
       handler: (id: string | number, event: TEvents[K]) => Promise<unknown>
@@ -322,6 +341,7 @@ export class RabbitMQBroker {
       on,
       planTopology,
       validateTopology,
+      redriveDlq: redriveDlqFromInterface,
       handle,
       consume,
       produce,

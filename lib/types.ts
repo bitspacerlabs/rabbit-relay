@@ -4,6 +4,7 @@ import { Dedupe, DedupeOpts } from "./utils/dedupe";
 import { LifecycleEventName, LifecycleHandler } from "./lifecycle";
 import { TopologyPlan } from "./topologyPlan";
 import { TopologyValidationResult } from "./topologyValidation";
+import { DlqRedriveOptions, DlqRedriveResult } from "./dlqRedrive";
 
 export interface AmqpPassthroughOptions {
   queue?: Options.AssertQueue;
@@ -228,6 +229,13 @@ export interface BrokerInterface<TEvents extends Record<string, EventEnvelope>> 
    * This does not declare or modify RabbitMQ resources.
    */
   validateTopology(): Promise<TopologyValidationResult>;
+
+  /**
+   * Redrive messages from a DLQ back to a target exchange/routing key.
+   *
+   * The original DLQ message is ACKed only after republish succeeds.
+   */
+  redriveDlq(options: DlqRedriveOptions): Promise<DlqRedriveResult>;
 
   handle<K extends keyof TEvents>(
     eventName: K | "*",
