@@ -94,12 +94,44 @@ await sub.consume({
   onError: "retry",
   retry: {
     attempts: 3,
+    delayMs: 5000,
     then: "dead-letter",
   },
 });
 ```
 
 After retries are exhausted, the message is dead-lettered.
+
+---
+
+## DLQ redrive
+
+After a problem is fixed, operators may need to replay DLQ messages.
+
+Rabbit Relay provides `redriveDlq()`:
+
+```ts
+const result = await broker.redriveDlq({
+  fromQueue: "orders.dlq",
+  toExchange: "orders.ex",
+  routingKey: "orders.created",
+  limit: 100,
+});
+```
+
+Dry-run first:
+
+```ts
+const result = await broker.redriveDlq({
+  fromQueue: "orders.dlq",
+  toExchange: "orders.ex",
+  routingKey: "orders.created",
+  limit: 100,
+  dryRun: true,
+});
+```
+
+See [DLQ Redrive](/features/dlq-redrive) for details.
 
 ---
 
@@ -123,3 +155,4 @@ Fix by:
 - Rabbit Relay can configure DLQ arguments for you
 - `autoDeclare: true` creates DLX/DLQ topology
 - Use DLQ with retry for production-safe failure handling
+- Use `redriveDlq()` to safely replay messages after fixes

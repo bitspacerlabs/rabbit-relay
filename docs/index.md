@@ -4,7 +4,7 @@ layout: home
 hero:
   name: "Rabbit Relay"
   text: "Type-safe messaging for RabbitMQ in Node.js"
-  tagline: "Fast. Typed. Resilient."
+  tagline: "Fast. Typed. Resilient. Observable."
   image:
     src: rabbit-relay.svg
     alt: "Rabbit Relay Logo"
@@ -38,19 +38,19 @@ features:
 
   - icon: 🚨
     title: Retry & Dead-Letter Queues
-    details: Use bounded retries and DLQ routing for predictable failure handling.
+    details: Use bounded retries, delayed retry, DLQs, and redrive helpers for predictable failure handling.
 
   - icon: 🔄
     title: Auto Reconnect
     details: Restore channels, topology, bindings, and consumers after temporary outages.
 
+  - icon: 🧭
+    title: Operations Visibility
+    details: Use lifecycle hooks, OpenTelemetry adapter, topology planning, validation, and health checks.
+
   - icon: 🧰
     title: amqplib Escape Hatch
     details: Pass native AMQP options or access the raw channel when advanced RabbitMQ features are needed.
-
-  - icon: 🩺
-    title: Health & Shutdown
-    details: Inspect broker health and close consumers, channels, and connections cleanly.
 ---
 
 ## Example

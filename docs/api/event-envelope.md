@@ -112,6 +112,29 @@ const ev2 = withCausation(orderCreated(data), "parent-event-id");
 
 ---
 
+## AMQP headers on consumed events
+
+Rabbit Relay copies AMQP headers into `event.meta.headers` before invoking your handler.
+
+This is useful for:
+
+- retry metadata
+- delayed retry metadata
+- redrive metadata
+- RabbitMQ `x-death` headers
+- application headers
+
+Example:
+
+```ts
+sub.handle("orders.created", async (_id, ev) => {
+  console.log(ev.meta?.headers?.["x-rabbit-relay-retry-count"]);
+  console.log(ev.meta?.headers?.["x-rabbit-relay-redrive-count"]);
+});
+```
+
+---
+
 ## Tracing child events
 
 Use `traceFrom(parent)` when one event causes another event.

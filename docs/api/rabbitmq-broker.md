@@ -2,7 +2,7 @@
 
 `RabbitMQBroker` is the main entry point for publishing and consuming events.
 
-It owns RabbitMQ connection handling, topology declaration, publishing, consuming, reconnect behavior, shutdown, and health checks.
+It owns RabbitMQ connection handling, topology declaration, publishing, consuming, reconnect behavior, shutdown, health checks, lifecycle hooks, topology inspection, topology validation, and DLQ redrive.
 
 ---
 
@@ -12,7 +12,7 @@ It owns RabbitMQ connection handling, topology declaration, publishing, consumin
 const broker = new RabbitMQBroker("payments_service");
 ```
 
-The peer name identifies this broker in Rabbit Relay health output.
+The peer name identifies this broker in Rabbit Relay health output and lifecycle events.
 
 You can also set broker-level defaults:
 
@@ -64,23 +64,6 @@ This:
     bind?: Record<string, unknown>;
   };
 }
-```
-
----
-
-## Queue options
-
-```ts
-broker.queue("orders.q", {
-  amqp: {
-    queue: {
-      durable: true,
-      arguments: {
-        "x-queue-type": "quorum",
-      },
-    },
-  },
-});
 ```
 
 ---
@@ -137,8 +120,6 @@ const reply = await pub.request<ChargeReply>(
 );
 ```
 
-This is the clean API for RPC.
-
 The old `meta.expectsReply` style still works for backward compatibility.
 
 ---
@@ -154,6 +135,33 @@ await sub.consume({
   prefetch: 50,
   concurrency: 10,
 });
+```
+
+---
+
+## Consume options
+
+```ts
+type ConsumeOptions = {
+  prefetch?: number;
+  concurrency?: number;
+  requeueOnError?: boolean;
+  onError?: "ack" | "requeue" | "dead-letter" | "retry";
+  retry?: {
+    attempts: number;
+    delayMs?: number;
+    then?: "ack" | "requeue" | "dead-letter";
+  };
+  dedupe?: Dedupe | {
+    enabled?: boolean;
+    ttlMs?: number;
+    maxKeys?: number;
+    keyOf?: (event: unknown) => string | undefined;
+  };
+  amqp?: {
+    consume?: Options.Consume;
+  };
+};
 ```
 
 ---
@@ -176,44 +184,95 @@ It is different from plugins, which are process-global.
 
 ---
 
-## Consume options
+## Lifecycle hooks
+
+Lifecycle hooks expose operational events from the broker instance.
 
 ```ts
-type ConsumeOptions = {
-  prefetch?: number;
-  concurrency?: number;
-  requeueOnError?: boolean;
-  onError?: "ack" | "requeue" | "dead-letter" | "retry";
-  retry?: {
-    attempts: number;
-    then?: "ack" | "requeue" | "dead-letter";
-  };
-  dedupe?: Dedupe | {
-    enabled?: boolean;
-    ttlMs?: number;
-    maxKeys?: number;
-    keyOf?: (event: unknown) => string | undefined;
-  };
-  amqp?: {
-    consume?: Options.Consume;
-  };
-};
+broker.on("consumer.started", (event) => {
+  console.log(event.queue);
+});
+
+broker.on("retry.scheduled", (event) => {
+  console.log(event.retryCount, event.delayMs);
+});
+
+broker.on("publish.failed", (event) => {
+  console.error(event.error);
+});
+```
+
+Returned broker interfaces also support `on(...)`.
+
+```ts
+sub.on("consumer.started", (event) => {
+  console.log(event.queue);
+});
 ```
 
 ---
 
-## Dedupe option
+## Topology planner
+
+`planTopology()` returns the topology Rabbit Relay intends to declare.
 
 ```ts
-await sub.consume({
-  dedupe: {
-    enabled: true,
-    ttlMs: 60_000,
-  },
+const plan = broker.planTopology();
+const subPlan = sub.planTopology();
+```
+
+It is read-only and does not contact RabbitMQ.
+
+---
+
+## Topology validation
+
+`validateTopology()` checks whether planned exchanges and queues exist using passive AMQP checks.
+
+```ts
+const result = await broker.validateTopology();
+
+if (!result.valid) {
+  console.error(result.issues);
+}
+```
+
+Bindings are included in the plan but are not passively validated through `amqplib`.
+
+---
+
+## DLQ redrive
+
+`redriveDlq()` moves messages from a DLQ back to a target exchange/routing key.
+
+```ts
+const result = await broker.redriveDlq({
+  fromQueue: "orders.dlq",
+  toExchange: "orders.ex",
+  routingKey: "orders.created",
+  limit: 100,
 });
 ```
 
-Duplicate messages are acknowledged and skipped before reaching the handler.
+Dry-run:
+
+```ts
+const result = await broker.redriveDlq({
+  fromQueue: "orders.dlq",
+  toExchange: "orders.ex",
+  routingKey: "orders.created",
+  limit: 100,
+  dryRun: true,
+});
+```
+
+Safety behavior:
+
+- bounded by `limit`
+- dry-run does not consume messages
+- original DLQ message is acknowledged only after successful republish
+- original DLQ message is requeued if republish fails
+- message body and AMQP properties are preserved
 
 ---
 
