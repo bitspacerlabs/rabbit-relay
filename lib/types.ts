@@ -1,6 +1,7 @@
 import { Channel, Options } from "amqplib";
 import { EventEnvelope } from "./eventFactories";
 import { Dedupe, DedupeOpts } from "./utils/dedupe";
+import { LifecycleEventName, LifecycleHandler } from "./lifecycle";
 
 export interface AmqpPassthroughOptions {
   queue?: Options.AssertQueue;
@@ -201,6 +202,16 @@ export interface BrokerInterface<TEvents extends Record<string, EventEnvelope>> 
    * Middleware wraps handler execution for this queue/exchange binding only.
    */
   use(middleware: ConsumeMiddleware): BrokerInterface<TEvents>;
+
+  /**
+   * Register a lifecycle hook.
+   *
+   * Hooks are useful for logging, metrics, OpenTelemetry, and operational visibility.
+   */
+  on<K extends LifecycleEventName>(
+    eventName: K,
+    handler: LifecycleHandler<K>
+  ): () => void;
 
   handle<K extends keyof TEvents>(
     eventName: K | "*",

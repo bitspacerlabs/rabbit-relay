@@ -4,6 +4,7 @@ import { EventEnvelope } from "./eventFactories";
 import { ConsumeMiddleware, ConsumeMiddlewareContext, ConsumeOptions } from "./types";
 import { publishWithBackpressure } from "./backpressure";
 import { Dedupe, DedupeOpts, makeMemoryDedupe } from "./utils/dedupe";
+import { LifecycleEmit } from "./lifecycle";
 
 export type HandlerMap = Map<
   string,
@@ -24,12 +25,21 @@ type BuiltInDedupeConfig = DedupeOpts & {
 };
 
 export function createConsumer(params: {
+  peerName: string;
   queueName: string;
   exchangeName: string;
   handlers: HandlerMap;
   middlewares: ConsumeMiddleware[];
+  emitLifecycle: LifecycleEmit;
 }) {
-  const { queueName, exchangeName, handlers, middlewares } = params;
+  const {
+    peerName,
+    queueName,
+    exchangeName,
+    handlers,
+    middlewares,
+    emitLifecycle,
+  } = params;
 
   let consumerTag: string | undefined;
   let isConsuming = false;
@@ -310,6 +320,19 @@ export function createConsumer(params: {
         try {
           await republishForRetry(msg, err);
 
+          const nextRetryCount = currentRetryCount + 1;
+
+          await emitLifecycle("retry.scheduled", {
+            peerName,
+            queue: queueName,
+            exchange: msg.fields.exchange,
+            routingKey: msg.fields.routingKey,
+            retryCount: nextRetryCount,
+            attempts: retryAttempts,
+            ...(retryDelayMs != null ? { delayMs: retryDelayMs } : {}),
+            error: err,
+          });
+
           // ACK original only after retry copy is successfully published.
           ch.ack(msg);
           return;
@@ -554,6 +577,13 @@ export function createConsumer(params: {
     consumerTag = ok.consumerTag;
     isConsuming = true;
 
+    await emitLifecycle("consumer.started", {
+      peerName,
+      queue: queueName,
+      prefetch: prefetchCount,
+      concurrency,
+    });
+
     return {
       stop: async (): Promise<void> => {
         isConsuming = false;
@@ -568,6 +598,11 @@ export function createConsumer(params: {
         } catch {
           // channel may be closed, ignore
         }
+
+        await emitLifecycle("consumer.stopped", {
+          peerName,
+          queue: queueName,
+        });
       },
     };
   }
@@ -602,10 +637,10 @@ export function createConsumer(params: {
       retry:
         onError === "retry"
           ? {
-            attempts: retryAttempts,
-            then: retryThen,
-            ...(retryDelayMs != null ? { delayMs: retryDelayMs } : {}),
-          }
+              attempts: retryAttempts,
+              then: retryThen,
+              ...(retryDelayMs != null ? { delayMs: retryDelayMs } : {}),
+            }
           : undefined,
     };
   }
