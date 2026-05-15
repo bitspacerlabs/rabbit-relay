@@ -7,3 +7,4 @@ export * from "./errors";
 export * from "./lifecycle";
 export * from "./otel";
 export * from "./topologyPlan";
+export * from "./topologyValidation";

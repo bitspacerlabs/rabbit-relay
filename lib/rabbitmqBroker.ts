@@ -26,6 +26,10 @@ import {
   emptyTopologyPlan,
   mergeTopologyPlans,
 } from "./topologyPlan";
+import {
+  TopologyValidationResult,
+  validateTopologyPlan,
+} from "./topologyValidation";
 
 type RegisteredConsumer = {
   queueName: string;
@@ -89,6 +93,11 @@ export class RabbitMQBroker {
 
   public planTopology(): TopologyPlan {
     return mergeTopologyPlans(this.topologyPlan);
+  }
+
+  public async validateTopology(): Promise<TopologyValidationResult> {
+    const channel = await this.getChannel();
+    return validateTopologyPlan(channel, this.planTopology());
   }
 
   private async getChannel(): Promise<Channel> {
@@ -253,6 +262,11 @@ export class RabbitMQBroker {
       return mergeTopologyPlans(topologyPlan);
     };
 
+    const validateTopology = async (): Promise<TopologyValidationResult> => {
+      const channel = await this.getChannel();
+      return validateTopologyPlan(channel, planTopology());
+    };
+
     const handle = <K extends keyof TEvents>(
       eventName: K | "*",
       handler: (id: string | number, event: TEvents[K]) => Promise<unknown>
@@ -307,6 +321,7 @@ export class RabbitMQBroker {
       use,
       on,
       planTopology,
+      validateTopology,
       handle,
       consume,
       produce,

@@ -3,6 +3,7 @@ import { EventEnvelope } from "./eventFactories";
 import { Dedupe, DedupeOpts } from "./utils/dedupe";
 import { LifecycleEventName, LifecycleHandler } from "./lifecycle";
 import { TopologyPlan } from "./topologyPlan";
+import { TopologyValidationResult } from "./topologyValidation";
 
 export interface AmqpPassthroughOptions {
   queue?: Options.AssertQueue;
@@ -220,6 +221,13 @@ export interface BrokerInterface<TEvents extends Record<string, EventEnvelope>> 
    * This is read-only and does not contact RabbitMQ.
    */
   planTopology(): TopologyPlan;
+
+  /**
+   * Validate the planned topology against RabbitMQ using safe passive checks.
+   *
+   * This does not declare or modify RabbitMQ resources.
+   */
+  validateTopology(): Promise<TopologyValidationResult>;
 
   handle<K extends keyof TEvents>(
     eventName: K | "*",
