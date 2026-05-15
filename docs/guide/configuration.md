@@ -2,7 +2,7 @@
 
 Rabbit Relay uses sensible defaults and a small set of configuration options.
 
-Most applications only need to set a broker URL and then tune publishing and consuming per use case.
+Most applications only need to set a broker URL and then tune publishing, consuming, and operations features per use case.
 
 ---
 
@@ -140,10 +140,13 @@ await sub.consume({
   onError: "retry",
   retry: {
     attempts: 3,
+    delayMs: 5000,
     then: "dead-letter",
   },
 });
 ```
+
+If `delayMs` is omitted, retries are immediate. If `delayMs` is provided, Rabbit Relay uses RabbitMQ-native delayed retry queues.
 
 ---
 
@@ -162,6 +165,51 @@ const sub = await broker
       autoDeclare: true,
     },
   });
+```
+
+---
+
+## Operations options
+
+Lifecycle hooks are local to a broker instance.
+
+```ts
+broker.on("consumer.started", (event) => {
+  console.log(event.queue);
+});
+```
+
+OpenTelemetry adapter accepts a tracer from your application.
+
+```ts
+attachOpenTelemetry(broker, {
+  tracer: trace.getTracer("rabbit-relay"),
+  serviceName: "orders-service",
+});
+```
+
+Topology planner is read-only:
+
+```ts
+const plan = broker.planTopology();
+```
+
+Topology validation uses passive AMQP checks:
+
+```ts
+const result = await broker.validateTopology();
+```
+
+DLQ redrive is bounded and safe:
+
+```ts
+const result = await broker.redriveDlq({
+  fromQueue: "orders.dlq",
+  toExchange: "orders.ex",
+  routingKey: "orders.created",
+  limit: 100,
+  dryRun: true,
+});
 ```
 
 ---
@@ -232,6 +280,9 @@ process.on("SIGTERM", async () => {
 - Queue arguments are immutable
 - Tune `prefetch` and `concurrency` together
 - Use retries with DLQs instead of infinite requeue loops
+- Use delayed retry for dependencies that may be temporarily unavailable
 - Enable `publisherConfirms` for critical event boundaries
+- Use lifecycle hooks and health checks for production visibility
+- Use topology planning/validation for DevOps reviews
 - Keep handlers idempotent
 - Keep messages small

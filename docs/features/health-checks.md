@@ -34,7 +34,8 @@ Example response:
       onError: "retry",
       retry: {
         attempts: 3,
-        then: "dead-letter"
+        then: "dead-letter",
+        delayMs: 5000
       }
     }
   ]
@@ -76,6 +77,20 @@ Health output includes each registered consumer:
 
 ---
 
+## Related operations APIs
+
+Health is runtime status.
+
+For deeper operations visibility, use:
+
+- [Lifecycle Hooks](/features/lifecycle-hooks)
+- [OpenTelemetry Adapter](/features/opentelemetry)
+- [Topology Planner](/features/topology-planner)
+- [Topology Validation](/features/topology-validation)
+- [DLQ Redrive](/features/dlq-redrive)
+
+---
+
 ## Best-effort status
 
 `amqplib` does not expose a perfect public `isOpen()` API for channels and connections.
@@ -95,5 +110,5 @@ Use this for:
 
 - `broker.health()` returns connection and consumer state
 - Useful for APIs and service readiness
-- Includes concurrency, retry, and pending-message info
+- Includes concurrency, retry, delay, and pending-message info
 - Health state is best-effort and operationally useful

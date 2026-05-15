@@ -4,3 +4,8 @@ export * from "./pluginManager";
 export * from "./utils/dedupe";
 export * from "./types";
 export * from "./errors";
+export * from "./lifecycle";
+export * from "./otel";
+export * from "./topologyPlan";
+export * from "./topologyValidation";
+export * from "./dlqRedrive";

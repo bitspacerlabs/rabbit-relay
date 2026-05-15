@@ -12,10 +12,29 @@ import {
   ConsumeMiddleware,
 } from "./types";
 import { ReconnectController } from "./reconnect";
-import { createAssertTopology } from "./topology";
+import { createAssertTopology, createTopologyPlan } from "./topology";
 import { createConsumer } from "./consumer";
 import { createPublisher } from "./publisher";
 import { closeRabbitMQ, getRabbitMQHealthState } from "./config";
+import {
+  LifecycleEmitter,
+  LifecycleEventName,
+  LifecycleHandler,
+} from "./lifecycle";
+import {
+  TopologyPlan,
+  emptyTopologyPlan,
+  mergeTopologyPlans,
+} from "./topologyPlan";
+import {
+  TopologyValidationResult,
+  validateTopologyPlan,
+} from "./topologyValidation";
+import {
+  DlqRedriveOptions,
+  DlqRedriveResult,
+  redriveDlq,
+} from "./dlqRedrive";
 
 type RegisteredConsumer = {
   queueName: string;
@@ -29,6 +48,7 @@ type RegisteredConsumer = {
     retry?: {
       attempts: number;
       then: "ack" | "requeue" | "dead-letter";
+      delayMs?: number;
     };
   };
 };
@@ -38,6 +58,9 @@ export class RabbitMQBroker {
   private defaultCfg: InternalCfg;
 
   private reconnect: ReconnectController;
+  private lifecycle = new LifecycleEmitter();
+  private topologyPlan: TopologyPlan = emptyTopologyPlan();
+
   private activeConsumers: Array<{ stop(): Promise<void> }> = [];
   private registeredConsumers: RegisteredConsumer[] = [];
 
@@ -56,7 +79,37 @@ export class RabbitMQBroker {
     };
 
     this.reconnect = new ReconnectController();
+
+    this.reconnect.onReconnect(async () => {
+      await this.lifecycle.emit("reconnect", {
+        peerName: this.peerName,
+      });
+    });
+
     void this.reconnect.initChannel();
+  }
+
+  public on<K extends LifecycleEventName>(
+    eventName: K,
+    handler: LifecycleHandler<K>
+  ): () => void {
+    return this.lifecycle.on(eventName, handler);
+  }
+
+  public planTopology(): TopologyPlan {
+    return mergeTopologyPlans(this.topologyPlan);
+  }
+
+  public async validateTopology(): Promise<TopologyValidationResult> {
+    const channel = await this.getChannel();
+    return validateTopologyPlan(channel, this.planTopology());
+  }
+
+  public async redriveDlq(
+    options: DlqRedriveOptions
+  ): Promise<DlqRedriveResult> {
+    const channel = await this.getChannel();
+    return redriveDlq(channel, options);
   }
 
   private async getChannel(): Promise<Channel> {
@@ -82,6 +135,12 @@ export class RabbitMQBroker {
 
     this.reconnect.close();
     await closeRabbitMQ();
+
+    await this.lifecycle.emit("broker.closed", {
+      peerName: this.peerName,
+    });
+
+    this.lifecycle.clear();
   }
 
   public async health(): Promise<BrokerHealth> {
@@ -127,6 +186,16 @@ export class RabbitMQBroker {
     queueConfig: QueueConfig = {},
     exchangeConfig: ExchangeConfig = {}
   ): Promise<BrokerInterface<TEvents>> {
+    const topologyPlan = createTopologyPlan({
+      exchangeName,
+      queueName,
+      queueConfig,
+      defaultCfg: this.defaultCfg,
+      exchangeConfig,
+    });
+
+    this.topologyPlan = mergeTopologyPlans(this.topologyPlan, topologyPlan);
+
     const assertTopology = createAssertTopology({
       exchangeName,
       queueName,
@@ -138,6 +207,12 @@ export class RabbitMQBroker {
     const channel = await this.getChannel();
     await assertTopology(channel);
 
+    await this.lifecycle.emit("topology.asserted", {
+      peerName: this.peerName,
+      exchange: exchangeName,
+      queue: queueName,
+    });
+
     const handlers = new Map<
       string,
       (id: string | number, event: EventEnvelope) => Promise<unknown>
@@ -146,9 +221,13 @@ export class RabbitMQBroker {
     const middlewares: ConsumeMiddleware[] = [];
 
     const consumer = createConsumer({
+      peerName: this.peerName,
       queueName,
+      exchangeName,
       handlers,
       middlewares,
+      emitLifecycle: (eventName, event) =>
+        this.lifecycle.emit(eventName, event),
     });
 
     this.registeredConsumers.push({
@@ -157,21 +236,54 @@ export class RabbitMQBroker {
     });
 
     const publisher = createPublisher({
+      peerName: this.peerName,
       exchangeName,
       exchangeConfig,
       defaultCfg: this.defaultCfg,
       getChannel: () => this.getChannel(),
       getBackoffMs: () => this.reconnect.getBackoffMs(),
+      emitLifecycle: (eventName, event) =>
+        this.lifecycle.emit(eventName, event),
     });
 
     this.onReconnect(async (ch) => {
       await assertTopology(ch);
+
+      await this.lifecycle.emit("topology.asserted", {
+        peerName: this.peerName,
+        exchange: exchangeName,
+        queue: queueName,
+      });
+
       await consumer.resumeOnReconnect(ch);
     });
 
     const use = (middleware: ConsumeMiddleware): BrokerInterface<TEvents> => {
       middlewares.push(middleware);
       return brokerInterface;
+    };
+
+    const on = <K extends LifecycleEventName>(
+      eventName: K,
+      handler: LifecycleHandler<K>
+    ): () => void => {
+      return this.lifecycle.on(eventName, handler);
+    };
+
+    const planTopology = (): TopologyPlan => {
+      return mergeTopologyPlans(topologyPlan);
+    };
+
+    const validateTopology = async (): Promise<TopologyValidationResult> => {
+      const channel = await this.getChannel();
+      return validateTopologyPlan(channel, planTopology());
+    };
+
+    const redriveDlqFromInterface = async (
+      options: DlqRedriveOptions
+    ): Promise<DlqRedriveResult> => {
+      const channel = await this.getChannel();
+      return redriveDlq(channel, options);
     };
 
     const handle = <K extends keyof TEvents>(
@@ -226,6 +338,10 @@ export class RabbitMQBroker {
 
     const brokerInterface: BrokerInterface<TEvents> = {
       use,
+      on,
+      planTopology,
+      validateTopology,
+      redriveDlq: redriveDlqFromInterface,
       handle,
       consume,
       produce,

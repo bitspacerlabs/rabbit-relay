@@ -10,3 +10,6 @@ handler fails -> retry a few times -> send to DLQ
 
 Full example on GitHub:  
 https://github.com/bitspacerlabs/rabbit-relay/tree/main/examples/06-retry-dlq
+
+For delayed retry using RabbitMQ TTL + DLX, see:  
+https://github.com/bitspacerlabs/rabbit-relay/tree/main/examples/10-delayed-retry

@@ -164,10 +164,13 @@ await sub.consume({
   onError: "retry",
   retry: {
     attempts: 3,
+    delayMs: 5000,
     then: "dead-letter",
   },
 });
 ```
+
+`delayMs` uses RabbitMQ TTL + DLX delayed retry queues. If you omit `delayMs`, retry remains immediate.
 
 ---
 
@@ -189,6 +192,45 @@ const reply = await pub.request<Reply>(
     timeoutMs: 5000,
   }
 );
+```
+
+---
+
+## Operations helpers
+
+Rabbit Relay includes operations helpers for production visibility and support workflows.
+
+```ts
+broker.on("retry.scheduled", (event) => {
+  console.log("retry scheduled", event);
+});
+
+const plan = broker.planTopology();
+console.log(plan);
+
+const validation = await broker.validateTopology();
+console.log(validation);
+
+const redrive = await broker.redriveDlq({
+  fromQueue: "scheduler.dlq",
+  toExchange: "scheduler_exchange",
+  routingKey: SchedulerEvents.ScheduleTask,
+  limit: 10,
+  dryRun: true,
+});
+console.log(redrive);
+```
+
+Use OpenTelemetry by passing your own tracer:
+
+```ts
+import { attachOpenTelemetry } from "@bitspacerlabs/rabbit-relay";
+import { trace } from "@opentelemetry/api";
+
+attachOpenTelemetry(broker, {
+  tracer: trace.getTracer("rabbit-relay"),
+  serviceName: "scheduler-service",
+});
 ```
 
 ---
@@ -239,5 +281,6 @@ process.on("SIGTERM", async () => {
 - `withHeaders()` and `traceFrom()` help with metadata
 - middleware is local to a consumer flow
 - `consume({ dedupe })` skips duplicate messages
-- retry + DLQ gives safer production failure handling
+- retry + delayed retry + DLQ gives safer production failure handling
+- lifecycle hooks, topology planning, validation, and DLQ redrive help operations
 - native `amqplib` options remain available when needed

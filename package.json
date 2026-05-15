@@ -1,6 +1,6 @@
 {
   "name": "@bitspacerlabs/rabbit-relay",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "A RabbitMQ-based event framework",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",
@@ -30,7 +30,8 @@
     "prepublishOnly": "npm run build",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "docs:preview": "vitepress preview docs",
+    "test:package": "bash scripts/test-package-usage.sh"
   },
   "keywords": [
     "rabbitmq",

@@ -11,6 +11,7 @@ import {
 import { publishWithBackpressure, PublishChannel } from "./backpressure";
 import { generateUuid } from "./uuid";
 import { MessageTooLargeError } from "./errors";
+import { LifecycleEmit } from "./lifecycle";
 
 function buildPublishProps(
   event: EventEnvelope,
@@ -72,14 +73,23 @@ function assertMessageSize(
 }
 
 export function createPublisher(params: {
+  peerName: string;
   exchangeName: string;
   exchangeConfig: ExchangeConfig;
   defaultCfg: InternalCfg;
   getChannel: () => Promise<Channel>;
   getBackoffMs: () => number;
+  emitLifecycle: LifecycleEmit;
 }) {
-  const { exchangeName, exchangeConfig, defaultCfg, getChannel, getBackoffMs } =
-    params;
+  const {
+    peerName,
+    exchangeName,
+    exchangeConfig,
+    defaultCfg,
+    getChannel,
+    getBackoffMs,
+    emitLifecycle,
+  } = params;
 
   const resolveMaxMessageBytes = (opts?: PublishOptions): number | undefined => {
     return (
@@ -129,18 +139,31 @@ export function createPublisher(params: {
     await pluginManager.executeHook("beforeProduce", evt);
 
     const content = serializeEvent(evt, opts);
+    const routingKey = opts?.routingKey ?? evt.name;
 
-    await safePublish((ch) => {
-      const props = buildPublishProps(evt, opts);
+    try {
+      await safePublish((ch) => {
+        const props = buildPublishProps(evt, opts);
 
-      return publishWithBackpressure(
-        ch,
-        exchangeName,
-        opts?.routingKey ?? evt.name,
-        content,
-        props
-      );
-    });
+        return publishWithBackpressure(
+          ch,
+          exchangeName,
+          routingKey,
+          content,
+          props
+        );
+      });
+    } catch (err) {
+      await emitLifecycle("publish.failed", {
+        peerName,
+        exchange: exchangeName,
+        routingKey,
+        eventName: evt.name,
+        error: err,
+      });
+
+      throw err;
+    }
 
     await pluginManager.executeHook("afterProduce", evt, null);
   };
@@ -160,18 +183,31 @@ export function createPublisher(params: {
     await pluginManager.executeHook("beforeProduce", evt);
 
     const content = serializeEvent(evt, opts);
+    const routingKey = opts?.routingKey ?? evt.name;
 
-    await safePublish(async (pubCh) => {
-      const props = buildRpcPublishProps(evt, correlationId, temp.queue, opts);
+    try {
+      await safePublish(async (pubCh) => {
+        const props = buildRpcPublishProps(evt, correlationId, temp.queue, opts);
 
-      await publishWithBackpressure(
-        pubCh,
-        exchangeName,
-        opts?.routingKey ?? evt.name,
-        content,
-        props
-      );
-    });
+        await publishWithBackpressure(
+          pubCh,
+          exchangeName,
+          routingKey,
+          content,
+          props
+        );
+      });
+    } catch (err) {
+      await emitLifecycle("publish.failed", {
+        peerName,
+        exchange: exchangeName,
+        routingKey,
+        eventName: evt.name,
+        error: err,
+      });
+
+      throw err;
+    }
 
     const timeoutMs = evt.meta?.timeoutMs ?? 5000;
 

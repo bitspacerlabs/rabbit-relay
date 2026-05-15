@@ -1,6 +1,10 @@
 import { Channel, Options } from "amqplib";
 import { EventEnvelope } from "./eventFactories";
 import { Dedupe, DedupeOpts } from "./utils/dedupe";
+import { LifecycleEventName, LifecycleHandler } from "./lifecycle";
+import { TopologyPlan } from "./topologyPlan";
+import { TopologyValidationResult } from "./topologyValidation";
+import { DlqRedriveOptions, DlqRedriveResult } from "./dlqRedrive";
 
 export interface AmqpPassthroughOptions {
   queue?: Options.AssertQueue;
@@ -119,6 +123,14 @@ export interface RetryOptions {
   attempts: number;
 
   /**
+   * Fixed retry delay in milliseconds.
+   *
+   * If omitted, retry remains immediate for backward compatibility.
+   * If provided, Rabbit Relay uses RabbitMQ TTL + DLX delayed retry queues.
+   */
+  delayMs?: number;
+
+  /**
    * What to do after retry attempts are exhausted.
    * Default: "dead-letter"
    */
@@ -194,6 +206,37 @@ export interface BrokerInterface<TEvents extends Record<string, EventEnvelope>> 
    */
   use(middleware: ConsumeMiddleware): BrokerInterface<TEvents>;
 
+  /**
+   * Register a lifecycle hook.
+   *
+   * Hooks are useful for logging, metrics, OpenTelemetry, and operational visibility.
+   */
+  on<K extends LifecycleEventName>(
+    eventName: K,
+    handler: LifecycleHandler<K>
+  ): () => void;
+
+  /**
+   * Return the RabbitMQ topology this broker interface represents.
+   *
+   * This is read-only and does not contact RabbitMQ.
+   */
+  planTopology(): TopologyPlan;
+
+  /**
+   * Validate the planned topology against RabbitMQ using safe passive checks.
+   *
+   * This does not declare or modify RabbitMQ resources.
+   */
+  validateTopology(): Promise<TopologyValidationResult>;
+
+  /**
+   * Redrive messages from a DLQ back to a target exchange/routing key.
+   *
+   * The original DLQ message is ACKed only after republish succeeds.
+   */
+  redriveDlq(options: DlqRedriveOptions): Promise<DlqRedriveResult>;
+
   handle<K extends keyof TEvents>(
     eventName: K | "*",
     handler: (id: string | number, event: TEvents[K]) => Promise<unknown>
@@ -261,6 +304,7 @@ export interface ConsumerHealth {
   retry?: {
     attempts: number;
     then: "ack" | "requeue" | "dead-letter";
+    delayMs?: number;
   };
 }
 
