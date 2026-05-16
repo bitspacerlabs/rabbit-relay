@@ -33,59 +33,59 @@ Most examples require **multiple terminals**.
 
 ## Example index
 
-### 00 — Basics
+### 00 - Basics
 
-- `direct/` — routing by key
-- `fanout/` — broadcast to all
-- `topic-microservices/` — simple multi-service flow
+- `direct/` - routing by key
+- `fanout/` - broadcast to all
+- `topic-microservices/` - simple multi-service flow
 
-### 01 — Publisher Confirms + Dedupe
+### 01 - Publisher Confirms + Dedupe
 
 - confirm publishing
 - consumer-side de-duplication with `consume({ dedupe })`
 
-### 02 — RPC
+### 02 - RPC
 
 - typed `request<TReply>()`
 - timeouts
 - prefetch and concurrency
 
-### 03 — Dead Letter Queues
+### 03 - Dead Letter Queues
 
 - failed messages
 - DLX/DLQ topology
 - `onError: "dead-letter"`
 
-### 04 — Plugins
+### 04 - Plugins
 
 - global lifecycle hooks
 - logging, metrics, headers, tracing
 
-### 05 — Backpressure
+### 05 - Backpressure
 
 - fast publisher
 - slow consumer
 - RabbitMQ flow control
 
-### 06 — Retry + DLQ
+### 06 - Retry + DLQ
 
 - `onError: "retry"`
 - retry metadata headers
 - final `then: "dead-letter"`
 
-### 07 — amqplib Escape Hatch
+### 07 - amqplib Escape Hatch
 
 - queue/exchange passthrough options
 - publish options
 - raw channel access
 
-### 08 — Health + Shutdown
+### 08 - Health + Shutdown
 
 - `broker.health()`
 - `broker.close()`
 - shutdown signal handling
 
-### 09 — Developer Experience
+### 09 - Developer Experience
 
 - `request<TReply>()`
 - `withHeaders()`

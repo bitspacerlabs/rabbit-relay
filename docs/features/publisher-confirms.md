@@ -97,7 +97,7 @@ After that, failures are surfaced to your code intentionally.
 ### Confirms replace error handling
 
 They don’t.
-Confirms only tell you whether the broker accepted the message — not whether a consumer handled it.
+Confirms only tell you whether the broker accepted the message - not whether a consumer handled it.
 
 ---
 

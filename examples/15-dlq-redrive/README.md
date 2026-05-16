@@ -42,13 +42,13 @@ docker compose -f examples/docker-compose.yml down -v
 docker compose -f examples/docker-compose.yml up -d
 ```
 
-Terminal 1 — start failing consumer:
+Terminal 1 - start failing consumer:
 
 ```bash
 npx ts-node-dev --transpile-only examples/15-dlq-redrive/consumer.fail.ts
 ```
 
-Terminal 2 — publish jobs:
+Terminal 2 - publish jobs:
 
 ```bash
 npx ts-node-dev --transpile-only examples/15-dlq-redrive/publisher.ts
@@ -58,13 +58,13 @@ The failing consumer should process `job-ok` and send `job-needs-redrive` to DLQ
 
 Stop the failing consumer with `Ctrl+C`.
 
-Terminal 3 — start normal consumer:
+Terminal 3 - start normal consumer:
 
 ```bash
 npx ts-node-dev --transpile-only examples/15-dlq-redrive/consumer.normal.ts
 ```
 
-Terminal 4 — dry run redrive:
+Terminal 4 - dry run redrive:
 
 ```bash
 npx ts-node-dev --transpile-only examples/15-dlq-redrive/redrive.ts --dry-run
@@ -78,7 +78,7 @@ Expected dry run result:
 "attempted": 0
 ```
 
-Terminal 4 — actual redrive:
+Terminal 4 - actual redrive:
 
 ```bash
 npx ts-node-dev --transpile-only examples/15-dlq-redrive/redrive.ts
