@@ -118,6 +118,7 @@ export function mergeInternalCfg(
     publisherConfirms:
       exchangeConfig.publisherConfirms ?? defaultCfg.publisherConfirms,
     queueArgs: exchangeConfig.queueArgs ?? defaultCfg.queueArgs,
+    topologyMode: exchangeConfig.topologyMode ?? defaultCfg.topologyMode,
     maxMessageBytes: exchangeConfig.maxMessageBytes ?? defaultCfg.maxMessageBytes,
     passiveQueue: exchangeConfig.passiveQueue ?? defaultCfg.passiveQueue,
     deadLetter: exchangeConfig.deadLetter ?? defaultCfg.deadLetter,
