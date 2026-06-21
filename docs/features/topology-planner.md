@@ -1,16 +1,18 @@
 # Topology Planner
 
-Topology planner returns the RabbitMQ topology Rabbit Relay intends to declare.
+Topology planner returns the RabbitMQ topology Rabbit Relay knows about.
 
-It is read-only and does not contact RabbitMQ.
+It is read-only.
+
+It does not contact RabbitMQ.
+
+It does not declare or modify RabbitMQ resources.
 
 ---
 
 ## Basic usage
 
 ```ts
-const broker = new RabbitMQBroker("orders-service");
-
 const sub = await broker
   .queue("orders.q")
   .exchange("orders.ex", {
@@ -18,8 +20,9 @@ const sub = await broker
     routingKey: "orders.*",
   });
 
-console.log(sub.planTopology());
-console.log(broker.planTopology());
+const plan = sub.planTopology();
+
+console.log(plan);
 ```
 
 ---
@@ -34,38 +37,70 @@ type TopologyPlan = {
 };
 ```
 
-Example:
+Example output:
 
-```json
+```ts
 {
-  "exchanges": [
+  exchanges: [
     {
-      "name": "orders.ex",
-      "type": "topic",
-      "durable": true
-    }
+      name: "orders.ex",
+      type: "topic",
+      durable: true,
+    },
   ],
-  "queues": [
+  queues: [
     {
-      "name": "orders.q",
-      "durable": true
-    }
+      name: "orders.q",
+      durable: true,
+    },
   ],
-  "bindings": [
+  bindings: [
     {
-      "queue": "orders.q",
-      "exchange": "orders.ex",
-      "routingKey": "orders.*"
-    }
-  ]
+      queue: "orders.q",
+      exchange: "orders.ex",
+      routingKey: "orders.*",
+    },
+  ],
 }
 ```
 
 ---
 
-## DLQ topology
+## Topology mode and planning
 
-If you use the `deadLetter` helper, the plan includes DLX/DLQ topology.
+`planTopology()` is always read-only.
+
+`topologyMode` controls what happens during `.exchange(...)`.
+
+| Mode | `planTopology()` | RabbitMQ topology changes |
+|---|---:|---:|
+| `"assert"` | ✅ | ✅ |
+| `"passive"` | ✅ | ❌ |
+| `"plan-only"` | ✅ | ❌ |
+
+By default, `.exchange(...)` asserts topology because the default `topologyMode` is `"assert"`.
+
+If you set `topologyMode: "plan-only"`, Rabbit Relay still records the plan but skips topology setup calls.
+
+```ts
+const sub = await broker
+  .queue("orders.q")
+  .exchange("orders.ex", {
+    exchangeType: "topic",
+    routingKey: "orders.*",
+    topologyMode: "plan-only",
+  });
+
+console.log(sub.planTopology());
+```
+
+See [Topology Modes](/features/topology-modes).
+
+---
+
+## Planning dead-letter topology
+
+If you configure dead-letter topology, the plan includes it.
 
 ```ts
 const sub = await broker
@@ -123,17 +158,26 @@ Topology planner helps with:
 - debugging
 - DevOps reviews
 - comparing app-declared topology with infrastructure
-- future validation workflows
+- generating expected topology output
 
 ---
 
-## Important note
-
-Calling `.exchange(...)` still asserts topology as usual.
+## Planner vs validation
 
 `planTopology()` only returns the topology data Rabbit Relay already knows.
 
 For passive checks against RabbitMQ, use [Topology Validation](/features/topology-validation).
+
+For topology ownership behavior, use [Topology Modes](/features/topology-modes).
+
+---
+
+## Important notes
+
+- `planTopology()` does not require a RabbitMQ connection
+- `planTopology()` does not create resources
+- plans include bindings, even though AMQP passive binding validation is limited
+- use `topologyMode: "plan-only"` for CI/docs/review workflows
 
 ---
 
@@ -141,5 +185,6 @@ For passive checks against RabbitMQ, use [Topology Validation](/features/topolog
 
 - `planTopology()` is read-only
 - No RabbitMQ changes are made by the planner
-- Plans include exchanges, queues, and bindings
+- Plans include exchanges, queues, bindings, and configured DLQ topology
+- `topologyMode` controls whether `.exchange(...)` asserts, validates, or only plans
 - Useful for DevOps and production reviews

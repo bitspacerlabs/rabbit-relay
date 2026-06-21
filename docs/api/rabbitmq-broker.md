@@ -1,86 +1,189 @@
 # RabbitMQBroker
 
-`RabbitMQBroker` is the main entry point for publishing and consuming events.
+`RabbitMQBroker` is the main entry point for Rabbit Relay.
 
-It owns RabbitMQ connection handling, topology declaration, publishing, consuming, reconnect behavior, shutdown, health checks, lifecycle hooks, topology inspection, topology validation, and DLQ redrive.
+It creates queue/exchange interfaces, publishes events, consumes events, exposes lifecycle hooks, and provides operational helpers such as health checks, topology planning, topology validation, and DLQ redrive.
 
 ---
 
 ## Creating a broker
 
 ```ts
-const broker = new RabbitMQBroker("payments_service");
+import { RabbitMQBroker } from "@bitspacerlabs/rabbit-relay";
+
+const broker = new RabbitMQBroker("orders-service");
 ```
 
-The peer name identifies this broker in Rabbit Relay health output and lifecycle events.
+The first argument is the peer/service name. It is used in lifecycle events, health output, and operational visibility.
 
-You can also set broker-level defaults:
+---
+
+## Broker configuration
 
 ```ts
-const broker = new RabbitMQBroker("orders_service", {
+const broker = new RabbitMQBroker("orders-service", {
   exchangeType: "topic",
+  routingKey: "#",
   durable: true,
-  publisherConfirms: true,
+  publisherConfirms: false,
+  topologyMode: "assert",
   maxMessageBytes: 256 * 1024,
 });
 ```
 
+Supported broker-level options are the same as exchange-level defaults.
+
+Exchange-level options override broker-level options.
+
 ---
 
-## Declaring topology
+## Creating a queue/exchange interface
 
 ```ts
-const pub = await broker
-  .queue("payments_queue")
-  .exchange("payments_exchange", {
+const sub = await broker
+  .queue("orders.q")
+  .exchange("orders.ex", {
     exchangeType: "topic",
+    routingKey: "orders.*",
   });
 ```
 
-This:
+This creates a broker interface bound to:
 
-- asserts the queue
-- asserts the exchange
-- binds the queue to the exchange
-- returns a typed broker interface
+- one queue
+- one exchange
+- one routing key pattern
+
+By default, Rabbit Relay asserts the exchange, queue, and binding.
 
 ---
 
 ## Exchange options
 
 ```ts
-{
-  exchangeType?: "topic" | "direct" | "fanout" | "headers";
-  routingKey?: string;
-  durable?: boolean;
-  publisherConfirms?: boolean;
-  passiveQueue?: boolean;
-  queueArgs?: Record<string, unknown>;
-  maxMessageBytes?: number;
-  deadLetter?: DeadLetterConfig;
-  amqp?: {
-    exchange?: Options.AssertExchange;
-    queue?: Options.AssertQueue;
-    bind?: Record<string, unknown>;
-  };
-}
+const sub = await broker
+  .queue("orders.q")
+  .exchange("orders.ex", {
+    exchangeType: "topic",
+    routingKey: "orders.*",
+    durable: true,
+    publisherConfirms: true,
+    topologyMode: "assert",
+    passiveQueue: false,
+    maxMessageBytes: 256 * 1024,
+    queueArgs: {
+      "x-queue-type": "quorum",
+    },
+    deadLetter: {
+      exchange: "orders.dlx",
+      queue: "orders.dlq",
+      routingKey: "orders.dead",
+      autoDeclare: true,
+    },
+    amqp: {
+      exchange: {},
+      queue: {},
+      bind: {},
+    },
+  });
 ```
+
+| Option | Description |
+|---|---|
+| `exchangeType` | RabbitMQ exchange type: `topic`, `direct`, `fanout`, or `headers` |
+| `routingKey` | Binding routing key. Defaults to `#` |
+| `durable` | Whether declared exchange/queue should be durable. Defaults to `true` |
+| `publisherConfirms` | Use a confirm channel for publishing |
+| `topologyMode` | Controls topology behavior: `assert`, `passive`, or `plan-only` |
+| `passiveQueue` | Backward-compatible queue-only passive check |
+| `maxMessageBytes` | Maximum serialized event size |
+| `queueArgs` | Queue arguments passed to RabbitMQ |
+| `deadLetter` | Built-in dead-letter topology helper |
+| `amqp` | Native amqplib escape hatch options |
 
 ---
 
-## Publishing
+## Topology modes
 
-For normal publishing:
+`topologyMode` controls what Rabbit Relay does when `.exchange(...)` is called.
 
 ```ts
-await pub.produce(eventEnvelope);
+const sub = await broker
+  .queue("orders.q")
+  .exchange("orders.ex", {
+    exchangeType: "topic",
+    routingKey: "orders.*",
+    topologyMode: "passive",
+  });
 ```
 
-For per-message options:
+Supported values:
+
+| Mode | Behavior | Use when |
+|---|---|---|
+| `"assert"` | Declare exchange, queue, binding, configured DLQ topology, and delayed retry topology | the app owns RabbitMQ topology |
+| `"passive"` | Check required exchanges and queues exist without declaring them | infrastructure owns RabbitMQ topology |
+| `"plan-only"` | Build the topology plan but skip topology setup calls | CI/docs/DevOps review |
+
+Default:
 
 ```ts
-await pub.publish(eventEnvelope, {
-  maxMessageBytes: 64 * 1024,
+topologyMode: "assert"
+```
+
+Use `topologyMode: "passive"` for infrastructure-managed topology.
+
+Use `topologyMode: "plan-only"` when you want to inspect topology without creating RabbitMQ resources.
+
+See [Topology Modes](/features/topology-modes).
+
+---
+
+## passiveQueue compatibility
+
+`passiveQueue` is still supported for backward compatibility.
+
+```ts
+const sub = await broker
+  .queue("orders.q")
+  .exchange("orders.ex", {
+    passiveQueue: true,
+  });
+```
+
+`passiveQueue` only affects the main queue declaration behavior.
+
+For new infrastructure-managed deployments, prefer:
+
+```ts
+topologyMode: "passive"
+```
+
+This makes ownership clearer because it applies to topology behavior as a whole.
+
+---
+
+## Producing events
+
+```ts
+await sub.produce(orderCreated({ id: "o-1" }));
+```
+
+You can publish multiple events sequentially:
+
+```ts
+await sub.produceMany(
+  orderCreated({ id: "o-1" }),
+  orderCreated({ id: "o-2" })
+);
+```
+
+Use `publish()` when you need per-message options:
+
+```ts
+await sub.publish(orderCreated({ id: "o-1" }), {
+  routingKey: "orders.created",
+  maxMessageBytes: 256 * 1024,
   amqp: {
     publish: {
       persistent: true,
@@ -90,123 +193,98 @@ await pub.publish(eventEnvelope, {
 });
 ```
 
-Using factories:
-
-```ts
-const api = pub.with({ orderCreated });
-await api.orderCreated({ id: "o-1" });
-```
-
 ---
 
-## Typed RPC request
-
-Use `request<TReply>()` for request/reply flows.
+## Consuming events
 
 ```ts
-type ChargeReply = {
-  ok: boolean;
-  transactionId?: string;
-};
-
-const reply = await pub.request<ChargeReply>(
-  charge({
-    orderId: "o-1",
-    amount: 42,
-  }),
-  {
-    timeoutMs: 5000,
-  }
-);
-```
-
-The old `meta.expectsReply` style still works for backward compatibility.
-
----
-
-## Consuming
-
-```ts
-sub.handle("orderCreated", async (_id, ev) => {
-  console.log(ev.data);
+sub.handle("order.created", async (_id, event) => {
+  console.log(event.data);
 });
 
 await sub.consume({
-  prefetch: 50,
-  concurrency: 10,
+  prefetch: 10,
+  concurrency: 5,
 });
 ```
 
+Supported consume options include:
+
+| Option | Description |
+|---|---|
+| `prefetch` | Maximum unacknowledged messages |
+| `concurrency` | Maximum parallel handler executions |
+| `onError` | Error behavior: `ack`, `requeue`, `dead-letter`, or `retry` |
+| `retry` | Retry settings when `onError: "retry"` |
+| `dedupe` | Consumer-side duplicate suppression |
+| `amqp.consume` | Native amqplib consume options |
+
 ---
 
-## Consume options
+## Delayed retry topology
+
+When delayed retry is configured, Rabbit Relay may need retry exchanges and retry queues.
 
 ```ts
-type ConsumeOptions = {
-  prefetch?: number;
-  concurrency?: number;
-  requeueOnError?: boolean;
-  onError?: "ack" | "requeue" | "dead-letter" | "retry";
-  retry?: {
-    attempts: number;
-    delayMs?: number;
-    then?: "ack" | "requeue" | "dead-letter";
-  };
-  dedupe?: Dedupe | {
-    enabled?: boolean;
-    ttlMs?: number;
-    maxKeys?: number;
-    keyOf?: (event: unknown) => string | undefined;
-  };
-  amqp?: {
-    consume?: Options.Consume;
-  };
-};
+await sub.consume({
+  onError: "retry",
+  retry: {
+    attempts: 3,
+    delayMs: 5000,
+    then: "dead-letter",
+  },
+});
+```
+
+Delayed retry follows `topologyMode`:
+
+| Mode | Delayed retry behavior |
+|---|---|
+| `"assert"` | Declare retry exchange, retry queue, and binding |
+| `"passive"` | Check retry exchange and retry queue exist |
+| `"plan-only"` | Skip retry topology setup |
+
+---
+
+## RPC request
+
+Use `request()` when you want a typed reply.
+
+```ts
+const reply = await sub.request<{ ok: boolean }>(
+  orderCreated({ id: "o-1" }),
+  { timeoutMs: 5000 }
+);
 ```
 
 ---
 
-## Local middleware
-
-Use middleware for local, queue-specific processing behavior.
+## Middleware
 
 ```ts
 sub.use(async (ctx, next) => {
-  console.log("before", ctx.event.name);
+  console.log(ctx.queue, ctx.event.name);
   await next();
-  console.log("after", ctx.event.name);
 });
 ```
 
-Middleware wraps the handler for this broker interface only.
-
-It is different from plugins, which are process-global.
+Middleware wraps handler execution for one broker interface.
 
 ---
 
 ## Lifecycle hooks
 
-Lifecycle hooks expose operational events from the broker instance.
-
 ```ts
-broker.on("consumer.started", (event) => {
-  console.log(event.queue);
-});
-
-broker.on("retry.scheduled", (event) => {
-  console.log(event.retryCount, event.delayMs);
-});
-
-broker.on("publish.failed", (event) => {
-  console.error(event.error);
+sub.on("consumer.started", (event) => {
+  console.log(event.queue, event.prefetch, event.concurrency);
 });
 ```
 
-Returned broker interfaces also support `on(...)`.
+Broker-level hooks are also supported:
 
 ```ts
-sub.on("consumer.started", (event) => {
-  console.log(event.queue);
+broker.on("broker.closed", (event) => {
+  console.log(event.peerName);
 });
 ```
 
@@ -214,47 +292,49 @@ sub.on("consumer.started", (event) => {
 
 ## Topology planner
 
-`planTopology()` returns the topology Rabbit Relay intends to declare.
+`planTopology()` returns Rabbit Relay's known topology plan.
+
+It does not contact RabbitMQ.
 
 ```ts
-const plan = broker.planTopology();
-const subPlan = sub.planTopology();
+const plan = sub.planTopology();
 ```
 
-It is read-only and does not contact RabbitMQ.
+Broker-level plan:
+
+```ts
+const fullPlan = broker.planTopology();
+```
+
+See [Topology Planner](/features/topology-planner).
 
 ---
 
 ## Topology validation
 
-`validateTopology()` checks whether planned exchanges and queues exist using passive AMQP checks.
+`validateTopology()` checks planned exchanges and queues using passive AMQP checks.
+
+It does not declare or modify RabbitMQ resources.
 
 ```ts
-const result = await broker.validateTopology();
+const result = await sub.validateTopology();
 
 if (!result.valid) {
   console.error(result.issues);
 }
 ```
 
-Bindings are included in the plan but are not passively validated through `amqplib`.
+Broker-level validation:
+
+```ts
+const result = await broker.validateTopology();
+```
+
+See [Topology Validation](/features/topology-validation).
 
 ---
 
 ## DLQ redrive
-
-`redriveDlq()` moves messages from a DLQ back to a target exchange/routing key.
-
-```ts
-const result = await broker.redriveDlq({
-  fromQueue: "orders.dlq",
-  toExchange: "orders.ex",
-  routingKey: "orders.created",
-  limit: 100,
-});
-```
-
-Dry-run:
 
 ```ts
 const result = await broker.redriveDlq({
@@ -266,74 +346,48 @@ const result = await broker.redriveDlq({
 });
 ```
 
-Safety behavior:
-
-- bounded by `limit`
-- dry-run does not consume messages
-- original DLQ message is acknowledged only after successful republish
-- original DLQ message is requeued if republish fails
-- message body and AMQP properties are preserved
+The original DLQ message is acknowledged only after republish succeeds.
 
 ---
 
-## Raw channel access
-
-```ts
-await broker.withChannel(async (ch) => {
-  await ch.assertExchange("custom.ex", "headers", {
-    durable: true,
-  });
-});
-```
-
-You can also call `withChannel()` on the returned broker interface.
-
----
-
-## Health checks
+## Health
 
 ```ts
 const health = await broker.health();
 ```
 
-Health includes:
-
-- connection status
-- channel status
-- confirm channel status
-- reconnect status
-- registered consumers
-- prefetch/concurrency state
-- retry configuration
+Health includes connection/channel state and consumer state.
 
 ---
 
-## Graceful shutdown
+## withChannel escape hatch
+
+Use `withChannel()` for advanced amqplib operations.
 
 ```ts
-await broker.close();
-```
-
-Use it during process shutdown:
-
-```ts
-process.on("SIGTERM", async () => {
-  await broker.close();
-  process.exit(0);
+await broker.withChannel(async (channel) => {
+  const info = await channel.checkQueue("orders.q");
+  console.log(info.messageCount);
 });
 ```
 
 ---
 
-## Notes
+## Close
 
-- Reconnects are automatic
-- Delivery is at-least-once
-- Handlers should be idempotent
-- `broker.close()` closes the shared Rabbit Relay connection in the current process
+```ts
+await broker.close();
+```
+
+This stops active consumers, closes Rabbit Relay resources, and clears lifecycle hooks.
 
 ---
 
 ## Summary
 
-`RabbitMQBroker` exposes a small, explicit API aligned with RabbitMQ semantics while still allowing advanced `amqplib` access when needed.
+- `RabbitMQBroker` is the main runtime API
+- `.queue(...).exchange(...)` creates a typed broker interface
+- `topologyMode` controls topology ownership behavior
+- `planTopology()` is read-only
+- `validateTopology()` is passive and non-mutating
+- `redriveDlq()` safely republishs DLQ messages
