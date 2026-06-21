@@ -4,6 +4,7 @@ import {
   ExchangeConfig,
   InternalCfg,
   QueueConfig,
+  TopologyMode,
 } from "./types";
 import {
   TopologyBindingPlan,
@@ -56,6 +57,21 @@ function omitKeys<T extends Record<string, unknown>>(
   }
 
   return Object.keys(clean).length > 0 ? clean : undefined;
+}
+
+export function resolveTopologyMode(
+  mode: TopologyMode | undefined
+): TopologyMode {
+  if (mode == null) return "assert";
+
+  if (mode === "assert" || mode === "passive" || mode === "plan-only") {
+    return mode;
+  }
+
+  throw new Error(
+    `[broker] invalid topologyMode '${String(mode)}'. ` +
+      `Expected one of: "assert", "passive", "plan-only".`
+  );
 }
 
 function buildDeadLetterQueueArguments(
@@ -118,7 +134,9 @@ export function mergeInternalCfg(
     publisherConfirms:
       exchangeConfig.publisherConfirms ?? defaultCfg.publisherConfirms,
     queueArgs: exchangeConfig.queueArgs ?? defaultCfg.queueArgs,
-    topologyMode: exchangeConfig.topologyMode ?? defaultCfg.topologyMode,
+    topologyMode: resolveTopologyMode(
+      exchangeConfig.topologyMode ?? defaultCfg.topologyMode
+    ),
     maxMessageBytes: exchangeConfig.maxMessageBytes ?? defaultCfg.maxMessageBytes,
     passiveQueue: exchangeConfig.passiveQueue ?? defaultCfg.passiveQueue,
     deadLetter: exchangeConfig.deadLetter ?? defaultCfg.deadLetter,

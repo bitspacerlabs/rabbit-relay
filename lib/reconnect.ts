@@ -2,8 +2,8 @@ import { Channel } from "amqplib";
 import { getRabbitMQChannel } from "./config";
 
 export class ReconnectController {
-  /** The current live channel promise (replaced after reconnect). */
-  private channelPromise!: Promise<Channel>;
+  /** The current live channel promise (created lazily and replaced after reconnect). */
+  private channelPromise: Promise<Channel> | null = null;
 
   /** Reconnect state */
   private reconnecting = false;
@@ -50,12 +50,17 @@ export class ReconnectController {
       throw new Error("RabbitMQ broker is closed");
     }
 
-    return this.channelPromise;
+    if (!this.channelPromise) {
+      await this.initChannel();
+    }
+
+    return this.channelPromise!;
   }
 
   public close() {
     this.closed = true;
     this.reconnecting = false;
+    this.channelPromise = null;
     this.onReconnectCbs = [];
   }
 
@@ -72,7 +77,7 @@ export class ReconnectController {
         if (this.closed) return;
 
         await this.initChannel();
-        const ch = await this.channelPromise;
+        const ch = await this.channelPromise!;
 
         this.backoffMs = 500;
         this.reconnecting = false;
@@ -87,6 +92,8 @@ export class ReconnectController {
 
         return;
       } catch {
+        this.channelPromise = null;
+
         this.backoffMs = Math.min(
           this.maxBackoffMs,
           Math.floor(this.backoffMs * 1.7 + Math.random() * 100)

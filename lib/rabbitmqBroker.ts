@@ -16,6 +16,7 @@ import {
   createAssertTopology,
   createTopologyPlan,
   mergeInternalCfg,
+  resolveTopologyMode,
 } from "./topology";
 import { createConsumer } from "./consumer";
 import { createPublisher } from "./publisher";
@@ -96,7 +97,7 @@ export class RabbitMQBroker {
       durable: config.durable ?? true,
       publisherConfirms: config.publisherConfirms ?? false,
       queueArgs: config.queueArgs,
-      topologyMode: config.topologyMode ?? "assert",
+      topologyMode: resolveTopologyMode(config.topologyMode),
       maxMessageBytes: config.maxMessageBytes,
       passiveQueue: config.passiveQueue ?? false,
       deadLetter: config.deadLetter,
@@ -110,8 +111,6 @@ export class RabbitMQBroker {
         peerName: this.peerName,
       });
     });
-
-    void this.reconnect.initChannel();
   }
 
   public on<K extends LifecycleEventName>(
@@ -275,6 +274,7 @@ export class RabbitMQBroker {
       peerName: this.peerName,
       queueName,
       exchangeName,
+      topologyMode: cfg.topologyMode,
       handlers,
       middlewares,
       emitLifecycle: (eventName, event) =>
