@@ -23,6 +23,7 @@ export default defineConfig({
 
     nav: [
       { text: 'Guide', link: '/guide/quickstart' },
+      { text: 'Learn RabbitMQ', link: '/learn/rabbitmq-basics' },
       { text: 'Features', link: '/features/typed-events' },
       { text: 'Examples', link: '/examples/basics' },
       { text: 'API', link: '/api/rabbitmq-broker' },
@@ -36,6 +37,16 @@ export default defineConfig({
           { text: 'What is Rabbit Relay?', link: '/guide/what-is-rabbit-relay' },
           { text: 'Quickstart', link: '/guide/quickstart' },
           { text: 'Configuration', link: '/guide/configuration' },
+        ],
+      },
+      {
+        text: 'Learn RabbitMQ',
+        items: [
+          { text: 'RabbitMQ Basics', link: '/learn/rabbitmq-basics' },
+          { text: 'Exchanges, Queues, Bindings', link: '/learn/exchanges-queues-bindings' },
+          { text: 'Acknowledgements', link: '/learn/acknowledgements' },
+          { text: 'Retry, DLQ, and Redrive', link: '/learn/retry-dlq-redrive' },
+          { text: 'Topology Ownership', link: '/learn/topology-ownership' },
         ],
       },
       {
@@ -109,6 +120,14 @@ export default defineConfig({
           { text: 'RabbitMQBroker', link: '/api/rabbitmq-broker' },
           { text: 'EventEnvelope', link: '/api/event-envelope' },
           { text: 'PluginManager', link: '/api/plugin-manager' },
+        ],
+      },
+      {
+        text: 'AI & Agents',
+        items: [
+          { text: 'Agent Guide', link: '/ai/agent-guide' },
+          { text: 'Common Recipes', link: '/ai/common-recipes' },
+          { text: 'Decision Guide', link: '/ai/decision-guide' },
         ],
       },
     ],
