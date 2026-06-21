@@ -1,6 +1,8 @@
 # Consumer De-duplication – Basics
 
-**What it shows:** consumer-side de-duplication using the Phase 2 `consume({ dedupe })` option.
+**What it shows:** consumer-side de-duplication using `consume({ dedupe })`.
+
+De-duplication is useful when the same event may be delivered more than once and the consumer should process it only once within a time window.
 
 ---
 

@@ -1,6 +1,6 @@
 # Topology Validation
 
-This example demonstrates Rabbit Relay topology validation mode.
+This example demonstrates Rabbit Relay topology validation.
 
 Topology validation checks whether the planned RabbitMQ exchanges and queues exist.
 
@@ -109,6 +109,36 @@ Blocking issues include:
 
 ---
 
+## Relationship with topology modes
+
+`.exchange(...)` uses `topologyMode: "assert"` by default, so it declares topology.
+
+Use `topologyMode: "passive"` when RabbitMQ topology is created by infrastructure and the app should fail fast if resources are missing.
+
+```ts
+const sub = await broker
+  .queue("orders.q")
+  .exchange("orders.ex", {
+    exchangeType: "topic",
+    routingKey: "orders.*",
+    topologyMode: "passive",
+  });
+```
+
+Use `topologyMode: "plan-only"` when you only want to build or print the topology plan without making topology setup calls.
+
+```ts
+const broker = new RabbitMQBroker("topology-review", {
+  topologyMode: "plan-only",
+});
+```
+
+Use `validateTopology()` when you want an explicit validation result object.
+
+Use `topologyMode: "passive"` when you want startup to fail if required topology is missing.
+
+---
+
 ## Notes
 
 This feature is useful when RabbitMQ topology is managed outside the application, for example by:
@@ -119,6 +149,4 @@ This feature is useful when RabbitMQ topology is managed outside the application
 - DevOps setup scripts
 - manual infrastructure setup
 
-Topology validation is the safe mode.
-
-Topology assertion is still done by the normal `.exchange(...)` flow unless you intentionally use `passiveQueue` or future dry-run APIs.
+Topology validation is safe because it checks existing topology without modifying it.

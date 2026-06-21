@@ -14,9 +14,12 @@ function printPlan(title: string, plan: TopologyPlan) {
 }
 
 (async () => {
+  // plan-only means this example can build the topology plan without
+  // declaring exchanges, queues, or bindings in RabbitMQ.
   const broker = new RabbitMQBroker("topology-planner.demo", {
     exchangeType: "topic",
     durable: true,
+    topologyMode: "plan-only",
   });
 
   const orders = await broker
