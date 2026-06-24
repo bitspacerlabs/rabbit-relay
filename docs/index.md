@@ -67,25 +67,3 @@ features:
       alt: Native AMQP access
     title: Native AMQP Access
     details: Pass amqplib options or access the raw channel when you need advanced RabbitMQ control.
----
-
-## Example
-
-```ts
-import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
-
-const broker = new RabbitMQBroker("payments-service");
-
-const chargeRequested = event("payments.charge.requested", "v1").of<{
-  orderId: string;
-  amount: number;
-}>();
-
-const publisher = await broker
-  .queue("payments_queue")
-  .exchange("payments", { exchangeType: "topic" });
-
-await publisher.produce(
-  chargeRequested({ orderId: "ORD-1", amount: 99.5 })
-);
-````
