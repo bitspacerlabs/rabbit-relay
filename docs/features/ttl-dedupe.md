@@ -4,8 +4,8 @@ TTL de‑duplication is a consumer-side safeguard that helps suppress duplicate 
 
 Rabbit Relay supports de-duplication in two ways:
 
-1. `consume({ dedupe })` — recommended for most consumers
-2. `makeMemoryDedupe()` — lower-level helper for manual control
+1. `consume({ dedupe })` - recommended for most consumers
+2. `makeMemoryDedupe()` - lower-level helper for manual control
 
 ---
 

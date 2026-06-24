@@ -1,7 +1,12 @@
 import { Channel, ConsumeMessage, Options } from "amqplib";
 import { pluginManager } from "./pluginManager";
 import { EventEnvelope } from "./eventFactories";
-import { ConsumeMiddleware, ConsumeMiddlewareContext, ConsumeOptions } from "./types";
+import {
+  ConsumeMiddleware,
+  ConsumeMiddlewareContext,
+  ConsumeOptions,
+  TopologyMode,
+} from "./types";
 import { publishWithBackpressure } from "./backpressure";
 import { Dedupe, DedupeOpts, makeMemoryDedupe } from "./utils/dedupe";
 import { LifecycleEmit } from "./lifecycle";
@@ -28,6 +33,7 @@ export function createConsumer(params: {
   peerName: string;
   queueName: string;
   exchangeName: string;
+  topologyMode: TopologyMode;
   handlers: HandlerMap;
   middlewares: ConsumeMiddleware[];
   emitLifecycle: LifecycleEmit;
@@ -36,6 +42,7 @@ export function createConsumer(params: {
     peerName,
     queueName,
     exchangeName,
+    topologyMode,
     handlers,
     middlewares,
     emitLifecycle,
@@ -208,6 +215,24 @@ export function createConsumer(params: {
 
     const retryExchange = getRetryExchangeName();
     const retryQueue = getRetryQueueName();
+
+    if (topologyMode === "plan-only") {
+      return;
+    }
+
+    if (topologyMode === "passive") {
+      try {
+        await ch.checkExchange(retryExchange);
+        await ch.checkQueue(retryQueue);
+      } catch (err) {
+        throw new Error(
+          `[broker] topologyMode='passive' delayed retry topology check failed for ` +
+            `'${retryExchange}' / '${retryQueue}': ${getErrorMessage(err)}`
+        );
+      }
+
+      return;
+    }
 
     await ch.assertExchange(retryExchange, "topic", {
       durable: true,

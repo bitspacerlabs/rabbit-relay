@@ -1,6 +1,6 @@
 # Backpressure
 
-This example demonstrates backpressure — what happens when publishers
+This example demonstrates backpressure - what happens when publishers
 produce messages faster than consumers can process them.
 
 It makes system pressure visible and shows how RabbitMQ remains stable under load.

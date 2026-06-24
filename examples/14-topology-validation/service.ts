@@ -32,6 +32,8 @@ function printValidation(title: string, result: TopologyValidationResult) {
     durable: true,
   });
 
+  // This example intentionally uses assert mode first so it can create the
+  // resources locally, then validate the resulting topology passively.
   const sub = await broker
     .queue("validation.orders.q", {
       amqp: {

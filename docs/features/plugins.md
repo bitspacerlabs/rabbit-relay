@@ -1,6 +1,6 @@
 # Plugins
 
-Plugins let you add **cross‑cutting behavior**—logging, metrics, tracing, headers, guards—without touching business logic.
+Plugins let you add **cross‑cutting behavior**-logging, metrics, tracing, headers, guards-without touching business logic.
 
 They are small async hooks that run at **well‑defined points** during publishing and consuming.
 

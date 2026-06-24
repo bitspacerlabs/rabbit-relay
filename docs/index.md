@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: "Rabbit Relay"
-  text: "Type-safe messaging for RabbitMQ in Node.js"
-  tagline: "Fast. Typed. Resilient. Observable."
+  text: "Type-safe RabbitMQ messaging for Node.js"
+  tagline: "Build reliable event-driven services with typed events, resilient delivery, and production-ready messaging patterns."
   image:
     src: rabbit-relay.svg
     alt: "Rabbit Relay Logo"
@@ -20,56 +20,51 @@ hero:
       link: https://github.com/bitspacerlabs/rabbit-relay
 
 features:
-  - icon: 🧠
-    title: Simple, Typed API
-    details: Publish and consume strongly typed events with full TypeScript safety.
+  - icon:
+      src: /icons/blocks.svg
+      alt: Type-safe events
+    title: Type-Safe Events
+    details: Define events once and publish or consume them with full TypeScript inference.
 
-  - icon: 🛡️
-    title: Publisher Confirms
-    details: Wait for broker acknowledgements when critical messages must be accepted by RabbitMQ.
+  - icon:
+      src: /icons/shield-check.svg
+      alt: Reliable publishing
+    title: Reliable Publishing
+    details: Use publisher confirms to make sure important messages are accepted by RabbitMQ.
 
-  - icon: 🔁
+  - icon:
+      src: /icons/repeat-2.svg
+      alt: Built-in RPC
     title: Built-in RPC
-    details: Request–reply messaging with correlation IDs, reply queues, and timeouts handled.
+    details: Request–reply messaging with correlation IDs, reply queues, and timeouts handled for you.
 
-  - icon: 🚦
-    title: Backpressure & Concurrency
-    details: Control channel pressure with prefetch and protect services with real handler concurrency.
+  - icon:
+      src: /icons/gauge.svg
+      alt: Backpressure control
+    title: Backpressure Control
+    details: Protect your services with prefetch, controlled concurrency, and safe message handling.
 
-  - icon: 🚨
-    title: Retry & Dead-Letter Queues
-    details: Use bounded retries, delayed retry, DLQs, and redrive helpers for predictable failure handling.
+  - icon:
+      src: /icons/refresh-cw-off.svg
+      alt: Retries and dead-letter queues
+    title: Retries & DLQs
+    details: Add bounded retries, delayed retry queues, dead-letter queues, and redrive flows.
 
-  - icon: 🔄
+  - icon:
+      src: /icons/plug-zap.svg
+      alt: Auto reconnect
     title: Auto Reconnect
-    details: Restore channels, topology, bindings, and consumers after temporary outages.
+    details: Recover connections, channels, topology, bindings, and consumers after temporary outages.
 
-  - icon: 🧭
-    title: Operations Visibility
-    details: Use lifecycle hooks, OpenTelemetry adapter, topology planning, validation, and health checks.
+  - icon:
+      src: /icons/radar.svg
+      alt: Observability
+    title: Observability Ready
+    details: Add lifecycle hooks, health checks, topology validation, and OpenTelemetry integration.
 
-  - icon: 🧰
-    title: amqplib Escape Hatch
-    details: Pass native AMQP options or access the raw channel when advanced RabbitMQ features are needed.
+  - icon:
+      src: /icons/wrench.svg
+      alt: Native AMQP access
+    title: Native AMQP Access
+    details: Pass amqplib options or access the raw channel when you need advanced RabbitMQ control.
 ---
-
-## Example
-
-```ts
-import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
-
-const broker = new RabbitMQBroker("payments-service");
-
-const charge = event("payments.charge", "v1").of<{
-  orderId: string;
-  amount: number;
-}>();
-
-const pub = await broker
-  .queue("payments_queue")
-  .exchange("payments", { exchangeType: "topic" });
-
-await pub.produce(
-  charge({ orderId: "ORD-1", amount: 99.5 })
-);
-```

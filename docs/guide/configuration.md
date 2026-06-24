@@ -1,22 +1,26 @@
 # Configuration
 
-Rabbit Relay uses sensible defaults and a small set of configuration options.
+Rabbit Relay keeps configuration explicit and close to RabbitMQ concepts.
 
-Most applications only need to set a broker URL and then tune publishing, consuming, and operations features per use case.
+You configure defaults on the broker, then override them per queue/exchange interface when needed.
 
 ---
 
-## Environment variables
+## RabbitMQ connection URL
 
-### `RABBITMQ_URL`
-
-RabbitMQ connection URL.
+Rabbit Relay reads the RabbitMQ connection URL from:
 
 ```bash
-export RABBITMQ_URL=amqp://user:password@localhost
+RABBITMQ_URL
 ```
 
-Default:
+Example:
+
+```bash
+RABBITMQ_URL=amqp://user:password@localhost:5672
+```
+
+If not set, Rabbit Relay uses:
 
 ```text
 amqp://user:password@localhost
@@ -24,36 +28,26 @@ amqp://user:password@localhost
 
 ---
 
-### `AMQP_CONN_NAME`
-
-Optional human-readable connection name shown in RabbitMQ Management UI.
-
-```bash
-export AMQP_CONN_NAME=app:orders-service
-```
-
-If not set, Rabbit Relay generates a name from the process title, hostname, and process ID.
-
----
-
-## Broker-level options
-
-Broker defaults are passed to the constructor.
+## Broker-level defaults
 
 ```ts
+import { RabbitMQBroker } from "@bitspacerlabs/rabbit-relay";
+
 const broker = new RabbitMQBroker("orders-service", {
   exchangeType: "topic",
+  routingKey: "#",
   durable: true,
   publisherConfirms: false,
+  topologyMode: "assert",
   maxMessageBytes: 256 * 1024,
 });
 ```
 
-These defaults can be overridden when declaring an exchange or publishing a message.
+These options become defaults for broker interfaces created from this broker.
 
 ---
 
-## Topology options
+## Exchange-level overrides
 
 ```ts
 const sub = await broker
@@ -61,162 +55,159 @@ const sub = await broker
   .exchange("orders.ex", {
     exchangeType: "topic",
     routingKey: "orders.*",
-    durable: true,
+    publisherConfirms: true,
+    topologyMode: "passive",
   });
 ```
 
-Common options:
+Exchange-level options override broker-level defaults.
 
-| Option | Description |
+---
+
+## Common topology options
+
+| Option | Description | Default |
+|---|---|---|
+| `exchangeType` | RabbitMQ exchange type | `"topic"` |
+| `routingKey` | Binding routing key | `"#"` |
+| `durable` | Durable exchange/queue declaration | `true` |
+| `publisherConfirms` | Use confirm channel for publishing | `false` |
+| `topologyMode` | Assert, passively check, or only plan topology | `"assert"` |
+| `passiveQueue` | Backward-compatible queue-only passive check | `false` |
+| `queueArgs` | RabbitMQ queue arguments | `undefined` |
+| `maxMessageBytes` | Maximum serialized event size | `undefined` |
+| `deadLetter` | Built-in DLQ helper | `undefined` |
+| `amqp` | Native amqplib options | `undefined` |
+
+---
+
+## Topology ownership mode
+
+Use `topologyMode` to decide who owns RabbitMQ topology.
+
+```ts
+const broker = new RabbitMQBroker("orders-service", {
+  topologyMode: "passive",
+});
+```
+
+Supported values:
+
+| Mode | Use when |
 |---|---|
-| `exchangeType` | `topic`, `direct`, `fanout`, or `headers` |
-| `routingKey` | Binding key used between queue and exchange |
-| `durable` | Whether queue/exchange should survive broker restarts |
-| `publisherConfirms` | Whether publishes wait for broker confirmation |
-| `passiveQueue` | Check queue exists instead of declaring it |
-| `queueArgs` | RabbitMQ queue arguments |
-| `maxMessageBytes` | Maximum serialized event size |
-| `deadLetter` | Built-in DLQ helper |
-| `amqp` | Native `amqplib` passthrough options |
+| `"assert"` | Rabbit Relay should declare topology |
+| `"passive"` | Terraform, Helm, RabbitMQ definitions, or DevOps creates topology |
+| `"plan-only"` | CI/docs should inspect topology without setup calls |
+
+Default:
+
+```ts
+topologyMode: "assert"
+```
+
+For new infrastructure-managed deployments, prefer:
+
+```ts
+topologyMode: "passive"
+```
+
+over:
+
+```ts
+passiveQueue: true
+```
+
+`passiveQueue` remains supported, but it only controls the main queue declaration behavior.
 
 ---
 
-## Consumer tuning
+## App-owned topology
+
+Use the default mode when the application owns topology.
 
 ```ts
-await sub.consume({
-  prefetch: 50,
-  concurrency: 10,
+const broker = new RabbitMQBroker("orders-service", {
+  topologyMode: "assert",
 });
 ```
 
-### `prefetch`
+Rabbit Relay declares:
 
-Maximum number of unacknowledged messages RabbitMQ can deliver.
-
-### `concurrency`
-
-Maximum number of handlers Rabbit Relay runs in parallel.
-
-Use both together to protect:
-
-- database pools
-- APIs
-- CPU
-- memory
+- exchange
+- queue
+- binding
+- configured DLQ topology
+- delayed retry topology when used
 
 ---
 
-## Consumer de-duplication
+## Infrastructure-owned topology
+
+Use passive mode when topology is created before the app starts.
 
 ```ts
-await sub.consume({
-  dedupe: {
-    enabled: true,
-    ttlMs: 60_000,
-    maxKeys: 100_000,
-  },
+const broker = new RabbitMQBroker("orders-service", {
+  topologyMode: "passive",
 });
 ```
 
-Duplicate messages are acknowledged and skipped.
+Rabbit Relay checks that required exchanges and queues exist.
+
+It does not declare or bind topology.
+
+If required topology is missing, startup fails early.
 
 ---
 
-## Error handling policy
+## CI / review topology mode
+
+Use plan-only mode when you want Rabbit Relay to build a topology plan without RabbitMQ topology setup calls.
 
 ```ts
-await sub.consume({
-  onError: "ack" | "requeue" | "dead-letter" | "retry",
+const broker = new RabbitMQBroker("orders-service", {
+  topologyMode: "plan-only",
 });
-```
 
-Recommended production pattern:
-
-```ts
-await sub.consume({
-  prefetch: 20,
-  concurrency: 5,
-  onError: "retry",
-  retry: {
-    attempts: 3,
-    delayMs: 5000,
-    then: "dead-letter",
-  },
-});
-```
-
-If `delayMs` is omitted, retries are immediate. If `delayMs` is provided, Rabbit Relay uses RabbitMQ-native delayed retry queues.
-
----
-
-## Dead-letter queues
-
-```ts
 const sub = await broker
   .queue("orders.q")
   .exchange("orders.ex", {
     exchangeType: "topic",
     routingKey: "orders.*",
-    deadLetter: {
-      exchange: "orders.dlx",
-      queue: "orders.dlq",
-      routingKey: "orders.dead",
-      autoDeclare: true,
-    },
   });
+
+console.log(broker.planTopology());
 ```
+
+This is useful for:
+
+- CI checks
+- DevOps review
+- docs generation
+- comparing code topology with infrastructure topology
 
 ---
 
-## Operations options
+## Publisher confirms
 
-Lifecycle hooks are local to a broker instance.
+Publisher confirms are disabled by default.
 
-```ts
-broker.on("consumer.started", (event) => {
-  console.log(event.queue);
-});
-```
-
-OpenTelemetry adapter accepts a tracer from your application.
+Enable them when the publisher must know that RabbitMQ accepted the message.
 
 ```ts
-attachOpenTelemetry(broker, {
-  tracer: trace.getTracer("rabbit-relay"),
-  serviceName: "orders-service",
-});
+const pub = await broker
+  .queue("orders.q")
+  .exchange("orders.ex", {
+    publisherConfirms: true,
+  });
 ```
 
-Topology planner is read-only:
-
-```ts
-const plan = broker.planTopology();
-```
-
-Topology validation uses passive AMQP checks:
-
-```ts
-const result = await broker.validateTopology();
-```
-
-DLQ redrive is bounded and safe:
-
-```ts
-const result = await broker.redriveDlq({
-  fromQueue: "orders.dlq",
-  toExchange: "orders.ex",
-  routingKey: "orders.created",
-  limit: 100,
-  dryRun: true,
-});
-```
+See [Publisher Confirms](/features/publisher-confirms).
 
 ---
 
 ## Message size guard
 
-Set a max serialized message size:
+Use `maxMessageBytes` to fail fast when an event payload is too large.
 
 ```ts
 const broker = new RabbitMQBroker("orders-service", {
@@ -227,62 +218,79 @@ const broker = new RabbitMQBroker("orders-service", {
 Override per publish:
 
 ```ts
-await pub.publish(orderCreated(data), {
+await sub.publish(eventEnvelope, {
   maxMessageBytes: 64 * 1024,
 });
 ```
 
+See [Message Size Guard](/features/message-size-guard).
+
 ---
 
-## Native amqplib passthrough
+## Dead-letter configuration
 
 ```ts
-await broker
-  .queue("orders.q", {
+const sub = await broker
+  .queue("orders.q")
+  .exchange("orders.ex", {
+    deadLetter: {
+      exchange: "orders.dlx",
+      queue: "orders.dlq",
+      routingKey: "orders.dead",
+      autoDeclare: true,
+    },
+  });
+```
+
+When `autoDeclare: true`, Rabbit Relay includes DLQ topology in assertion and planning behavior.
+
+With `topologyMode: "passive"`, Rabbit Relay checks the configured DLX/DLQ exist instead of declaring them.
+
+With `topologyMode: "plan-only"`, Rabbit Relay records them in the topology plan without setup calls.
+
+---
+
+## Native amqplib options
+
+Use `amqp` when you need RabbitMQ-specific options not directly modeled by Rabbit Relay.
+
+```ts
+const sub = await broker
+  .queue("orders.q")
+  .exchange("orders.ex", {
     amqp: {
       queue: {
         arguments: {
           "x-queue-type": "quorum",
         },
       },
-    },
-  })
-  .exchange("orders.ex", {
-    exchangeType: "topic",
-    amqp: {
-      exchange: {
-        alternateExchange: "orders.alt",
+      publish: {
+        persistent: true,
       },
     },
   });
 ```
 
----
-
-## Health and shutdown
-
-```ts
-const health = await broker.health();
-```
-
-```ts
-process.on("SIGTERM", async () => {
-  await broker.close();
-  process.exit(0);
-});
-```
+See [amqplib Escape Hatch](/features/amqplib-escape-hatch).
 
 ---
 
-## Notes and best practices
+## Recommended environment setup
 
-- RabbitMQ bindings are persistent
-- Queue arguments are immutable
-- Tune `prefetch` and `concurrency` together
-- Use retries with DLQs instead of infinite requeue loops
-- Use delayed retry for dependencies that may be temporarily unavailable
-- Enable `publisherConfirms` for critical event boundaries
-- Use lifecycle hooks and health checks for production visibility
-- Use topology planning/validation for DevOps reviews
-- Keep handlers idempotent
-- Keep messages small
+| Environment | Recommended mode |
+|---|---|
+| Local development | `"assert"` |
+| Tests with disposable RabbitMQ | `"assert"` |
+| CI topology review | `"plan-only"` |
+| Production with app-owned topology | `"assert"` |
+| Production with infra-owned topology | `"passive"` |
+
+---
+
+## Summary
+
+- Configure defaults on `RabbitMQBroker`
+- Override per `.exchange(...)`
+- Use `topologyMode` to make topology ownership explicit
+- Prefer `topologyMode: "passive"` for infrastructure-managed RabbitMQ
+- Keep `passiveQueue` only for legacy queue-only passive behavior

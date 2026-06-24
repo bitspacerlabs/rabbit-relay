@@ -6,6 +6,8 @@ import { TopologyPlan } from "./topologyPlan";
 import { TopologyValidationResult } from "./topologyValidation";
 import { DlqRedriveOptions, DlqRedriveResult } from "./dlqRedrive";
 
+export type TopologyMode = "assert" | "passive" | "plan-only";
+
 export interface AmqpPassthroughOptions {
   queue?: Options.AssertQueue;
   exchange?: Options.AssertExchange;
@@ -75,6 +77,15 @@ export interface ExchangeConfig {
   queueArgs?: Options.AssertQueue["arguments"];
 
   /**
+   * Topology behavior for this exchange binding.
+   *
+   * - "assert": declare exchange, queue, DLQ topology, and binding. This is the default.
+   * - "passive": only check planned exchanges and queues exist. Does not declare or bind.
+   * - "plan-only": only build the topology plan. Does not call RabbitMQ topology APIs.
+   */
+  topologyMode?: TopologyMode;
+
+  /**
    * Maximum serialized event size in bytes.
    *
    * Can be configured at broker/exchange level and overridden per publish/request.
@@ -83,7 +94,9 @@ export interface ExchangeConfig {
 
   /**
    * If true, do NOT declare the queue; only check it exists.
-   * Use this when a separate setup step has already created the queue with specific args.
+   *
+   * This is kept for backward compatibility.
+   * Prefer topologyMode: "passive" when the whole topology is managed outside the app.
    */
   passiveQueue?: boolean;
 
@@ -287,6 +300,7 @@ export type InternalCfg = {
   durable: boolean;
   publisherConfirms: boolean;
   queueArgs?: Options.AssertQueue["arguments"];
+  topologyMode: TopologyMode;
   maxMessageBytes?: number;
   passiveQueue: boolean;
   deadLetter?: DeadLetterConfig;

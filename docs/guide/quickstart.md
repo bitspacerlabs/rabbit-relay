@@ -2,6 +2,10 @@
 
 This guide walks you through publishing and consuming your first typed event using Rabbit Relay.
 
+::: tip What you will build
+A small publisher creates a typed event and a consumer handles it from RabbitMQ.
+:::
+
 ---
 
 ## Install
@@ -14,9 +18,7 @@ npm install @bitspacerlabs/rabbit-relay
 
 ## Define an event contract
 
-```ts
-// events.ts
-
+```ts [events.ts]
 export const SchedulerEvents = {
   ScheduleTask: "scheduler.scheduleTask",
 } as const;
@@ -29,54 +31,73 @@ export type ScheduleTaskData = {
 
 ---
 
-## Publish
+## Publish and consume
 
-```ts
+::: code-group
+
+```ts [publisher.ts]
+import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
+import { SchedulerEvents, type ScheduleTaskData } from "./events";
+
+const broker = new RabbitMQBroker("scheduler_service");
+
+const pub = await broker
+  .queue("scheduler_publish_queue")
+  .exchange("scheduler_exchange", {
+    exchangeType: "topic",
+    publisherConfirms: true,
+  });
+
+const scheduleTask = event(
+  SchedulerEvents.ScheduleTask,
+  "v1"
+).of<ScheduleTaskData>();
+
+await pub.produce(
+  scheduleTask({
+    id: "task-1",
+    when: Date.now() + 5000,
+  })
+);
+
+await broker.close();
+```
+
+```ts [consumer.ts]
 import {
   RabbitMQBroker,
-  event,
-  withHeaders,
+  type EventEnvelope,
 } from "@bitspacerlabs/rabbit-relay";
 import { SchedulerEvents, type ScheduleTaskData } from "./events";
 
-(async () => {
-  const broker = new RabbitMQBroker("scheduler_service", {
-    maxMessageBytes: 256 * 1024,
+const broker = new RabbitMQBroker("scheduler_worker");
+
+const sub = await broker
+  .queue("scheduler_worker_queue")
+  .exchange<{
+    [SchedulerEvents.ScheduleTask]: EventEnvelope<ScheduleTaskData>;
+  }>("scheduler_exchange", {
+    exchangeType: "topic",
+    routingKey: "scheduler.*",
   });
 
-  const pub = await broker
-    .queue("scheduler_publish_queue")
-    .exchange("scheduler_exchange", {
-      exchangeType: "topic",
-      publisherConfirms: true,
-    });
+sub.handle(SchedulerEvents.ScheduleTask, async (_id, ev) => {
+  console.log("Task received:", ev.data);
+});
 
-  const scheduleTask = event(
-    SchedulerEvents.ScheduleTask,
-    "v1"
-  ).of<ScheduleTaskData>();
-
-  await pub.produce(
-    withHeaders(
-      scheduleTask({
-        id: "task-1",
-        when: Date.now() + 5000,
-      }),
-      {
-        source: "scheduler_service",
-      }
-    )
-  );
-
-  await broker.close();
-})();
+await sub.consume({
+  prefetch: 10,
+  concurrency: 5,
+});
 ```
+
+:::
 
 ---
 
 ## Publish with the `with()` API
 
-`with()` converts event factories into a small typed API.
+`with()` converts event factories into a small typed publish API.
 
 ```ts
 const api = pub.with({ scheduleTask });
@@ -87,50 +108,10 @@ await api.scheduleTask({
 });
 ```
 
----
-
-## Consume
-
-```ts
-import {
-  RabbitMQBroker,
-  traceFrom,
-  type EventEnvelope,
-} from "@bitspacerlabs/rabbit-relay";
-import { SchedulerEvents, type ScheduleTaskData } from "./events";
-
-(async () => {
-  const broker = new RabbitMQBroker("scheduler_worker");
-
-  const sub = await broker
-    .queue("scheduler_worker_queue")
-    .exchange<{
-      [SchedulerEvents.ScheduleTask]: EventEnvelope<ScheduleTaskData>;
-    }>("scheduler_exchange", {
-      exchangeType: "topic",
-      routingKey: "scheduler.*",
-    });
-
-  sub.use(async (ctx, next) => {
-    console.log("processing", ctx.event.name);
-    await next();
-  });
-
-  sub.handle(SchedulerEvents.ScheduleTask, async (_id, ev) => {
-    console.log("Task received:", ev.data);
-    console.log("Trace metadata for child event:", traceFrom(ev));
-  });
-
-  await sub.consume({
-    prefetch: 10,
-    concurrency: 5,
-    dedupe: {
-      enabled: true,
-      ttlMs: 60_000,
-    },
-  });
-})();
-```
+::: tip Recommended style
+Use `with()` when a service owns a group of events and publishes them often.
+Use `produce()` or `publish()` directly for one-off publishing.
+:::
 
 ---
 
@@ -170,6 +151,11 @@ await sub.consume({
 });
 ```
 
+::: warning Queue arguments are immutable
+RabbitMQ does not allow changing queue arguments after a queue already exists.
+If you change DLQ settings, retry delay, or queue type in local development, recreate the queue or reset the local RabbitMQ volume.
+:::
+
 `delayMs` uses RabbitMQ TTL + DLX delayed retry queues. If you omit `delayMs`, retry remains immediate.
 
 ---
@@ -192,6 +178,46 @@ const reply = await pub.request<Reply>(
     timeoutMs: 5000,
   }
 );
+
+console.log(reply);
+```
+
+::: warning Use RPC deliberately
+RPC creates tighter service coupling than events. Prefer events when the workflow does not need an immediate reply.
+:::
+
+---
+
+## Message metadata
+
+Use `withHeaders()` when you want to attach metadata to a message.
+
+```ts
+import { withHeaders } from "@bitspacerlabs/rabbit-relay";
+
+await pub.produce(
+  withHeaders(
+    scheduleTask({
+      id: "task-with-headers",
+      when: Date.now(),
+    }),
+    {
+      source: "scheduler_service",
+    }
+  )
+);
+```
+
+Use `traceFrom()` when creating a child event from an existing event.
+
+```ts
+import { traceFrom } from "@bitspacerlabs/rabbit-relay";
+
+sub.handle(SchedulerEvents.ScheduleTask, async (_id, ev) => {
+  const trace = traceFrom(ev);
+
+  console.log("Trace metadata:", trace);
+});
 ```
 
 ---
@@ -200,17 +226,23 @@ const reply = await pub.request<Reply>(
 
 Rabbit Relay includes operations helpers for production visibility and support workflows.
 
-```ts
+::: code-group
+
+```ts [lifecycle.ts]
 broker.on("retry.scheduled", (event) => {
   console.log("retry scheduled", event);
 });
+```
 
+```ts [topology.ts]
 const plan = broker.planTopology();
 console.log(plan);
 
 const validation = await broker.validateTopology();
 console.log(validation);
+```
 
+```ts [redrive.ts]
 const redrive = await broker.redriveDlq({
   fromQueue: "scheduler.dlq",
   toExchange: "scheduler_exchange",
@@ -218,10 +250,17 @@ const redrive = await broker.redriveDlq({
   limit: 10,
   dryRun: true,
 });
+
 console.log(redrive);
 ```
 
-Use OpenTelemetry by passing your own tracer:
+:::
+
+---
+
+## OpenTelemetry
+
+Use OpenTelemetry by passing your own tracer.
 
 ```ts
 import { attachOpenTelemetry } from "@bitspacerlabs/rabbit-relay";
@@ -277,10 +316,10 @@ process.on("SIGTERM", async () => {
 
 - Publishers create typed event envelopes
 - Consumers explicitly declare what they handle
+- `produce()` is the simplest way to publish an event
+- `with()` creates a small typed publish API
 - `request<TReply>()` supports typed RPC
 - `withHeaders()` and `traceFrom()` help with metadata
-- middleware is local to a consumer flow
-- `consume({ dedupe })` skips duplicate messages
 - retry + delayed retry + DLQ gives safer production failure handling
 - lifecycle hooks, topology planning, validation, and DLQ redrive help operations
 - native `amqplib` options remain available when needed

@@ -96,31 +96,41 @@ Use topology validation when RabbitMQ topology is managed outside the applicatio
 
 ---
 
-## Validation vs assertion
+## Validation vs assertion vs planning
 
 Topology assertion creates or re-declares resources.
 
 Topology validation only checks existing resources.
 
-| API | Contacts RabbitMQ | Modifies RabbitMQ |
+Topology planning only returns known topology data.
+
+| API / mode | Contacts RabbitMQ | Modifies RabbitMQ |
 |---|---:|---:|
-| `.exchange(...)` | ✅ | ✅ |
+| `.exchange(...)` with `topologyMode: "assert"` | ✅ | ✅ |
+| `.exchange(...)` with `topologyMode: "passive"` | ✅ | ❌ |
+| `.exchange(...)` with `topologyMode: "plan-only"` | ❌ | ❌ |
 | `planTopology()` | ❌ | ❌ |
 | `validateTopology()` | ✅ | ❌ |
 
 ---
 
-## Example flow
+## Passive startup mode
+
+If you want Rabbit Relay to perform passive checks during startup, use `topologyMode: "passive"`.
 
 ```ts
 const sub = await broker
   .queue("orders.q")
   .exchange("orders.ex", {
-    passiveQueue: true,
+    topologyMode: "passive",
     exchangeType: "topic",
     routingKey: "orders.*",
   });
+```
 
+Use `validateTopology()` when you want an explicit result object instead of startup failure behavior.
+
+```ts
 const result = await sub.validateTopology();
 
 if (!result.valid) {
@@ -130,10 +140,60 @@ if (!result.valid) {
 
 ---
 
+## CI / review mode
+
+Use `topologyMode: "plan-only"` when you want to build the topology plan without RabbitMQ setup calls.
+
+```ts
+const sub = await broker
+  .queue("orders.q")
+  .exchange("orders.ex", {
+    topologyMode: "plan-only",
+    exchangeType: "topic",
+    routingKey: "orders.*",
+  });
+
+console.log(sub.planTopology());
+```
+
+Then validate separately in an environment where RabbitMQ is available:
+
+```ts
+const result = await sub.validateTopology();
+```
+
+---
+
+## passiveQueue compatibility
+
+`passiveQueue` is still supported for backward compatibility, but it is narrower than topology modes.
+
+```ts
+const sub = await broker
+  .queue("orders.q")
+  .exchange("orders.ex", {
+    passiveQueue: true,
+    exchangeType: "topic",
+    routingKey: "orders.*",
+  });
+```
+
+For infrastructure-managed topology, prefer:
+
+```ts
+topologyMode: "passive"
+```
+
+See [Topology Modes](/features/topology-modes).
+
+---
+
 ## Summary
 
 - `validateTopology()` is passive
 - It checks exchanges and queues exist
 - It does not modify RabbitMQ
 - Binding validation is informational for now
+- Use `topologyMode: "passive"` for passive startup checks
+- Use `topologyMode: "plan-only"` for CI/docs/review planning
 - Useful for infrastructure-managed environments

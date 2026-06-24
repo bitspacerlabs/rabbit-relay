@@ -19,7 +19,7 @@ type JobEvent = EventEnvelope<Job>;
     .exchange<{ "jobs.process.delayed": JobEvent }>(DLX, {
       exchangeType: "topic",
       routingKey: "jobs.process.delayed.dead",
-      passiveQueue: true,
+      topologyMode: "passive",
     });
 
   dlq.handle("*", async (_id, ev) => {

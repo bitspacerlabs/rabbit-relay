@@ -125,7 +125,7 @@ Rabbit Relay plugins add:
 * enforced best practices
 * clean separation of concerns
 
-This is typically built by **internal platform teams** — Rabbit Relay gives it out of the box.
+This is typically built by **internal platform teams** - Rabbit Relay gives it out of the box.
 
 ---
 

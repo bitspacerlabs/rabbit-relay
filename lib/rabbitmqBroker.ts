@@ -12,7 +12,12 @@ import {
   ConsumeMiddleware,
 } from "./types";
 import { ReconnectController } from "./reconnect";
-import { createAssertTopology, createTopologyPlan } from "./topology";
+import {
+  createAssertTopology,
+  createTopologyPlan,
+  mergeInternalCfg,
+  resolveTopologyMode,
+} from "./topology";
 import { createConsumer } from "./consumer";
 import { createPublisher } from "./publisher";
 import { closeRabbitMQ, getRabbitMQHealthState } from "./config";
@@ -27,6 +32,7 @@ import {
   mergeTopologyPlans,
 } from "./topologyPlan";
 import {
+  TopologyValidationIssue,
   TopologyValidationResult,
   validateTopologyPlan,
 } from "./topologyValidation";
@@ -53,6 +59,25 @@ type RegisteredConsumer = {
   };
 };
 
+function formatTopologyValidationIssues(
+  issues: TopologyValidationIssue[]
+): string {
+  return issues
+    .map((issue) => {
+      const target = issue.queue ?? issue.exchange ?? "unknown";
+      return `${issue.type}:${target}:${issue.message}`;
+    })
+    .join("; ");
+}
+
+function blockingTopologyIssues(
+  result: TopologyValidationResult
+): TopologyValidationIssue[] {
+  return result.issues.filter(
+    (issue) => issue.type !== "binding_not_validated"
+  );
+}
+
 export class RabbitMQBroker {
   private peerName: string;
   private defaultCfg: InternalCfg;
@@ -72,6 +97,7 @@ export class RabbitMQBroker {
       durable: config.durable ?? true,
       publisherConfirms: config.publisherConfirms ?? false,
       queueArgs: config.queueArgs,
+      topologyMode: resolveTopologyMode(config.topologyMode),
       maxMessageBytes: config.maxMessageBytes,
       passiveQueue: config.passiveQueue ?? false,
       deadLetter: config.deadLetter,
@@ -85,8 +111,6 @@ export class RabbitMQBroker {
         peerName: this.peerName,
       });
     });
-
-    void this.reconnect.initChannel();
   }
 
   public on<K extends LifecycleEventName>(
@@ -186,6 +210,8 @@ export class RabbitMQBroker {
     queueConfig: QueueConfig = {},
     exchangeConfig: ExchangeConfig = {}
   ): Promise<BrokerInterface<TEvents>> {
+    const cfg = mergeInternalCfg(this.defaultCfg, exchangeConfig);
+
     const topologyPlan = createTopologyPlan({
       exchangeName,
       queueName,
@@ -204,14 +230,38 @@ export class RabbitMQBroker {
       exchangeConfig,
     });
 
-    const channel = await this.getChannel();
-    await assertTopology(channel);
+    const applyTopology = async (channel: Channel): Promise<void> => {
+      if (cfg.topologyMode === "plan-only") {
+        return;
+      }
 
-    await this.lifecycle.emit("topology.asserted", {
-      peerName: this.peerName,
-      exchange: exchangeName,
-      queue: queueName,
-    });
+      if (cfg.topologyMode === "passive") {
+        const result = await validateTopologyPlan(channel, topologyPlan);
+        const blockingIssues = blockingTopologyIssues(result);
+
+        if (blockingIssues.length > 0) {
+          throw new Error(
+            `[broker] topologyMode='passive' validation failed for exchange '${exchangeName}' and queue '${queueName}': ` +
+              formatTopologyValidationIssues(blockingIssues)
+          );
+        }
+
+        return;
+      }
+
+      await assertTopology(channel);
+
+      await this.lifecycle.emit("topology.asserted", {
+        peerName: this.peerName,
+        exchange: exchangeName,
+        queue: queueName,
+      });
+    };
+
+    if (cfg.topologyMode !== "plan-only") {
+      const channel = await this.getChannel();
+      await applyTopology(channel);
+    }
 
     const handlers = new Map<
       string,
@@ -224,6 +274,7 @@ export class RabbitMQBroker {
       peerName: this.peerName,
       queueName,
       exchangeName,
+      topologyMode: cfg.topologyMode,
       handlers,
       middlewares,
       emitLifecycle: (eventName, event) =>
@@ -247,13 +298,7 @@ export class RabbitMQBroker {
     });
 
     this.onReconnect(async (ch) => {
-      await assertTopology(ch);
-
-      await this.lifecycle.emit("topology.asserted", {
-        peerName: this.peerName,
-        exchange: exchangeName,
-        queue: queueName,
-      });
+      await applyTopology(ch);
 
       await consumer.resumeOnReconnect(ch);
     });

@@ -9,12 +9,11 @@ This page explains **what auto-reconnect does and what to expect**, without divi
 
 ## What auto-reconnect means
 
-When the RabbitMQ connection or channel is closed (broker restart, network issue, credential rotation), Rabbit Relay will:
+When the RabbitMQ connection or channel is closed due to a broker restart, network issue, or credential rotation, Rabbit Relay will:
 
 - retry the connection with backoff
 - create a fresh channel
-- re-assert declared exchanges and queues
-- re-bind queues using the original routing keys
+- re-apply topology behavior for existing broker interfaces
 - restore prefetch and resume consumers
 - continue publishing once the broker is available again
 
@@ -26,13 +25,52 @@ Your application process stays running throughout.
 
 After reconnect, Rabbit Relay restores:
 
-- exchanges and queues declared by your code
-- bindings between queues and exchanges
 - consumer handlers
 - prefetch / QoS settings
-- publisher confirms (if enabled)
+- publisher confirms behavior, if enabled
+- topology behavior based on `topologyMode`
 
 No additional setup is needed.
+
+---
+
+## Topology ownership during reconnect
+
+Rabbit Relay supports explicit topology ownership modes.
+
+| Mode | Reconnect behavior |
+|---|---|
+| `"assert"` | Re-declares exchanges, queues, bindings, configured DLQ topology, and delayed retry topology |
+| `"passive"` | Checks required exchanges and queues exist without declaring them |
+| `"plan-only"` | Skips topology setup calls |
+
+Use app-owned topology:
+
+```ts
+const broker = new RabbitMQBroker("orders-service", {
+  topologyMode: "assert",
+});
+```
+
+Use infrastructure-owned topology:
+
+```ts
+const broker = new RabbitMQBroker("orders-service", {
+  topologyMode: "passive",
+});
+```
+
+Use CI/docs/review mode:
+
+```ts
+const broker = new RabbitMQBroker("orders-service", {
+  topologyMode: "plan-only",
+});
+```
+
+`passiveQueue` remains supported for queue-only passive checks, but `topologyMode: "passive"` is preferred for new infrastructure-managed setups.
+
+See [Topology Modes](/features/topology-modes).
 
 ---
 
@@ -52,7 +90,7 @@ This is standard RabbitMQ behavior and applies regardless of library.
 
 If a publish happens while the broker is temporarily unavailable:
 
-- the publish will fail
+- the publish can fail
 - Rabbit Relay retries once after reconnect
 - with publisher confirms enabled, failures are surfaced explicitly
 
@@ -65,20 +103,22 @@ You should always handle publish errors in application code.
 Consumers automatically resume after reconnect using the same handlers.
 
 You do **not** need to:
+
 - re-register handlers
 - restart your process
 - re-call `consume()`
 
 ---
 
-## Topology ownership
+## Delayed retry during reconnect
 
-Rabbit Relay can either **own topology** or **attach to existing infrastructure**.
+Delayed retry topology follows `topologyMode` during startup and reconnect.
 
-- If your application declares queues/exchanges → auto-reconnect re-asserts them
-- If infrastructure declares them → prefer `passiveQueue: true` to avoid conflicts
-
-Topology changes should not be made concurrently by both sides.
+| Mode | Delayed retry behavior |
+|---|---|
+| `"assert"` | Declare retry exchange, retry queue, and binding |
+| `"passive"` | Check retry exchange and retry queue exist |
+| `"plan-only"` | Skip retry topology setup |
 
 ---
 
@@ -88,15 +128,16 @@ Topology changes should not be made concurrently by both sides.
 - Expect at-least-once delivery
 - Handle publish errors explicitly
 - Use publisher confirms for critical messages
+- Use `topologyMode: "passive"` when infrastructure owns topology
 - Avoid changing queue arguments at runtime
 
 ---
 
 ## Summary
 
-- Auto-reconnect is automatic and always on
+- Auto-reconnect is automatic
 - Consumers and publishers resume after outages
-- No special APIs are required
-- RabbitMQ semantics remain explicit and unchanged
+- Topology behavior follows `topologyMode`
+- RabbitMQ delivery semantics remain explicit and unchanged
 
 Reliable, predictable, and production-safe.

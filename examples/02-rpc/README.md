@@ -12,7 +12,7 @@ A requester sends a message and waits for a typed reply from a responder.
   Handles `payments.charge` requests and returns a response.
 
 - `requester.ts`  
-  Sends one RPC request using the Phase 2 `request<TReply>()` API.
+  Sends one RPC request using the typed `request<TReply>()` API.
 
 ---
 
@@ -39,4 +39,4 @@ const reply = await cli.request<Res>(
 
 Rabbit Relay creates a temporary reply queue, sets `replyTo` and `correlationId`, publishes the request, and resolves with the typed reply.
 
-The old `meta.expectsReply` style still works for backward compatibility.
+The old `meta.expectsReply` style still works for backward compatibility, but `request<TReply>()` is the recommended API for new code.

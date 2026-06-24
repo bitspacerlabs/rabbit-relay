@@ -1,28 +1,36 @@
 import { defineConfig } from 'vitepress'
 
+const base = '/rabbit-relay/docs/'
+
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  base: '/rabbit-relay/',
+  base,
   title: 'Rabbit Relay',
   description: 'Reliable, type-safe RabbitMQ event framework for Node.js',
 
   head: [
     // Favicons
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/rabbit-relay-mini.svg' }],
-    ['link', { rel: 'icon', type: 'image/png', href: '/favicon.png' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}rabbit-relay-mini.svg` }],
+    ['link', { rel: 'icon', type: 'image/png', href: `${base}favicon.png` }],
   ],
 
   themeConfig: {
+    search: {
+      provider: 'local',
+    },
+
     logo: {
-      light: '/rabbit-relay-mini.svg',
-      dark: '/rabbit-relay-mini-dark.svg',
+      light: `rabbit-relay-mini.svg`,
+      dark: `rabbit-relay-mini-dark.svg`,
       alt: 'Rabbit Relay Logo',
       width: 24,
       height: 28,
     },
 
     nav: [
+      { text: 'Home', link: '/rabbit-relay/' },
       { text: 'Guide', link: '/guide/quickstart' },
+      { text: 'Learn RabbitMQ', link: '/learn/rabbitmq-basics' },
       { text: 'Features', link: '/features/typed-events' },
       { text: 'Examples', link: '/examples/basics' },
       { text: 'API', link: '/api/rabbitmq-broker' },
@@ -36,6 +44,16 @@ export default defineConfig({
           { text: 'What is Rabbit Relay?', link: '/guide/what-is-rabbit-relay' },
           { text: 'Quickstart', link: '/guide/quickstart' },
           { text: 'Configuration', link: '/guide/configuration' },
+        ],
+      },
+      {
+        text: 'Learn RabbitMQ',
+        items: [
+          { text: 'RabbitMQ Basics', link: '/learn/rabbitmq-basics' },
+          { text: 'Exchanges, Queues, Bindings', link: '/learn/exchanges-queues-bindings' },
+          { text: 'Acknowledgements', link: '/learn/acknowledgements' },
+          { text: 'Retry, DLQ, and Redrive', link: '/learn/retry-dlq-redrive' },
+          { text: 'Topology Ownership', link: '/learn/topology-ownership' },
         ],
       },
       {
@@ -74,6 +92,7 @@ export default defineConfig({
           { text: 'Graceful Shutdown', link: '/features/graceful-shutdown' },
           { text: 'Lifecycle Hooks', link: '/features/lifecycle-hooks' },
           { text: 'OpenTelemetry Adapter', link: '/features/opentelemetry' },
+          { text: 'Topology Modes', link: '/features/topology-modes' },
           { text: 'Topology Planner', link: '/features/topology-planner' },
           { text: 'Topology Validation', link: '/features/topology-validation' },
           { text: 'DLQ Redrive', link: '/features/dlq-redrive' },
@@ -98,6 +117,7 @@ export default defineConfig({
           { text: 'OpenTelemetry', link: '/examples/opentelemetry' },
           { text: 'Topology Planner', link: '/examples/topology-planner' },
           { text: 'Topology Validation', link: '/examples/topology-validation' },
+          { text: 'Topology Modes', link: '/examples/topology-modes' },
           { text: 'DLQ Redrive', link: '/examples/dlq-redrive' },
         ],
       },
@@ -107,6 +127,14 @@ export default defineConfig({
           { text: 'RabbitMQBroker', link: '/api/rabbitmq-broker' },
           { text: 'EventEnvelope', link: '/api/event-envelope' },
           { text: 'PluginManager', link: '/api/plugin-manager' },
+        ],
+      },
+      {
+        text: 'AI & Agents',
+        items: [
+          { text: 'Agent Guide', link: '/ai/agent-guide' },
+          { text: 'Common Recipes', link: '/ai/common-recipes' },
+          { text: 'Decision Guide', link: '/ai/decision-guide' },
         ],
       },
     ],

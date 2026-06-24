@@ -1,6 +1,6 @@
 # Typed Events & Factories
 
-Strong typing is a core idea in Rabbit Relay. You describe the **shape of your event payloads** in TypeScript, then use small **event factories** to produce envelopes that are **type-safe**, **versioned**, and **easy to work with**—for both publishers and consumers.
+Strong typing is a core idea in Rabbit Relay. You describe the **shape of your event payloads** in TypeScript, then use small **event factories** to produce envelopes that are **type-safe**, **versioned**, and **easy to work with**-for both publishers and consumers.
 
 This page explains how to define factories, publish events (with or without helpers), consume events with typing, and apply versioning and runtime validation when needed.
 
@@ -87,7 +87,7 @@ export const makePaymentProcessed =
   event("paymentProcessed", "v1").of<PaymentProcessed>();
 ```
 
-Use factories anywhere you need to produce events—services, jobs, or tests.
+Use factories anywhere you need to produce events-services, jobs, or tests.
 
 ---
 
@@ -285,4 +285,4 @@ Versions are opaque strings. Keep it simple: `v1`, `v2`, `v3` (or `v1.1` if you 
 - **Safety**: compile-time typing with optional runtime validation
 - **Clarity**: standardized envelope structure and routing
 - **Ergonomics**: small helpers and a clean `.with()` API
-- **Predictability**: no hidden behavior—RabbitMQ remains explicit
+- **Predictability**: no hidden behavior-RabbitMQ remains explicit

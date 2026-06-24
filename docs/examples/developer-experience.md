@@ -1,6 +1,6 @@
 # Developer Experience
 
-This example demonstrates the Phase 2 developer experience APIs in one small flow.
+This example demonstrates Rabbit Relay developer experience APIs in one small flow.
 
 It shows:
 
