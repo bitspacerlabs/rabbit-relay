@@ -10,7 +10,7 @@ Instead of this:
 
 You can have this:
 
-![RabbitMQ-based communication](../public/rabbitmq-communication.png)
+![RabbitMQ-based communication](../public/rabbitmq-connection.png)
 
 This makes systems easier to decouple, retry, buffer, and operate.
 

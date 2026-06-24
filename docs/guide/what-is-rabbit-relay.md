@@ -1,104 +1,167 @@
 # What is Rabbit Relay?
 
-Rabbit Relay is a **reliable, type-safe RabbitMQ event framework for Node.js**.
+Rabbit Relay is a **type-safe RabbitMQ messaging framework for Node.js**.
 
-It is built on top of `amqplib` and focuses on **correctness, clarity, and learning**, without hiding RabbitMQ concepts behind opaque abstractions.
+It is built on top of `amqplib`, but adds the patterns most teams end up building themselves:
 
-Rabbit Relay is designed for:
+- typed events
+- reliable publishing
+- consumers with concurrency control
+- retries and dead-letter queues
+- RPC over RabbitMQ
+- reconnect and topology recovery
+- observability hooks
 
-- event-driven systems
-- microservices
-- message-heavy workloads
-- teams that care about reliability and observability
+Rabbit Relay does not try to hide RabbitMQ.
 
----
-
-## Philosophy
-
-> **Rabbit Relay aims to be easy to understand and hard to misuse.  
-> It helps teams build reliable systems while still learning how RabbitMQ actually works.**
+Instead, it helps you use RabbitMQ correctly, consistently, and with fewer production mistakes.
 
 ---
 
-## Why not just use `amqplib`?
+## The idea
 
-`amqplib` is a low-level AMQP client. It gives you the building blocks, but leaves all higher-level concerns to you.
+RabbitMQ is powerful, but raw `amqplib` is low-level.
 
-In real production systems, this often leads to:
+You work directly with channels, exchanges, queues, bindings, acknowledgements, retries, confirms, and reconnect behavior.
 
-- repeated boilerplate across services
-- subtle message-loss bugs
-- inconsistent retry and error-handling strategies
-- runtime-only failures caused by mismatched message shapes
-- unclear operational behavior during retries, DLQs, and reconnects
+That control is useful, but in real services it often creates repeated code and small mistakes:
 
-Rabbit Relay exists to solve these problems once, in a consistent and type-safe way.
+- publishing without waiting for broker confirms
+- consumers handling too many messages at once
+- retry logic implemented differently in every service
+- dead-letter queues created manually and inconsistently
+- message contracts only failing at runtime
+- reconnect logic restoring only part of the topology
+- observability added after something breaks
+
+Rabbit Relay gives these patterns a clear, typed, reusable shape.
 
 ---
 
-## Comparison
+## Why Rabbit Relay?
 
-| Capability | amqplib | Rabbit Relay |
+Rabbit Relay is designed for teams that want RabbitMQ to stay understandable, but safer to use.
+
+You still work with RabbitMQ concepts like:
+
+- exchanges
+- queues
+- routing keys
+- acknowledgements
+- prefetch
+- dead-letter queues
+- publisher confirms
+
+But Rabbit Relay gives you a higher-level API around them, so your services can focus on business logic instead of messaging boilerplate.
+
+---
+
+## What it gives you
+
+### Type-safe events
+
+Define an event once and use it safely across publishers and consumers.
+
+```ts
+const chargeRequested = event("payments.charge.requested", "v1").of<{
+  orderId: string;
+  amount: number;
+}>();
+```
+
+Now the message shape is checked by TypeScript before the service runs.
+
+---
+
+### Reliable publishing
+
+Rabbit Relay supports publisher confirms, so critical messages can wait until RabbitMQ accepts them.
+
+This helps avoid the common mistake of “sent from the app” being treated as “accepted by the broker”.
+
+---
+
+### Safer consumers
+
+Consumers can use prefetch and concurrency limits to avoid overwhelming a service.
+
+That makes message handling more predictable under load.
+
+---
+
+### Retries and dead-letter queues
+
+Rabbit Relay gives you a consistent way to handle failures using retry queues, delayed retry, DLQs, and redrive helpers.
+
+Instead of every service inventing its own failure strategy, the behavior becomes explicit and reusable.
+
+---
+
+### RPC over RabbitMQ
+
+Rabbit Relay includes request-reply messaging with correlation IDs, reply queues, and timeouts handled for you.
+
+This is useful when one service needs a response from another service but you still want to communicate over RabbitMQ.
+
+---
+
+### Recovery after outages
+
+Rabbit Relay can restore channels, topology, bindings, and consumers after temporary connection failures.
+
+This reduces the amount of reconnect code each service has to own.
+
+---
+
+### Observability hooks
+
+Rabbit Relay provides lifecycle hooks and tracing/metrics integration points, so messaging behavior is easier to inspect in production.
+
+You can see what is being published, consumed, retried, dead-lettered, or redriven.
+
+---
+
+## Rabbit Relay vs amqplib
+
+| Need | With amqplib | With Rabbit Relay |
 |---|---|---|
-| Typed event definitions | ❌ | ✅ |
-| Publisher confirms | Manual | ✅ Built-in |
-| RPC abstraction | ❌ | ✅ |
-| Automatic reconnect | ❌ | ✅ |
-| Backpressure handling | ❌ | ✅ |
-| Dead-letter / retry routing | Manual | ✅ |
-| Delayed retry | Manual | ✅ |
-| Duplicate message protection | ❌ | ✅ |
-| Lifecycle hooks | ❌ | ✅ |
-| OpenTelemetry adapter | Manual | ✅ |
-| Topology planning / validation | Manual | ✅ |
-| DLQ redrive helper | Manual | ✅ |
-| Plugin / extension hooks | ❌ | ✅ |
-
----
-
-## What Rabbit Relay adds
-
-Rabbit Relay layers safe defaults and explicit guarantees on top of RabbitMQ:
-
-- strongly typed event factories
-- broker-acknowledged publishing
-- structured RPC over AMQP
-- automatic channel and topology recovery
-- backpressure-aware publishing
-- failure routing, delayed retry, and duplicate guards
-- lifecycle hooks for operational visibility
-- OpenTelemetry adapter
-- topology planning and passive validation
-- DLQ redrive helper for support workflows
-- plugin hooks for logging, metrics, and tracing
-
-All of this without hiding RabbitMQ or forcing a custom DSL.
+| Define message contracts | Manual TypeScript types | Typed event factories |
+| Publish reliably | Manually use confirm channels | Built-in publisher confirms |
+| Control consumer load | Manually manage prefetch | Prefetch and concurrency helpers |
+| Retry failed messages | Custom queues and routing | Retry/DLQ helpers |
+| Build RPC | Manual correlation/reply logic | Built-in RPC |
+| Reconnect safely | Custom recovery code | Topology and consumer recovery |
+| Add observability | Manual instrumentation | Lifecycle hooks and adapters |
+| Use advanced AMQP options | Directly available | Still available through escape hatches |
 
 ---
 
 ## What Rabbit Relay is not
 
-Rabbit Relay does **not**:
+Rabbit Relay is not a replacement for RabbitMQ knowledge.
 
-- replace RabbitMQ concepts
-- abstract away exchanges, queues, or routing keys
-- attempt to be Kafka, SNS, or SQS
-- hide AMQP behavior behind magic
-- provide exactly-once delivery by itself
+It does not pretend exchanges, queues, routing keys, acknowledgements, or dead-lettering do not exist.
 
-Instead, it helps you use RabbitMQ correctly, consistently, and safely.
+It also does not promise exactly-once delivery by magic.
+
+Rabbit Relay keeps RabbitMQ concepts visible, but gives them safer defaults and clearer APIs.
 
 ---
 
-## When should you use Rabbit Relay?
+## When should you use it?
 
-Use Rabbit Relay if:
+Use Rabbit Relay when you are building services that depend on RabbitMQ for real application behavior.
 
-- you want compile-time safety for events
-- you need delivery guarantees
-- you rely on RPC over RabbitMQ
-- you need predictable retry/DLQ behavior
-- you want operational visibility for production systems
-- you value observability and correctness
+It is a good fit when you need:
 
-If you only need to publish a few messages and do not care about guarantees, raw `amqplib` may be enough.
+- typed message contracts
+- reliable publishing
+- predictable consumers
+- retry and DLQ behavior
+- RPC over RabbitMQ
+- reconnect recovery
+- production observability
+
+If you only need to publish a few simple messages, raw `amqplib` may be enough.
+
+If RabbitMQ is part of your service architecture, Rabbit Relay gives you a safer foundation.
