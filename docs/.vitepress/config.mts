@@ -20,8 +20,8 @@ export default defineConfig({
     },
 
     logo: {
-      light: `${base}rabbit-relay-mini.svg`,
-      dark: `${base}rabbit-relay-mini-dark.svg`,
+      light: `rabbit-relay-mini.svg`,
+      dark: `rabbit-relay-mini-dark.svg`,
       alt: 'Rabbit Relay Logo',
       width: 24,
       height: 28,
