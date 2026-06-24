@@ -67,3 +67,4 @@ features:
       alt: Native AMQP access
     title: Native AMQP Access
     details: Pass amqplib options or access the raw channel when you need advanced RabbitMQ control.
+---
