@@ -4,7 +4,7 @@ name: Deploy Rabbit Relay site to Pages
 
 on:
   push:
-    branches: [main, release/0.10.0-production-hardening]
+    branches: [main]
 
   workflow_dispatch:
 
