@@ -1,15 +1,17 @@
 import { defineConfig } from 'vitepress'
 
+const base = '/rabbit-relay/docs/'
+
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  base: '/rabbit-relay/',
+  base,
   title: 'Rabbit Relay',
   description: 'Reliable, type-safe RabbitMQ event framework for Node.js',
 
   head: [
     // Favicons
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/rabbit-relay-mini.svg' }],
-    ['link', { rel: 'icon', type: 'image/png', href: '/favicon.png' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}rabbit-relay-mini.svg` }],
+    ['link', { rel: 'icon', type: 'image/png', href: `${base}favicon.png` }],
   ],
 
   themeConfig: {
@@ -18,14 +20,15 @@ export default defineConfig({
     },
 
     logo: {
-      light: '/rabbit-relay-mini.svg',
-      dark: '/rabbit-relay-mini-dark.svg',
+      light: `${base}rabbit-relay-mini.svg`,
+      dark: `${base}rabbit-relay-mini-dark.svg`,
       alt: 'Rabbit Relay Logo',
       width: 24,
       height: 28,
     },
 
     nav: [
+      { text: 'Home', link: '/rabbit-relay/' },
       { text: 'Guide', link: '/guide/quickstart' },
       { text: 'Learn RabbitMQ', link: '/learn/rabbitmq-basics' },
       { text: 'Features', link: '/features/typed-events' },

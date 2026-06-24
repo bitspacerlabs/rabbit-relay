@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rabbit Relay</title>
+
+  <style>
+    :root {
+      --x: 0;
+      --y: 0;
+      --panel: rgba(24, 32, 47, 0.92);
+      --text: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+    }
+
+    body {
+      overflow: hidden;
+      color: var(--text);
+      background: #090613;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      min-height: 680px;
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    .backgrounds {
+      position: absolute;
+      inset: -5vh -5vw;
+      z-index: -4;
+      transform:
+        translate3d(calc(var(--x) * -18px), calc(var(--y) * -12px), 0)
+        scale(1.06);
+      transition: transform 120ms ease-out;
+      will-change: transform;
+    }
+
+    .background {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      opacity: 0;
+      transition: opacity 1600ms ease-in-out;
+      will-change: opacity;
+    }
+
+    .background.active {
+      opacity: 1;
+    }
+
+    .background-one {
+      background-image: url("./assets/rabbit-relay-bg-1.png");
+    }
+
+    .background-two {
+      background-image: url("./assets/rabbit-relay-bg-2.png");
+    }
+
+    .shade {
+      position: absolute;
+      inset: 0;
+      z-index: -3;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 72% 48%, rgba(5, 4, 13, 0.08), rgba(5, 4, 13, 0.18) 38%, rgba(0, 0, 0, 0.32) 100%),
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.28));
+    }
+
+    .page-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      padding: 44px 48px 34px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    header,
+    footer {
+      position: relative;
+      z-index: 4;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      color: #fff;
+      font-size: clamp(30px, 3.2vw, 48px);
+      line-height: 1;
+      font-weight: 850;
+      letter-spacing: 9px;
+      text-transform: uppercase;
+      text-decoration: none;
+      text-shadow: 0 12px 38px rgba(0, 0, 0, 0.55);
+    }
+
+    nav,
+    .footer-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+    }
+
+    a {
+      color: #fff;
+      text-decoration: none;
+    }
+
+    nav a,
+    footer a,
+    footer span {
+      font-size: 16px;
+      font-weight: 700;
+      opacity: 0.92;
+      text-shadow: 0 10px 28px rgba(0, 0, 0, 0.65);
+    }
+
+    nav a:hover,
+    footer a:hover {
+      opacity: 1;
+      text-decoration: underline;
+    }
+
+    main {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    .code-card {
+      position: absolute;
+      top: 36%;
+      left: 50.5%;
+      width: min(686px, 46vw);
+      min-height: 310px;
+      padding: 34px 40px 44px;
+      border-radius: 12px;
+      background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 32px 110px rgba(0, 0, 0, 0.48);
+      backdrop-filter: blur(10px);
+      pointer-events: auto;
+      transform:
+        translate3d(calc(var(--x) * -14px), calc(var(--y) * -10px), 0)
+        perspective(1000px)
+        rotateY(calc(var(--x) * -1.5deg))
+        rotateX(calc(var(--y) * 1deg));
+      transition: transform 120ms ease-out;
+      will-change: transform;
+    }
+
+    .credit-link {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      text-decoration-thickness: 1.5px;
+    }
+
+    .credit-link:hover {
+      opacity: 1;
+    }
+
+    pre {
+      overflow: auto;
+      color: #dbe8ff;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: clamp(12px, 1vw, 15px);
+      line-height: 1.65;
+      white-space: pre;
+    }
+
+    .keyword { color: #8fd7ff; }
+    .string { color: #73e6a0; }
+    .fn { color: #ffbd72; }
+    .prop { color: #b7c8ff; }
+    .comment { color: #8895aa; }
+
+    .lang {
+      position: absolute;
+      right: 22px;
+      bottom: 15px;
+      color: #ffd6a3;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    footer span {
+      opacity: 0.9;
+    }
+
+    @media (max-width: 980px) {
+      body {
+        overflow: auto;
+      }
+
+      .page {
+        min-height: 100vh;
+        height: auto;
+      }
+
+      .page-inner {
+        min-height: 100vh;
+        padding: 28px 24px;
+      }
+
+      header {
+        gap: 18px;
+      }
+
+      .brand {
+        font-size: 25px;
+        letter-spacing: 4px;
+      }
+
+      nav,
+      .footer-links {
+        gap: 14px;
+      }
+
+      nav a,
+      footer a,
+      footer span {
+        font-size: 14px;
+      }
+
+      main {
+        position: relative;
+        inset: auto;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 56px 0;
+      }
+
+      .code-card {
+        position: relative;
+        top: auto;
+        left: auto;
+        width: min(100%, 680px);
+      }
+
+      footer {
+        align-items: flex-start;
+        gap: 16px;
+        flex-direction: column;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .backgrounds,
+      .background,
+      .code-card {
+        transition: none;
+        transform: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page" id="page">
+    <div class="backgrounds" aria-hidden="true">
+      <div class="background background-one active"></div>
+      <div class="background background-two"></div>
+    </div>
+    <div class="shade" aria-hidden="true"></div>
+
+    <div class="page-inner">
+      <header>
+        <a class="brand" href="#">RABBIT RELAY</a>
+        <nav aria-label="Main navigation">
+          <a href="./docs/">Documentation</a>
+          <a href="https://github.com/bitspacerlabs/rabbit-relay">Github</a>
+        </nav>
+      </header>
+
+      <main aria-label="Rabbit Relay code example">
+        <section class="code-card">
+<pre><code><span class="keyword">import</span> { RabbitMQBroker, event } <span class="keyword">from</span> <span class="string">'@bitspacerlabs/rabbit-relay'</span>
+
+<span class="keyword">const</span> broker = <span class="keyword">new</span> RabbitMQBroker(<span class="string">'scheduler_service'</span>)
+
+<span class="keyword">await</span> broker
+  .queue(<span class="string">'scheduler_publish_queue'</span>)
+  .exchange(<span class="string">'scheduler_exchange'</span>, {
+    <span class="prop">exchangeType</span>: <span class="string">'topic'</span>,
+    <span class="prop">publisherConfirms</span>: <span class="keyword">true</span>
+  })
+  .publish(event(<span class="string">'scheduler.scheduleTask'</span>, {
+    <span class="prop">id</span>: <span class="string">'task_123'</span>,
+    <span class="prop">when</span>: Date.now()
+  }))</code></pre>
+          <div class="lang">TypeScript</div>
+        </section>
+      </main>
+
+      <footer>
+          <span>
+            Illustration concept by
+            <a class="credit-link" href="https://github.com/sohaibqasem" target="_blank" rel="noopener noreferrer">@sohaibqasem</a>,
+            generated with
+            <a class="credit-link" href="https://gist.github.com/sohaibqasem/YOUR_GIST_ID" target="_blank" rel="noopener noreferrer">AI</a>
+            for Rabbit Relay.
+          </span>
+      </footer>
+    </div>
+  </div>
+
+  <script>
+    const root = document.documentElement;
+    const page = document.getElementById("page");
+
+    let targetX = 0;
+    let targetY = 0;
+    let currentX = 0;
+    let currentY = 0;
+
+    function setTarget(clientX, clientY) {
+      const rect = page.getBoundingClientRect();
+      targetX = ((clientX - rect.left) / rect.width - 0.5) * 2;
+      targetY = ((clientY - rect.top) / rect.height - 0.5) * 2;
+    }
+
+    window.addEventListener("mousemove", (event) => {
+      setTarget(event.clientX, event.clientY);
+    });
+
+    window.addEventListener("touchmove", (event) => {
+      const touch = event.touches[0];
+      if (touch) setTarget(touch.clientX, touch.clientY);
+    }, { passive: true });
+
+    const backgrounds = Array.from(document.querySelectorAll(".background"));
+    let activeBackground = 0;
+
+    window.setInterval(() => {
+      activeBackground = (activeBackground + 1) % backgrounds.length;
+
+      backgrounds.forEach((background, index) => {
+        background.classList.toggle("active", index === activeBackground);
+      });
+    }, 5200);
+
+    function animate() {
+      currentX += (targetX - currentX) * 0.08;
+      currentY += (targetY - currentY) * 0.08;
+
+      root.style.setProperty("--x", currentX.toFixed(4));
+      root.style.setProperty("--y", currentY.toFixed(4));
+
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+  </script>
+</body>
+</html>
