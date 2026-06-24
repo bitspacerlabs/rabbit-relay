@@ -1,47 +1,20 @@
 # Topology Ownership
 
-RabbitMQ topology means:
+Topology ownership answers one question:
 
-- exchanges
-- queues
-- bindings
-- dead-letter exchanges
-- dead-letter queues
-- retry queues
+> Who creates RabbitMQ exchanges, queues, bindings, DLQs, and retry queues?
 
-A key production question is:
-
-```text
-Who creates these resources?
-```
-
-Rabbit Relay makes that choice explicit with `topologyMode`.
+Rabbit Relay makes this explicit with `topologyMode`.
 
 ---
 
-## The three ownership modes
+## The three modes
 
-```ts
-type TopologyMode = "assert" | "passive" | "plan-only";
-```
-
-| Mode | Who owns topology? | What Rabbit Relay does |
+| Mode | Owner | Behavior |
 |---|---|---|
-| `"assert"` | application | declares topology |
-| `"passive"` | infrastructure | checks topology exists |
-| `"plan-only"` | CI/docs/review | records topology plan only |
-
-Default:
-
-```ts
-topologyMode: "assert"
-```
-
----
-
-## App-owned topology
-
-Use app-owned topology when the application is allowed to create RabbitMQ resources.
+| `"assert"` | Application | Rabbit Relay declares topology |
+| `"passive"` | Infrastructure | Rabbit Relay checks topology exists |
+| `"plan-only"` | Review / CI | Rabbit Relay only records the plan |
 
 ```ts
 const broker = new RabbitMQBroker("orders-service", {
@@ -49,56 +22,63 @@ const broker = new RabbitMQBroker("orders-service", {
 });
 ```
 
-Rabbit Relay declares:
-
-- exchange
-- queue
-- binding
-- configured DLQ topology
-- delayed retry topology when used
-
-This is good for:
-
-- local development
-- tests with disposable RabbitMQ
-- small systems where the app owns RabbitMQ setup
-- production systems where app-owned topology is acceptable
-
 ---
 
-## Infrastructure-owned topology
+## App-owned topology: `assert`
 
-Use infrastructure-owned topology when resources are created before the app starts.
+Use `assert` when the application is allowed to create RabbitMQ resources.
 
 ```ts
 const broker = new RabbitMQBroker("orders-service", {
-  topologyMode: "passive",
+  topologyMode: "assert", // [!code focus]
 });
 ```
 
-Rabbit Relay checks required exchanges and queues exist.
+Rabbit Relay can declare:
 
-It does not declare or bind topology.
+- exchanges
+- queues
+- bindings
+- configured DLQ topology
+- delayed retry topology
 
-This is good when topology is managed by:
+This is the default mode.
 
-- Terraform
-- Helm
-- Kubernetes jobs
-- RabbitMQ definitions
-- DevOps setup scripts
-
-If topology is missing, startup fails early.
+::: tip Good for local development
+`assert` is convenient when running RabbitMQ locally or in disposable test environments.
+:::
 
 ---
 
-## Plan-only topology
+## Infrastructure-owned topology: `passive`
 
-Use plan-only mode when you want topology output without RabbitMQ setup calls.
+Use `passive` when RabbitMQ resources are created before the app starts.
 
 ```ts
 const broker = new RabbitMQBroker("orders-service", {
-  topologyMode: "plan-only",
+  topologyMode: "passive", // [!code focus]
+});
+```
+
+Rabbit Relay checks that required exchanges and queues exist.
+
+It does not declare or bind topology.
+
+If something is missing, startup fails early.
+
+::: tip Good for production
+Use `topologyMode: "passive"` when Terraform, Helm, RabbitMQ definitions, or DevOps scripts own RabbitMQ topology.
+:::
+
+---
+
+## Review mode: `plan-only`
+
+Use `plan-only` when you want topology output without RabbitMQ setup calls.
+
+```ts
+const broker = new RabbitMQBroker("orders-service", {
+  topologyMode: "plan-only", // [!code focus]
 });
 
 const sub = await broker
@@ -109,22 +89,24 @@ const sub = await broker
   });
 
 console.log(sub.planTopology());
-console.log(broker.planTopology());
 ```
 
-This is good for:
+This is useful for:
 
 - CI checks
-- documentation
+- docs
 - DevOps review
-- generating expected topology
-- comparing app topology with infrastructure code
+- comparing application topology with infrastructure code
+
+::: warning Plan-only does not publish or consume
+`plan-only` skips topology setup calls. Normal publishing, consuming, validation, and redrive operations can still require RabbitMQ.
+:::
 
 ---
 
-## Exchange-level override
+## Where to set topology mode
 
-You can set topology mode on the broker:
+You can set a broker-level default:
 
 ```ts
 const broker = new RabbitMQBroker("orders-service", {
@@ -132,95 +114,21 @@ const broker = new RabbitMQBroker("orders-service", {
 });
 ```
 
-And override it for one interface:
+Or override it per exchange:
 
 ```ts
 const sub = await broker
-  .queue("local.dev.q")
-  .exchange("local.dev.ex", {
+  .queue("orders.q")
+  .exchange("orders.ex", {
     topologyMode: "assert",
   });
 ```
 
-Exchange-level settings override broker defaults.
+Exchange-level settings override broker-level defaults.
 
 ---
 
-## Topology planner
-
-`planTopology()` is always read-only.
-
-```ts
-const plan = broker.planTopology();
-```
-
-It returns what Rabbit Relay knows about the topology.
-
-It does not create resources.
-
-Use `topologyMode: "plan-only"` when you want to build plans without calling RabbitMQ topology setup APIs.
-
----
-
-## Topology validation
-
-`validateTopology()` checks whether planned exchanges and queues exist.
-
-```ts
-const result = await broker.validateTopology();
-
-if (!result.valid) {
-  console.error(result.issues);
-}
-```
-
-It does not declare or modify resources.
-
-Bindings are included in plans, but AMQP does not expose a simple safe binding check through `amqplib`.
-
-So binding validation is informational.
-
----
-
-## Delayed retry topology
-
-Delayed retry may need retry exchanges and retry queues.
-
-`topologyMode` applies to that too.
-
-| Mode | Delayed retry behavior |
-|---|---|
-| `"assert"` | declare retry exchange, retry queue, and binding |
-| `"passive"` | check retry exchange and retry queue exist |
-| `"plan-only"` | skip retry topology setup |
-
----
-
-## passiveQueue compatibility
-
-`passiveQueue` still exists for backward compatibility.
-
-```ts
-await broker
-  .queue("orders.q")
-  .exchange("orders.ex", {
-    passiveQueue: true,
-  });
-```
-
-But it only affects the main queue declaration behavior.
-
-For new infrastructure-managed deployments, prefer:
-
-```ts
-topologyMode: "passive"
-```
-
-It is clearer and applies to topology behavior as a whole.
-
----
-
-## Recommended environment setup
+## Recommended setup
 
 | Environment | Recommended mode |
 |---|---|
@@ -232,43 +140,55 @@ It is clearer and applies to topology behavior as a whole.
 
 ---
 
-## Common mistakes
+## Relationship with `passiveQueue`
 
-### Changing queue arguments after creation
-
-RabbitMQ queue arguments are immutable.
-
-Changing arguments on an existing queue can cause a precondition failure.
-
-Fix by:
-
-- deleting the queue in development
-- creating a new queue version
-- managing topology through infrastructure
-- using passive mode when infra owns topology
-
-### Using assert in infra-owned production
-
-If infrastructure owns topology, do not let the app declare it.
-
-Use:
+`passiveQueue` is still supported for backward compatibility.
 
 ```ts
-topologyMode: "passive"
+const sub = await broker
+  .queue("orders.q")
+  .exchange("orders.ex", {
+    passiveQueue: true,
+  });
 ```
 
-### Using plan-only for runtime consumers
+But it only affects the main queue declaration behavior.
 
-`plan-only` skips topology setup calls.
+For new infrastructure-managed deployments, prefer:
 
-Use it for CI/docs/review, not normal runtime consumers unless topology is handled elsewhere and you intentionally want no startup checks.
+```ts
+const broker = new RabbitMQBroker("orders-service", {
+  topologyMode: "passive",
+});
+```
+
+::: tip Prefer topologyMode for new code
+`topologyMode` describes ownership for the whole topology, not only the queue.
+:::
+
+---
+
+## Queue arguments are immutable
+
+RabbitMQ does not allow changing queue arguments after a queue already exists.
+
+Examples of immutable queue arguments include:
+
+- queue type
+- dead-letter exchange
+- dead-letter routing key
+- message TTL
+
+::: warning Local development reset
+If you change queue arguments locally and get a precondition error, recreate the queue or reset the RabbitMQ volume.
+:::
 
 ---
 
 ## Summary
 
-- Topology ownership should be explicit
-- Use `"assert"` when the app owns topology
+- Use `"assert"` when Rabbit Relay owns topology
 - Use `"passive"` when infrastructure owns topology
-- Use `"plan-only"` for CI/docs/review
-- Prefer `topologyMode` over `passiveQueue` in new code
+- Use `"plan-only"` for review and CI output
+- Prefer `topologyMode` over `passiveQueue` for new code
+- Keep topology ownership explicit per environment

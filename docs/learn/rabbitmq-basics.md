@@ -6,15 +6,11 @@ A message broker sits between services and helps them communicate without callin
 
 Instead of this:
 
-```text
-service A -> HTTP call -> service B
-```
+![Direct HTTP communication](../public/http-call.png)
 
 You can have this:
 
-```text
-service A -> RabbitMQ -> service B
-```
+![RabbitMQ-based communication](../public/rabbitmq-communication.png)
 
 This makes systems easier to decouple, retry, buffer, and operate.
 

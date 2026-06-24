@@ -13,6 +13,10 @@ export default defineConfig({
   ],
 
   themeConfig: {
+    search: {
+      provider: 'local',
+    },
+
     logo: {
       light: '/rabbit-relay-mini.svg',
       dark: '/rabbit-relay-mini-dark.svg',

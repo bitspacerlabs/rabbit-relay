@@ -1,110 +1,96 @@
 # Acknowledgements
 
-Acknowledgements are how a consumer tells RabbitMQ what happened to a delivered message.
+RabbitMQ uses acknowledgements to know whether a delivered message has been handled successfully.
 
-This is one of the most important RabbitMQ concepts.
+A consumer receives a message. After processing, it either acknowledges it or rejects it.
+
+Rabbit Relay maps that behavior to handler success and explicit `onError` settings.
 
 ---
 
-## Why acknowledgements matter
-
-RabbitMQ delivers a message to a consumer.
-
-The consumer processes it.
-
-Then the consumer must tell RabbitMQ what to do with that message.
-
-The choices are:
+## The basic idea
 
 ```text
-ACK    -> processing is done
-NACK   -> processing failed
-REJECT -> processing failed
+RabbitMQ delivers message
+  -> consumer handles message
+  -> consumer ACKs or NACKs
 ```
 
-Rabbit Relay manages ACK/NACK behavior based on handler success and `consume()` options.
+| Term | Meaning |
+|---|---|
+| `ACK` | The message was handled and RabbitMQ can remove it from the queue |
+| `NACK requeue=true` | The message was rejected and should be put back on the queue |
+| `NACK requeue=false` | The message was rejected and should not be requeued |
+| Dead-letter | RabbitMQ routes a rejected message to a configured DLQ |
+
+::: tip Rabbit Relay default
+If a handler succeeds, Rabbit Relay ACKs the message.
+If a handler throws, Rabbit Relay follows the `onError` policy.
+:::
+
+---
+
+## Rabbit Relay mapping
+
+| Rabbit Relay behavior | RabbitMQ behavior |
+|---|---|
+| handler succeeds | `ACK` |
+| `onError: "ack"` | `ACK` even after handler error |
+| `onError: "requeue"` | `NACK requeue=true` |
+| `onError: "dead-letter"` | `NACK requeue=false` |
+| `onError: "retry"` | publish retry copy, then `ACK` original |
+
+```ts
+await sub.consume({
+  onError: "retry", // [!code focus]
+  retry: {
+    attempts: 3,
+    then: "dead-letter",
+  },
+});
+```
 
 ---
 
 ## Handler success
 
-If the handler succeeds, Rabbit Relay acknowledges the message.
+When the handler completes successfully, Rabbit Relay acknowledges the message.
 
 ```ts
 sub.handle("orders.created", async (_id, ev) => {
   await saveOrder(ev.data);
 });
-
-await sub.consume();
 ```
 
-Flow:
-
 ```text
-message delivered
-  -> handler succeeds
-  -> ACK
-  -> RabbitMQ removes message from queue
+handler succeeds -> ACK -> message removed from queue
 ```
 
 ---
 
-## Handler failure
-
-If the handler throws, Rabbit Relay looks at `onError`.
+## Handler failure with `ack`
 
 ```ts
 await sub.consume({
-  onError: "retry",
+  onError: "ack",
 });
 ```
 
-The error behavior is explicit.
-
----
-
-## Error behavior mapping
-
-| Rabbit Relay option | RabbitMQ behavior | Meaning |
-|---|---|---|
-| `onError: "ack"` | ACK | drop the failed message |
-| `onError: "requeue"` | NACK with `requeue=true` | put it back in the queue |
-| `onError: "dead-letter"` | NACK with `requeue=false` | route to DLQ if configured |
-| `onError: "retry"` | publish retry copy, then ACK original | bounded retry flow |
-
-Default behavior is:
-
-```ts
-onError: "ack"
-```
-
-For production consumers, prefer bounded retry plus DLQ.
-
----
-
-## ACK
-
-ACK means:
+Behavior:
 
 ```text
-I processed this message. Remove it from the queue.
+handler throws -> ACK -> message removed from queue
 ```
 
-Rabbit Relay sends ACK when:
+Use this for non-critical messages where failure should not block the queue.
 
-- the handler succeeds
-- `onError: "ack"` is used after handler failure
-- a retry copy is successfully published for `onError: "retry"`
+::: warning Data loss risk
+`onError: "ack"` drops failed messages. Use it only when that is acceptable.
+:::
 
 ---
 
-## NACK with requeue=true
-
-Requeue means:
-
-```text
-Processing failed. Put this message back in the queue.
-```
+## Handler failure with `requeue`
 
 ```ts
 await sub.consume({
@@ -112,19 +98,19 @@ await sub.consume({
 });
 ```
 
-Be careful.
+Behavior:
 
-If the error is not temporary, the message may fail forever and create a hot loop.
+```text
+handler throws -> NACK requeue=true -> RabbitMQ can redeliver immediately
+```
+
+::: danger Infinite loop risk
+Do not use `requeue` as your main retry strategy. If the error is not transient, the same message can be delivered repeatedly forever.
+:::
 
 ---
 
-## NACK with requeue=false
-
-Dead-lettering usually starts with:
-
-```text
-NACK requeue=false
-```
+## Handler failure with `dead-letter`
 
 ```ts
 await sub.consume({
@@ -132,126 +118,80 @@ await sub.consume({
 });
 ```
 
-If the queue has dead-letter settings, RabbitMQ routes the message to the DLQ.
-
-If no DLQ is configured, the message may be dropped.
-
----
-
-## Retry behavior
-
-Retry is different from simple requeue.
-
-```ts
-await sub.consume({
-  onError: "retry",
-  retry: {
-    attempts: 3,
-    then: "dead-letter",
-  },
-});
-```
-
-Flow:
+Behavior:
 
 ```text
-handler fails
+handler throws -> NACK requeue=false -> RabbitMQ routes to DLQ
+```
+
+This is useful for poison messages, validation failures, and messages that need inspection.
+
+---
+
+## Handler failure with `retry`
+
+```ts
+await sub.consume({
+  onError: "retry",
+  retry: {
+    attempts: 3,
+    delayMs: 5000,
+    then: "dead-letter",
+  },
+});
+```
+
+Behavior:
+
+```text
+handler throws
   -> Rabbit Relay publishes retry copy
-  -> retry headers are incremented
-  -> original message is ACKed only after retry publish succeeds
+  -> original message is ACKed after republish succeeds
+  -> retry copy is delivered later
+  -> after attempts are exhausted, final behavior runs
 ```
 
-This avoids infinite immediate requeue loops.
+::: tip Production default
+For production consumers, prefer bounded retry followed by DLQ.
+:::
 
 ---
 
-## Delayed retry
+## Why Rabbit Relay ACKs the original after retry publish
 
-Delayed retry waits before the next attempt.
+When retry is enabled, Rabbit Relay does not leave the original message unacked forever.
 
-```ts
-await sub.consume({
-  onError: "retry",
-  retry: {
-    attempts: 3,
-    delayMs: 5000,
-    then: "dead-letter",
-  },
-});
-```
+Instead:
 
-Rabbit Relay uses RabbitMQ TTL + DLX retry queues.
+1. It republishes a retry copy with retry headers
+2. It ACKs the original only after the retry copy is published
+3. RabbitMQ later delivers the retry copy
 
-It does not keep delayed messages in Node.js memory.
+This avoids infinite immediate redelivery loops and keeps retry metadata explicit.
 
 ---
 
-## Prefetch and unacknowledged messages
+## At-least-once delivery
 
-`prefetch` limits how many messages RabbitMQ can deliver without ACKs.
+RabbitMQ delivery remains at-least-once.
 
-```ts
-await sub.consume({
-  prefetch: 10,
-  concurrency: 5,
-});
-```
+A message can be delivered more than once if:
 
-This means RabbitMQ can deliver up to 10 unacknowledged messages.
+- a consumer crashes before ACK
+- the connection drops during processing
+- a retry or redrive publishes another copy
+- a publisher retries after an uncertain failure
 
-Rabbit Relay runs up to 5 handlers at once.
-
----
-
-## Common mistake: infinite requeue loops
-
-This can be dangerous:
-
-```ts
-await sub.consume({
-  onError: "requeue",
-});
-```
-
-If a poison message always fails, it can be redelivered forever.
-
-Prefer this:
-
-```ts
-await sub.consume({
-  onError: "retry",
-  retry: {
-    attempts: 3,
-    delayMs: 5000,
-    then: "dead-letter",
-  },
-});
-```
-
----
-
-## Common mistake: assuming exactly once
-
-RabbitMQ delivery is at-least-once.
-
-A message can be delivered more than once.
-
-Your handlers should be idempotent.
-
-Use:
-
-- database unique constraints
-- idempotency keys
-- `consume({ dedupe })` for local duplicate suppression
-- transactional outbox patterns when needed
+::: warning Design handlers to be idempotent
+Use stable IDs, unique constraints, de-duplication, or idempotent writes where duplicate processing would be harmful.
+:::
 
 ---
 
 ## Summary
 
-- ACK removes a message from the queue
-- NACK with requeue can redeliver it
-- NACK without requeue can route it to a DLQ
-- Rabbit Relay maps handler success/failure to ACK/NACK behavior
+- ACK means RabbitMQ can remove the message
+- NACK with requeue puts the message back
+- NACK without requeue sends it to DLQ when configured
+- Rabbit Relay maps handler success/failure to explicit `onError` behavior
 - Prefer retry + DLQ for production consumers
-- Consumers should be idempotent

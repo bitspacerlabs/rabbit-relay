@@ -1,14 +1,18 @@
 # Common Recipes
 
-This page gives copy-paste Rabbit Relay recipes.
+This page gives copy-paste Rabbit Relay recipes for developers and coding agents.
 
-Use these as starting points for applications and AI-generated code.
+::: tip Agent usage
+When generating application code, prefer these recipes over inventing new patterns.
+:::
 
 ---
 
-## Publish an event
+## Publish and consume an event
 
-```ts
+::: code-group
+
+```ts [publisher.ts]
 import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
 
 type OrderCreated = {
@@ -18,15 +22,14 @@ type OrderCreated = {
 
 const broker = new RabbitMQBroker("orders.publisher");
 
-const orderCreated = event("orders.created", "v1").of<OrderCreated>();
+const orderCreated = event("orders.created", "v1")
+  .of<OrderCreated>();
 
 const pub = await broker
   .queue("orders.publisher.q")
-  .exchange<{
-    "orders.created": ReturnType<typeof orderCreated>;
-  }>("orders.ex", {
+  .exchange("orders.ex", {
     exchangeType: "topic",
-    publisherConfirms: true,
+    publisherConfirms: true, // [!code focus]
   });
 
 await pub.produce(
@@ -39,11 +42,7 @@ await pub.produce(
 await broker.close();
 ```
 
----
-
-## Consume an event
-
-```ts
+```ts [consumer.ts]
 import { RabbitMQBroker } from "@bitspacerlabs/rabbit-relay";
 import type { EventEnvelope } from "@bitspacerlabs/rabbit-relay";
 
@@ -60,7 +59,7 @@ const sub = await broker
     "orders.created": EventEnvelope<OrderCreated>;
   }>("orders.ex", {
     exchangeType: "topic",
-    routingKey: "orders.*",
+    routingKey: "orders.*", // [!code focus]
   });
 
 sub.handle("orders.created", async (_id, ev) => {
@@ -73,13 +72,14 @@ await sub.consume({
 });
 ```
 
+:::
+
 ---
 
-## Publish with headers
+## Publish with headers and correlation
 
 ```ts
 import {
-  RabbitMQBroker,
   event,
   withHeaders,
   withCorrelation,
@@ -90,7 +90,8 @@ type OrderCreated = {
   amount: number;
 };
 
-const orderCreated = event("orders.created", "v1").of<OrderCreated>();
+const orderCreated = event("orders.created", "v1")
+  .of<OrderCreated>();
 
 const ev = withCorrelation(
   withHeaders(
@@ -116,11 +117,6 @@ await pub.produce(ev);
 ```ts
 import { event, traceFrom } from "@bitspacerlabs/rabbit-relay";
 
-type OrderCreated = {
-  orderId: string;
-  amount: number;
-};
-
 type PaymentRequested = {
   orderId: string;
   amount: number;
@@ -136,7 +132,7 @@ sub.handle("orders.created", async (_id, ev) => {
         orderId: ev.data.orderId,
         amount: ev.data.amount,
       },
-      traceFrom(ev, {
+      traceFrom(ev, { // [!code focus]
         headers: {
           source: "payments-service",
         },
@@ -156,7 +152,7 @@ const sub = await broker
   .exchange("orders.ex", {
     exchangeType: "topic",
     routingKey: "orders.*",
-    deadLetter: {
+    deadLetter: { // [!code focus]
       exchange: "orders.dlx",
       queue: "orders.dlq",
       routingKey: "orders.dead",
@@ -171,7 +167,7 @@ sub.handle("orders.created", async (_id, ev) => {
 await sub.consume({
   prefetch: 20,
   concurrency: 5,
-  onError: "retry",
+  onError: "retry", // [!code focus]
   retry: {
     attempts: 3,
     then: "dead-letter",
@@ -179,104 +175,72 @@ await sub.consume({
 });
 ```
 
+::: tip Production default
+Use bounded retry followed by DLQ for production consumers.
+:::
+
 ---
 
-## Delayed retry consumer
+## Delayed retry
 
 ```ts
 await sub.consume({
-  prefetch: 20,
-  concurrency: 5,
   onError: "retry",
   retry: {
     attempts: 3,
-    delayMs: 5000,
+    delayMs: 5000, // [!code focus]
     then: "dead-letter",
   },
 });
 ```
 
-Use delayed retry for temporary downstream outages.
+::: warning Retry topology
+Delayed retry uses RabbitMQ TTL + DLX retry queues. In `topologyMode: "passive"`, infrastructure must create those retry resources ahead of time.
+:::
 
 ---
 
-## RPC request
+## RPC request/reply
 
-```ts
-import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
+::: code-group
 
-type ChargeRequest = {
-  orderId: string;
-  amount: number;
-};
-
-type ChargeReply = {
-  ok: boolean;
-  transactionId?: string;
+```ts [requester.ts]
+type Reply = {
+  approved: boolean;
   reason?: string;
 };
 
-const charge = event("payments.charge", "v1").of<ChargeRequest>();
-
-const reply = await pub.request<ChargeReply>(
-  charge({
+const reply = await pub.request<Reply>(
+  paymentAuthorize({
     orderId: "o-1",
     amount: 42,
   }),
   {
-    timeoutMs: 5000,
+    timeoutMs: 5000, // [!code focus]
   }
 );
-
-console.log(reply);
 ```
 
----
-
-## RPC responder
-
-```ts
-import type { EventEnvelope } from "@bitspacerlabs/rabbit-relay";
-
-type ChargeRequest = {
-  orderId: string;
-  amount: number;
-};
-
-type ChargeReply = {
-  ok: boolean;
-  transactionId?: string;
-  reason?: string;
-};
-
-const sub = await broker
-  .queue("payments.rpc.q")
-  .exchange<{
-    "payments.charge": EventEnvelope<ChargeRequest>;
-  }>("payments.rpc.ex", {
-    exchangeType: "topic",
-    routingKey: "payments.charge",
-  });
-
-sub.handle("payments.charge", async (_id, ev): Promise<ChargeReply> => {
-  if (ev.data.amount <= 0) {
+```ts [responder.ts]
+sub.handle("payments.authorize", async (_id, ev) => {
+  if (ev.data.amount > 500) {
     return {
-      ok: false,
-      reason: "invalid amount",
+      approved: false,
+      reason: "amount over limit",
     };
   }
 
   return {
-    ok: true,
-    transactionId: `txn_${Date.now()}`,
+    approved: true,
   };
 });
-
-await sub.consume({
-  prefetch: 10,
-  concurrency: 5,
-});
 ```
+
+:::
+
+::: warning Use RPC deliberately
+Prefer normal events unless the caller truly needs an immediate reply.
+:::
 
 ---
 
@@ -284,7 +248,7 @@ await sub.consume({
 
 ```ts
 const broker = new RabbitMQBroker("topology-review", {
-  topologyMode: "plan-only",
+  topologyMode: "plan-only", // [!code focus]
 });
 
 const sub = await broker
@@ -292,19 +256,12 @@ const sub = await broker
   .exchange("orders.ex", {
     exchangeType: "topic",
     routingKey: "orders.*",
-    deadLetter: {
-      exchange: "orders.dlx",
-      queue: "orders.dlq",
-      routingKey: "orders.dead",
-      autoDeclare: true,
-    },
   });
 
-console.log(JSON.stringify(sub.planTopology(), null, 2));
-console.log(JSON.stringify(broker.planTopology(), null, 2));
+console.log(sub.planTopology());
 ```
 
-This does not require RabbitMQ topology setup calls.
+Use this for CI, docs, and DevOps review.
 
 ---
 
@@ -312,7 +269,7 @@ This does not require RabbitMQ topology setup calls.
 
 ```ts
 const broker = new RabbitMQBroker("orders-service", {
-  topologyMode: "passive",
+  topologyMode: "passive", // [!code focus]
 });
 
 const sub = await broker
@@ -323,38 +280,7 @@ const sub = await broker
   });
 ```
 
-Use this when Terraform, Helm, RabbitMQ definitions, or DevOps scripts create topology.
-
----
-
-## Validate topology
-
-```ts
-const result = await broker.validateTopology();
-
-if (!result.valid) {
-  console.error(result.issues);
-  throw new Error("RabbitMQ topology is not ready");
-}
-```
-
-`binding_not_validated` issues are informational.
-
----
-
-## DLQ redrive dry-run
-
-```ts
-const result = await broker.redriveDlq({
-  fromQueue: "orders.dlq",
-  toExchange: "orders.ex",
-  routingKey: "orders.created",
-  limit: 100,
-  dryRun: true,
-});
-
-console.log(result);
-```
+Use this when Terraform, Helm, RabbitMQ definitions, or DevOps scripts own topology.
 
 ---
 
@@ -365,29 +291,16 @@ const result = await broker.redriveDlq({
   fromQueue: "orders.dlq",
   toExchange: "orders.ex",
   routingKey: "orders.created",
-  limit: 10,
+  limit: 100,
+  dryRun: true, // [!code focus]
 });
 
 console.log(result);
 ```
 
-Start small and monitor the consumer.
-
----
-
-## Health endpoint
-
-```ts
-app.get("/health/rabbitmq", async (_req, res) => {
-  const health = await broker.health();
-
-  if (!health.connected || !health.channelOpen || health.reconnecting) {
-    return res.status(503).json(health);
-  }
-
-  return res.json(health);
-});
-```
+::: tip Always dry-run first
+Use `dryRun: true` before redriving production DLQ messages.
+:::
 
 ---
 
@@ -398,60 +311,17 @@ process.on("SIGTERM", async () => {
   await broker.close();
   process.exit(0);
 });
-
-process.on("SIGINT", async () => {
-  await broker.close();
-  process.exit(0);
-});
 ```
 
 ---
 
-## Message size guard
+## Summary
 
-```ts
-const broker = new RabbitMQBroker("orders-service", {
-  maxMessageBytes: 256 * 1024,
-});
-
-await pub.publish(orderCreated(data), {
-  maxMessageBytes: 64 * 1024,
-});
-```
-
-If the event is too large, Rabbit Relay throws `MessageTooLargeError`.
-
----
-
-## OpenTelemetry adapter
-
-```ts
-import {
-  RabbitMQBroker,
-  attachOpenTelemetry,
-} from "@bitspacerlabs/rabbit-relay";
-import { trace } from "@opentelemetry/api";
-
-const broker = new RabbitMQBroker("orders-service");
-
-const otel = attachOpenTelemetry(broker, {
-  tracer: trace.getTracer("rabbit-relay"),
-  serviceName: "orders-service",
-});
-
-// later
-otel.detach();
-```
-
----
-
-## Raw channel access
-
-```ts
-await broker.withChannel(async (channel) => {
-  const info = await channel.checkQueue("orders.q");
-  console.log(info.messageCount);
-});
-```
-
-Use this for advanced `amqplib` operations.
+- Use event factories for typed messages
+- Use `produce()` for normal publishing
+- Use `publish()` for per-message AMQP options
+- Use `request<TReply>()` for RPC
+- Use retry + DLQ for production consumers
+- Use `topologyMode: "passive"` for infra-owned topology
+- Use `topologyMode: "plan-only"` for topology review
+- Always close brokers in scripts and tests
