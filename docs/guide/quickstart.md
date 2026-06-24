@@ -36,22 +36,16 @@ export type ScheduleTaskData = {
 ::: code-group
 
 ```ts [publisher.ts]
-import {
-  RabbitMQBroker,
-  event,
-  withHeaders,
-} from "@bitspacerlabs/rabbit-relay";
+import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
 import { SchedulerEvents, type ScheduleTaskData } from "./events";
 
-const broker = new RabbitMQBroker("scheduler_service", {
-  maxMessageBytes: 256 * 1024,
-});
+const broker = new RabbitMQBroker("scheduler_service");
 
 const pub = await broker
   .queue("scheduler_publish_queue")
   .exchange("scheduler_exchange", {
     exchangeType: "topic",
-    publisherConfirms: true, // [!code focus]
+    publisherConfirms: true,
   });
 
 const scheduleTask = event(
@@ -60,15 +54,10 @@ const scheduleTask = event(
 ).of<ScheduleTaskData>();
 
 await pub.produce(
-  withHeaders(
-    scheduleTask({
-      id: "task-1",
-      when: Date.now() + 5000,
-    }),
-    {
-      source: "scheduler_service",
-    }
-  )
+  scheduleTask({
+    id: "task-1",
+    when: Date.now() + 5000,
+  })
 );
 
 await broker.close();
@@ -77,7 +66,6 @@ await broker.close();
 ```ts [consumer.ts]
 import {
   RabbitMQBroker,
-  traceFrom,
   type EventEnvelope,
 } from "@bitspacerlabs/rabbit-relay";
 import { SchedulerEvents, type ScheduleTaskData } from "./events";
@@ -90,26 +78,16 @@ const sub = await broker
     [SchedulerEvents.ScheduleTask]: EventEnvelope<ScheduleTaskData>;
   }>("scheduler_exchange", {
     exchangeType: "topic",
-    routingKey: "scheduler.*", // [!code focus]
+    routingKey: "scheduler.*",
   });
-
-sub.use(async (ctx, next) => {
-  console.log("processing", ctx.event.name);
-  await next();
-});
 
 sub.handle(SchedulerEvents.ScheduleTask, async (_id, ev) => {
   console.log("Task received:", ev.data);
-  console.log("Trace metadata for child event:", traceFrom(ev));
 });
 
 await sub.consume({
   prefetch: 10,
   concurrency: 5,
-  dedupe: {
-    enabled: true,
-    ttlMs: 60_000,
-  },
 });
 ```
 
@@ -149,7 +127,7 @@ const sub = await broker
   }>("scheduler_exchange", {
     exchangeType: "topic",
     routingKey: "scheduler.*",
-    deadLetter: { // [!code focus]
+    deadLetter: {
       exchange: "scheduler.dlx",
       queue: "scheduler.dlq",
       routingKey: "scheduler.dead",
@@ -164,7 +142,7 @@ sub.handle(SchedulerEvents.ScheduleTask, async (_id, ev) => {
 await sub.consume({
   prefetch: 10,
   concurrency: 5,
-  onError: "retry", // [!code focus]
+  onError: "retry",
   retry: {
     attempts: 3,
     delayMs: 5000,
@@ -187,7 +165,7 @@ If you change DLQ settings, retry delay, or queue type in local development, rec
 Use `request<TReply>()` for request/reply flows.
 
 ```ts
- type Reply = {
+type Reply = {
   ok: boolean;
 };
 
@@ -200,11 +178,47 @@ const reply = await pub.request<Reply>(
     timeoutMs: 5000,
   }
 );
+
+console.log(reply);
 ```
 
 ::: warning Use RPC deliberately
 RPC creates tighter service coupling than events. Prefer events when the workflow does not need an immediate reply.
 :::
+
+---
+
+## Message metadata
+
+Use `withHeaders()` when you want to attach metadata to a message.
+
+```ts
+import { withHeaders } from "@bitspacerlabs/rabbit-relay";
+
+await pub.produce(
+  withHeaders(
+    scheduleTask({
+      id: "task-with-headers",
+      when: Date.now(),
+    }),
+    {
+      source: "scheduler_service",
+    }
+  )
+);
+```
+
+Use `traceFrom()` when creating a child event from an existing event.
+
+```ts
+import { traceFrom } from "@bitspacerlabs/rabbit-relay";
+
+sub.handle(SchedulerEvents.ScheduleTask, async (_id, ev) => {
+  const trace = traceFrom(ev);
+
+  console.log("Trace metadata:", trace);
+});
+```
 
 ---
 
@@ -234,7 +248,7 @@ const redrive = await broker.redriveDlq({
   toExchange: "scheduler_exchange",
   routingKey: SchedulerEvents.ScheduleTask,
   limit: 10,
-  dryRun: true, // [!code focus]
+  dryRun: true,
 });
 
 console.log(redrive);
@@ -242,7 +256,11 @@ console.log(redrive);
 
 :::
 
-Use OpenTelemetry by passing your own tracer:
+---
+
+## OpenTelemetry
+
+Use OpenTelemetry by passing your own tracer.
 
 ```ts
 import { attachOpenTelemetry } from "@bitspacerlabs/rabbit-relay";
@@ -298,10 +316,10 @@ process.on("SIGTERM", async () => {
 
 - Publishers create typed event envelopes
 - Consumers explicitly declare what they handle
+- `produce()` is the simplest way to publish an event
+- `with()` creates a small typed publish API
 - `request<TReply>()` supports typed RPC
 - `withHeaders()` and `traceFrom()` help with metadata
-- middleware is local to a consumer flow
-- `consume({ dedupe })` skips duplicate messages
 - retry + delayed retry + DLQ gives safer production failure handling
 - lifecycle hooks, topology planning, validation, and DLQ redrive help operations
 - native `amqplib` options remain available when needed
