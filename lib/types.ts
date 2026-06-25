@@ -289,7 +289,7 @@ export interface BrokerInterface<TEvents extends Record<string, EventEnvelope>> 
   with<U extends Record<string, (...args: any[]) => EventEnvelope>>(
     events: U
   ): BrokerInterface<{ [K in keyof U]: ReturnType<U[K]> }> & {
-    [K in keyof U]: (...args: Parameters<U[K]>) => ReturnType<U[K]>;
+    [K in keyof U]: (...args: Parameters<U[K]>) => Promise<void | unknown>;
   };
 }
 
