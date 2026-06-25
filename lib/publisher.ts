@@ -99,6 +99,29 @@ export function createPublisher(params: {
     );
   };
 
+  const resolvePublishRoutingKey = (
+    evt: EventEnvelope,
+    opts?: PublishOptions
+  ): string => {
+    if (opts?.routingKey) return opts.routingKey;
+
+    const configuredRoutingKey = exchangeConfig.routingKey;
+
+    // exchangeConfig.routingKey is often a binding pattern for consumers.
+    // Do not use topic wildcards as publish routing keys.
+    if (
+      configuredRoutingKey &&
+      configuredRoutingKey !== "#" &&
+      configuredRoutingKey !== "*" &&
+      !configuredRoutingKey.includes("#") &&
+      !configuredRoutingKey.includes("*")
+    ) {
+      return configuredRoutingKey;
+    }
+
+    return evt.name;
+  };
+
   const serializeEvent = (
     event: EventEnvelope,
     opts?: PublishOptions
@@ -139,7 +162,7 @@ export function createPublisher(params: {
     await pluginManager.executeHook("beforeProduce", evt);
 
     const content = serializeEvent(evt, opts);
-    const routingKey = opts?.routingKey ?? evt.name;
+    const routingKey = resolvePublishRoutingKey(evt, opts);
 
     try {
       await safePublish((ch) => {
@@ -183,7 +206,7 @@ export function createPublisher(params: {
     await pluginManager.executeHook("beforeProduce", evt);
 
     const content = serializeEvent(evt, opts);
-    const routingKey = opts?.routingKey ?? evt.name;
+    const routingKey = resolvePublishRoutingKey(evt, opts);
 
     try {
       await safePublish(async (pubCh) => {
