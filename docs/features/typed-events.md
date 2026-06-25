@@ -225,15 +225,49 @@ export const makeOrderCreated = event("orderCreated", "v1").of<OrderCreated>();
 
 By default, Rabbit Relay publishes with the **event name as the routing key**.
 
-- Topic exchanges support patterns (e.g. `order.*`).
-- Direct exchanges require an exact match.
+```ts
+const makeOrderCreated = event("order.created", "v1").of<OrderCreated>();
 
-You can also set a custom routing key on the exchange:
+await pub.produce(
+  makeOrderCreated({
+    orderId: "O-1",
+    total: 99.5,
+  })
+); // routing key: "order.created"
+```
+
+If `.exchange(...)` is configured with a concrete `routingKey`, Rabbit Relay uses that key when publishing:
 
 ```ts
 await broker.queue("q").exchange("ex", {
   exchangeType: "direct",
   routingKey: "my.custom.key",
+});
+```
+
+For topic wildcard bindings such as `#` or `order.*`, Rabbit Relay treats the value as a binding pattern and continues publishing with the event name.
+
+```ts
+const sub = await broker.queue("orders.q").exchange("orders.ex", {
+  exchangeType: "topic",
+  routingKey: "order.*",
+});
+
+const makeOrderCreated = event("order.created", "v1").of<OrderCreated>();
+
+await sub.produce(
+  makeOrderCreated({
+    orderId: "O-1",
+    total: 99.5,
+  })
+); // routing key: "order.created"
+```
+
+You can always override the publish routing key explicitly:
+
+```ts
+await pub.publish(eventEnvelope, {
+  routingKey: "custom.key",
 });
 ```
 

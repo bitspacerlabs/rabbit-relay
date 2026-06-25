@@ -81,7 +81,8 @@ const pub = await broker
 // Define typed events (name + version)
 const send = event("send", "v1").of<{ message: string }>();
 
-// Build a typed API and publish
+// Build a typed publish API.
+// Calling api.send(...) creates the event and publishes it.
 const api = pub.with({ send });
 await api.send({ message: "hello world" });
 ```
@@ -100,6 +101,55 @@ const pub = await broker
 const hello = event("hello", "v1").of<{ msg: string }>();
 
 await pub.produce(hello({ msg: "world" }));
+```
+
+### Routing keys
+
+By default, Rabbit Relay publishes using the event name as the routing key.
+
+```ts
+const hello = event("hello", "v1").of<{ msg: string }>();
+
+await pub.produce(
+  hello({ msg: "world" })
+); // routing key: "hello"
+```
+
+If you configure a concrete `routingKey` on the exchange, Rabbit Relay uses it when publishing:
+
+```ts
+const pub = await broker
+  .queue("orders.q")
+  .exchange("orders.exchange", {
+    exchangeType: "topic",
+    routingKey: "orders.created",
+  });
+```
+
+For topic wildcard bindings such as `#` or `demo.*`, Rabbit Relay treats the value as a binding pattern and continues publishing by event name.
+
+```ts
+const pub = await broker
+  .queue("plugins.q")
+  .exchange("plugins.exchange", {
+    exchangeType: "topic",
+    routingKey: "demo.*",
+  });
+
+const ping = event("demo.ping", "v1").of<{ seq: number }>();
+
+await pub.produce(
+  ping({ seq: 1 })
+); // routing key: "demo.ping"
+```
+
+You can always override the publish routing key explicitly:
+
+```ts
+await pub.publish(
+  hello({ msg: "world" }),
+  { routingKey: "custom.key" }
+);
 ```
 
 ---

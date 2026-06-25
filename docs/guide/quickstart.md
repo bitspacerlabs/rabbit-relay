@@ -97,7 +97,7 @@ await sub.consume({
 
 ## Publish with the `with()` API
 
-`with()` converts event factories into a small typed publish API.
+`with()` converts event factories into a small typed publish API. Calling a generated method creates the event and publishes it, so it returns a Promise and should be awaited.
 
 ```ts
 const api = pub.with({ scheduleTask });
