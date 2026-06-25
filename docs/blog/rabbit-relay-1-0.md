@@ -344,23 +344,11 @@ The library should reduce boilerplate, not remove the mental model.
 npm i @bitspacerlabs/rabbit-relay
 ```
 
-GitHub:
+GitHub: [github.com/bitspacerlabs/rabbit-relay](https://github.com/bitspacerlabs/rabbit-relay)
 
-```text
-https://github.com/bitspacerlabs/rabbit-relay
-```
+Docs: [bitspacerlabs.github.io/rabbit-relay](https://bitspacerlabs.github.io/rabbit-relay/)
 
-Docs:
-
-```text
-https://bitspacerlabs.github.io/rabbit-relay/
-```
-
-npm:
-
-```text
-https://www.npmjs.com/package/@bitspacerlabs/rabbit-relay
-```
+npm: [@bitspacerlabs/rabbit-relay](https://www.npmjs.com/package/@bitspacerlabs/rabbit-relay)
 
 ---
 
