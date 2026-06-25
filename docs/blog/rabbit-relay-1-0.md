@@ -1,9 +1,13 @@
 ---
-title: Rabbit Relay 1.0: Type-safe RabbitMQ for Node.js without hiding RabbitMQ
-published: true
-description: Rabbit Relay 1.0 is a TypeScript-first RabbitMQ framework for Node.js that keeps exchanges, queues, routing keys, ACK/NACK, retries, DLQs, and publisher confirms explicit.
-tags: rabbitmq, node, typescript, opensource
-canonical_url: https://bitspacerlabs.github.io/rabbit-relay/blog/rabbit-relay-1-0
+title: "Rabbit Relay 1.0: Type-safe RabbitMQ for Node.js without hiding RabbitMQ"
+description: "Rabbit Relay 1.0 is a TypeScript-first RabbitMQ framework for Node.js that keeps RabbitMQ concepts explicit while making messaging safer and cleaner."
+date: "2026-06-25"
+tags:
+  - rabbitmq
+  - nodejs
+  - typescript
+  - backend
+  - opensource
 ---
 
 # Rabbit Relay 1.0: Type-safe RabbitMQ for Node.js without hiding RabbitMQ
