@@ -2,7 +2,55 @@
 
 All notable changes to Rabbit Relay will be documented in this file.
 
-This project follows semantic versioning while the API is stabilizing toward `1.0.0`.
+This project follows semantic versioning.
+
+---
+
+## [1.0.0] - 2026-06-25
+
+### Added
+
+- First stable release of Rabbit Relay.
+- Stable public API for typed RabbitMQ publishing, consuming, RPC, retries, DLQ, plugins, lifecycle hooks, topology planning, topology validation, health checks, and OpenTelemetry integration.
+
+### Changed
+
+- Stabilized Rabbit Relay public API for production use.
+- Improved publish routing key behavior:
+  - concrete configured `routingKey` values are used when publishing
+  - topic wildcard bindings such as `#` and `demo.*` continue publishing by event name
+- Clarified `.with(events)` as a typed publish API whose generated methods return promises.
+- Updated README and docs for stable routing-key and `.with(...)` behavior.
+
+### Fixed
+
+- Fixed publishing behavior so concrete exchange routing keys are respected.
+- Fixed `.with(events)` generated method return types to reflect async publish behavior.
+
+### Notes
+
+- This release is intended as the first production-ready stable release.
+- Existing `0.9.0` and `1.0.0-rc.1` usage should continue to work.
+
+---
+
+## [1.0.0-rc.1] - 2026-06-25
+
+### Added
+
+- Release candidate for the first stable `1.0.0` release.
+- Final pre-stable package validation for the Rabbit Relay public API.
+- Release candidate documentation and package metadata updates.
+
+### Changed
+
+- Moved package version from `0.9.0` to `1.0.0-rc.1`.
+- Prepared Rabbit Relay for stable release validation.
+
+### Notes
+
+- This release was marked as a pre-release / non-production release candidate.
+- Users should prefer `1.0.0` for production use.
 
 ---
 

@@ -22,11 +22,11 @@ It is built on top of `amqplib` and keeps RabbitMQ concepts explicit:
 
 Do not hide RabbitMQ behind magic abstractions.
 
-## Current release goal
+## Current release status
 
-Prepare Rabbit Relay for the stable `1.0.0` release.
+Rabbit Relay `1.0.0` is the first stable release.
 
-Before `1.0.0`, prefer stabilization over new features.
+After `1.0.0`, prefer backward-compatible fixes, documentation improvements, and small production-hardening changes.
 
 Do not add new public APIs unless explicitly requested.
 
@@ -307,9 +307,9 @@ handler throws + onError: "retry"        -> publish retry copy, then ACK origina
 
 Always remind that RabbitMQ delivery is at-least-once and consumers should be idempotent.
 
-## Things not to add before 1.0.0 unless explicitly requested
+## Things not to add unless explicitly requested
 
-Do not add these as new runtime features before stable release:
+Do not add these as new runtime features without an explicit product decision:
 
 - DLQ peek
 - redrive filtering
@@ -345,7 +345,7 @@ npm run test:package
 npm run docs:build
 ```
 
-Before release:
+Before future releases:
 
 ```bash
 npm run build
@@ -364,7 +364,7 @@ Examples:
 git commit -m "docs: add RabbitMQ learning guide"
 git commit -m "docs: add AI agent guidance"
 git commit -m "fix: respect topology mode for delayed retry"
-git commit -m "chore: prepare 1.0.0 release"
+git commit -m "chore: prepare release"
 ```
 
 ## Docs map
