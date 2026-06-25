@@ -404,7 +404,7 @@ export class RabbitMQBroker {
         const augmented = augmentEvents(events, brokerInterface);
 
         return augmented as BrokerInterface<{ [K in keyof U]: ReturnType<U[K]> }> & {
-          [K in keyof U]: (...args: Parameters<U[K]>) => ReturnType<U[K]>;
+          [K in keyof U]: (...args: Parameters<U[K]>) => Promise<void | unknown>;
         };
       },
     };
