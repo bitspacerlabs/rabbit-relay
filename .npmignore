@@ -4,3 +4,8 @@ lib/
 .vitepress/
 *.log
 tsconfig*.json
+.github/
+assets/rabbit-relay-bg-1.png
+assets/rabbit-relay-bg-2.png
+scripts/
+index.html
