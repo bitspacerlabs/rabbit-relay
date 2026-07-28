@@ -20,6 +20,26 @@ Example:
 RABBITMQ_URL=amqp://user:password@localhost:5672
 ```
 
+You can override the connection per broker. Each broker owns its connection and
+closing one broker does not close another broker's resources.
+
+```ts
+const broker = new RabbitMQBroker("orders-service", {
+  connectionUrl: "amqp://user:password@rabbitmq.internal:5672",
+  connectionName: "orders-service-primary",
+  shutdownTimeoutMs: 30_000,
+});
+```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `connectionUrl` | `RABBITMQ_URL` | RabbitMQ URL used by this broker |
+| `connectionName` | `AMQP_CONN_NAME`, then broker peer name | Name visible in RabbitMQ connection tooling |
+| `shutdownTimeoutMs` | `30000` | Maximum time `close()` waits for active handlers |
+
+Connection-name precedence is the explicit `connectionName` option, then the
+`AMQP_CONN_NAME` environment variable, then the broker peer name.
+
 If not set, Rabbit Relay uses:
 
 ```text

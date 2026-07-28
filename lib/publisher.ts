@@ -1,17 +1,16 @@
 import { Channel, ConfirmChannel, Options } from "amqplib";
-import { getRabbitMQConfirmChannel } from "./config";
-import { pluginManager } from "./pluginManager";
-import { EventEnvelope, EventMeta } from "./eventFactories";
+import { pluginManager } from "./pluginManager.js";
+import { EventEnvelope, EventMeta } from "./eventFactories.js";
 import {
   ExchangeConfig,
   InternalCfg,
   PublishOptions,
   RequestOptions,
-} from "./types";
-import { publishWithBackpressure, PublishChannel } from "./backpressure";
-import { generateUuid } from "./uuid";
-import { MessageTooLargeError } from "./errors";
-import { LifecycleEmit } from "./lifecycle";
+} from "./types.js";
+import { publishWithBackpressure, PublishChannel } from "./backpressure.js";
+import { generateUuid } from "./uuid.js";
+import { MessageTooLargeError } from "./errors.js";
+import { LifecycleEmit } from "./lifecycle.js";
 
 function buildPublishProps(
   event: EventEnvelope,
@@ -78,6 +77,7 @@ export function createPublisher(params: {
   exchangeConfig: ExchangeConfig;
   defaultCfg: InternalCfg;
   getChannel: () => Promise<Channel>;
+  getConfirmChannel: () => Promise<ConfirmChannel>;
   getBackoffMs: () => number;
   emitLifecycle: LifecycleEmit;
 }) {
@@ -87,6 +87,7 @@ export function createPublisher(params: {
     exchangeConfig,
     defaultCfg,
     getChannel,
+    getConfirmChannel,
     getBackoffMs,
     emitLifecycle,
   } = params;
@@ -133,7 +134,7 @@ export function createPublisher(params: {
 
   const getPubChannel = async (): Promise<PublishChannel> => {
     if (exchangeConfig.publisherConfirms ?? defaultCfg.publisherConfirms) {
-      return getRabbitMQConfirmChannel() as Promise<ConfirmChannel>;
+      return getConfirmChannel();
     }
 
     return getChannel();

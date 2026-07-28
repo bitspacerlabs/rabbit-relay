@@ -1,12 +1,23 @@
 {
   "name": "@bitspacerlabs/rabbit-relay",
-  "version": "1.0.1",
-  "description": "A RabbitMQ-based event framework",
+  "version": "1.1.0",
+  "description": "Type-safe RabbitMQ framework for Node.js with reliable publishing, retries, DLQs, RPC, and explicit topology",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
   "types": "./dist/cjs/index.d.ts",
   "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "AGENTS.md",
+    "llms.txt",
+    "docs/ai",
+    "docs/api",
+    "docs/guide/quickstart.md",
+    "docs/guide/configuration.md"
+  ],
   "publishConfig": {
     "access": "public"
   },
@@ -29,20 +40,31 @@
   "scripts": {
     "build": "npm run build:cjs && npm run build:esm",
     "build:cjs": "tsc -p tsconfig.cjs.json",
-    "build:esm": "tsc -p tsconfig.esm.json",
+    "build:esm": "tsc -p tsconfig.esm.json && node scripts/write-esm-package.cjs",
     "prepublishOnly": "npm run build",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
-    "test:package": "bash scripts/test-package-usage.sh"
+    "test:package": "bash scripts/test-package-usage.sh",
+    "test:unit": "npm run build && node --test test/unit/*.test.cjs",
+    "test:integration": "npm run build && node --test --test-concurrency=1 test/integration/*.integration.cjs"
   },
   "keywords": [
     "rabbitmq",
     "rabbit-relay",
     "amqplib",
     "amqp",
+    "typescript",
     "events",
-    "messaging"
+    "event-driven",
+    "messaging",
+    "message-queue",
+    "microservices",
+    "pubsub",
+    "publisher-confirms",
+    "retry",
+    "dead-letter-queue",
+    "rpc"
   ],
   "author": "BitSpacer Labs",
   "repository": {
@@ -52,7 +74,7 @@
   "bugs": {
     "url": "https://github.com/bitspacerlabs/rabbit-relay/issues"
   },
-  "homepage": "https://github.com/bitspacerlabs/rabbit-relay#readme",
+  "homepage": "https://bitspacerlabs.github.io/rabbit-relay/docs/",
   "license": "MIT",
   "dependencies": {
     "amqplib": "^0.10.5"

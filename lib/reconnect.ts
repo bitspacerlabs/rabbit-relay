@@ -1,5 +1,4 @@
 import { Channel } from "amqplib";
-import { getRabbitMQChannel } from "./config";
 
 export class ReconnectController {
   /** The current live channel promise (created lazily and replaced after reconnect). */
@@ -13,15 +12,16 @@ export class ReconnectController {
 
   /** Callbacks to run after a successful reconnect (like re-assert topology, resume consume). */
   private onReconnectCbs: Array<(ch: Channel) => void | Promise<void>> = [];
+  private readonly openChannel: () => Promise<Channel>;
 
-  constructor() {
-    // no-op
+  constructor(openChannel: () => Promise<Channel>) {
+    this.openChannel = openChannel;
   }
 
   public async initChannel() {
     if (this.closed) return;
 
-    this.channelPromise = getRabbitMQChannel();
+    this.channelPromise = this.openChannel();
     const ch = await this.channelPromise;
 
     this.backoffMs = 500;

@@ -55,6 +55,7 @@ jobs:
 
           # Landing page at /rabbit-relay/
           cp index.html site-dist/index.html
+          cp llms.txt site-dist/
 
           # Landing page assets at /rabbit-relay/assets/
           cp -r assets site-dist/assets

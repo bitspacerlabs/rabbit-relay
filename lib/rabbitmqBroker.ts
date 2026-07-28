@@ -1,7 +1,8 @@
 import { Channel } from "amqplib";
-import { EventEnvelope } from "./eventFactories";
+import { augmentEvents, EventEnvelope } from "./eventFactories.js";
 import {
   ExchangeConfig,
+  BrokerConfig,
   BrokerInterface,
   InternalCfg,
   ConsumeOptions,
@@ -10,37 +11,37 @@ import {
   RequestOptions,
   BrokerHealth,
   ConsumeMiddleware,
-} from "./types";
-import { ReconnectController } from "./reconnect";
+} from "./types.js";
+import { ReconnectController } from "./reconnect.js";
 import {
   createAssertTopology,
   createTopologyPlan,
   mergeInternalCfg,
   resolveTopologyMode,
-} from "./topology";
-import { createConsumer } from "./consumer";
-import { createPublisher } from "./publisher";
-import { closeRabbitMQ, getRabbitMQHealthState } from "./config";
+} from "./topology.js";
+import { createConsumer } from "./consumer.js";
+import { createPublisher } from "./publisher.js";
+import { RabbitMQConnectionManager } from "./config.js";
 import {
   LifecycleEmitter,
   LifecycleEventName,
   LifecycleHandler,
-} from "./lifecycle";
+} from "./lifecycle.js";
 import {
   TopologyPlan,
   emptyTopologyPlan,
   mergeTopologyPlans,
-} from "./topologyPlan";
+} from "./topologyPlan.js";
 import {
   TopologyValidationIssue,
   TopologyValidationResult,
   validateTopologyPlan,
-} from "./topologyValidation";
+} from "./topologyValidation.js";
 import {
   DlqRedriveOptions,
   DlqRedriveResult,
   redriveDlq,
-} from "./dlqRedrive";
+} from "./dlqRedrive.js";
 
 type RegisteredConsumer = {
   queueName: string;
@@ -83,13 +84,16 @@ export class RabbitMQBroker {
   private defaultCfg: InternalCfg;
 
   private reconnect: ReconnectController;
+  private connection: RabbitMQConnectionManager;
+  private shutdownTimeoutMs: number;
+  private closePromise: Promise<void> | undefined;
   private lifecycle = new LifecycleEmitter();
   private topologyPlan: TopologyPlan = emptyTopologyPlan();
 
   private activeConsumers: Array<{ stop(): Promise<void> }> = [];
   private registeredConsumers: RegisteredConsumer[] = [];
 
-  constructor(peerName: string, config: ExchangeConfig = {}) {
+  constructor(peerName: string, config: BrokerConfig = {}) {
     this.peerName = peerName;
     this.defaultCfg = {
       exchangeType: config.exchangeType ?? "topic",
@@ -104,7 +108,17 @@ export class RabbitMQBroker {
       amqp: config.amqp,
     };
 
-    this.reconnect = new ReconnectController();
+    this.shutdownTimeoutMs = config.shutdownTimeoutMs ?? 30_000;
+    if (!Number.isFinite(this.shutdownTimeoutMs) || this.shutdownTimeoutMs < 0) {
+      throw new Error("[broker] shutdownTimeoutMs must be a non-negative number");
+    }
+
+    this.connection = new RabbitMQConnectionManager({
+      url: config.connectionUrl,
+      connectionName:
+        config.connectionName ?? process.env.AMQP_CONN_NAME ?? peerName,
+    });
+    this.reconnect = new ReconnectController(() => this.connection.getChannel());
 
     this.reconnect.onReconnect(async () => {
       await this.lifecycle.emit("reconnect", {
@@ -125,8 +139,7 @@ export class RabbitMQBroker {
   }
 
   public async validateTopology(): Promise<TopologyValidationResult> {
-    const channel = await this.getChannel();
-    return validateTopologyPlan(channel, this.planTopology());
+    return this.validatePlan(this.planTopology());
   }
 
   public async redriveDlq(
@@ -149,7 +162,15 @@ export class RabbitMQBroker {
     return fn(channel);
   }
 
-  public async close(): Promise<void> {
+  public close(): Promise<void> {
+    if (!this.closePromise) {
+      this.closePromise = this.performClose();
+    }
+
+    return this.closePromise;
+  }
+
+  private async performClose(): Promise<void> {
     const consumers = [...this.activeConsumers];
     this.activeConsumers = [];
 
@@ -158,7 +179,7 @@ export class RabbitMQBroker {
     );
 
     this.reconnect.close();
-    await closeRabbitMQ();
+    await this.connection.close();
 
     await this.lifecycle.emit("broker.closed", {
       peerName: this.peerName,
@@ -168,7 +189,7 @@ export class RabbitMQBroker {
   }
 
   public async health(): Promise<BrokerHealth> {
-    const rabbit = getRabbitMQHealthState();
+    const rabbit = this.connection.health();
 
     return {
       peerName: this.peerName,
@@ -191,6 +212,63 @@ export class RabbitMQBroker {
         };
       }),
     };
+  }
+
+  private async validatePlan(
+    plan: TopologyPlan
+  ): Promise<TopologyValidationResult> {
+    const issues: TopologyValidationIssue[] = [];
+    const validation = await this.connection.createValidationSession();
+
+    try {
+      for (const exchange of plan.exchanges) {
+        const channel = await validation.createChannel();
+        try {
+          const result = await validateTopologyPlan(channel, {
+            exchanges: [exchange],
+            queues: [],
+            bindings: [],
+          });
+          issues.push(...result.issues);
+        } finally {
+          await channel.close().catch(() => undefined);
+        }
+      }
+
+      for (const queue of plan.queues) {
+        const channel = await validation.createChannel();
+        try {
+          const result = await validateTopologyPlan(channel, {
+            exchanges: [],
+            queues: [queue],
+            bindings: [],
+          });
+          issues.push(...result.issues);
+        } finally {
+          await channel.close().catch(() => undefined);
+        }
+      }
+
+      for (const binding of plan.bindings) {
+        issues.push({
+          type: "binding_not_validated",
+          queue: binding.queue,
+          exchange: binding.exchange,
+          routingKey: binding.routingKey,
+          message:
+            `Binding '${binding.queue}' -> '${binding.exchange}' with routing key ` +
+            `'${binding.routingKey}' was included in the plan but not passively validated. ` +
+            `AMQP does not expose a safe binding check through amqplib.`,
+        });
+      }
+
+      return {
+        valid: issues.every((issue) => issue.type === "binding_not_validated"),
+        issues,
+      };
+    } finally {
+      await validation.close();
+    }
   }
 
   public queue(queueName: string, queueConfig: QueueConfig = {}) {
@@ -236,7 +314,7 @@ export class RabbitMQBroker {
       }
 
       if (cfg.topologyMode === "passive") {
-        const result = await validateTopologyPlan(channel, topologyPlan);
+        const result = await this.validatePlan(topologyPlan);
         const blockingIssues = blockingTopologyIssues(result);
 
         if (blockingIssues.length > 0) {
@@ -279,6 +357,7 @@ export class RabbitMQBroker {
       middlewares,
       emitLifecycle: (eventName, event) =>
         this.lifecycle.emit(eventName, event),
+      shutdownTimeoutMs: this.shutdownTimeoutMs,
     });
 
     this.registeredConsumers.push({
@@ -292,6 +371,7 @@ export class RabbitMQBroker {
       exchangeConfig,
       defaultCfg: this.defaultCfg,
       getChannel: () => this.getChannel(),
+      getConfirmChannel: () => this.connection.getConfirmChannel(),
       getBackoffMs: () => this.reconnect.getBackoffMs(),
       emitLifecycle: (eventName, event) =>
         this.lifecycle.emit(eventName, event),
@@ -320,8 +400,7 @@ export class RabbitMQBroker {
     };
 
     const validateTopology = async (): Promise<TopologyValidationResult> => {
-      const channel = await this.getChannel();
-      return validateTopologyPlan(channel, planTopology());
+      return this.validatePlan(planTopology());
     };
 
     const redriveDlqFromInterface = async (
@@ -396,12 +475,7 @@ export class RabbitMQBroker {
       withChannel,
       health: () => this.health(),
       with: <U extends Record<string, (...args: any[]) => EventEnvelope>>(events: U) => {
-        // keep original behavior (dynamic require) to avoid import cycles
-        const { augmentEvents } = require("./eventFactories") as {
-          augmentEvents: <X extends object>(ev: Record<string, any>, brk: any) => X;
-        };
-
-        const augmented = augmentEvents(events, brokerInterface);
+        const augmented = augmentEvents(events, brokerInterface as any);
 
         return augmented as BrokerInterface<{ [K in keyof U]: ReturnType<U[K]> }> & {
           [K in keyof U]: (...args: Parameters<U[K]>) => Promise<void | unknown>;

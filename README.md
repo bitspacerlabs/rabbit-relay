@@ -31,7 +31,7 @@ NOTE:
 </p>
 
 <p align="center">
-  <a href="https://bitspacerlabs.github.io/rabbit-relay/">Docs</a>
+  <a href="https://bitspacerlabs.github.io/rabbit-relay/docs/">Docs</a>
   ·
   <a href="https://github.com/bitspacerlabs/rabbit-relay/tree/main/examples">Examples</a>
   ·
@@ -39,6 +39,10 @@ NOTE:
   ·
   <a href="https://github.com/bitspacerlabs/rabbit-relay/discussions">Discussions</a>
 </p>
+
+> **Using an AI coding agent?** Give it [`llms.txt`](llms.txt) for a curated
+> documentation map. Repository agents should start with
+> [`AGENTS.md`](AGENTS.md).
 
 ---
 
@@ -51,6 +55,7 @@ and adds:
 - **Cleaner publish / consume APIs** (less boilerplate)
 - **Explicit topology & ownership** (no hidden abstractions)
 - **Reliable defaults** (so every service doesn’t reinvent the same setup)
+- **Isolated broker lifecycles** (each broker owns its connection and shutdown)
 
 If you already use RabbitMQ and you want a better TypeScript developer experience, Rabbit Relay is for you.
 
@@ -167,6 +172,9 @@ See runnable examples in:
 - You want **type-safe events**
 - You prefer **explicit topology** and ownership
 - You don’t want “magic” abstractions
+
+For a feature-by-feature choice, see the
+[decision guide](https://bitspacerlabs.github.io/rabbit-relay/docs/ai/decision-guide.html).
 
 ---
 

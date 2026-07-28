@@ -1,15 +1,15 @@
 import { Channel, ConsumeMessage, Options } from "amqplib";
-import { pluginManager } from "./pluginManager";
-import { EventEnvelope } from "./eventFactories";
+import { pluginManager } from "./pluginManager.js";
+import { EventEnvelope } from "./eventFactories.js";
 import {
   ConsumeMiddleware,
   ConsumeMiddlewareContext,
   ConsumeOptions,
   TopologyMode,
-} from "./types";
-import { publishWithBackpressure } from "./backpressure";
-import { Dedupe, DedupeOpts, makeMemoryDedupe } from "./utils/dedupe";
-import { LifecycleEmit } from "./lifecycle";
+} from "./types.js";
+import { publishWithBackpressure } from "./backpressure.js";
+import { Dedupe, DedupeOpts, makeMemoryDedupe } from "./utils/dedupe.js";
+import { LifecycleEmit } from "./lifecycle.js";
 
 export type HandlerMap = Map<
   string,
@@ -37,6 +37,7 @@ export function createConsumer(params: {
   handlers: HandlerMap;
   middlewares: ConsumeMiddleware[];
   emitLifecycle: LifecycleEmit;
+  shutdownTimeoutMs: number;
 }) {
   const {
     peerName,
@@ -46,6 +47,7 @@ export function createConsumer(params: {
     handlers,
     middlewares,
     emitLifecycle,
+    shutdownTimeoutMs,
   } = params;
 
   let consumerTag: string | undefined;
@@ -66,6 +68,29 @@ export function createConsumer(params: {
   const pendingMessages: ConsumeMessage[] = [];
   let activeHandlers = 0;
   let stopping = false;
+  const drainWaiters = new Set<() => void>();
+
+  function notifyDrained(): void {
+    if (activeHandlers !== 0) return;
+    for (const resolve of drainWaiters) resolve();
+    drainWaiters.clear();
+  }
+
+  async function waitForActiveHandlers(): Promise<void> {
+    if (activeHandlers === 0) return;
+
+    await new Promise<void>((resolve) => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const done = () => {
+        if (timer) clearTimeout(timer);
+        drainWaiters.delete(done);
+        resolve();
+      };
+
+      drainWaiters.add(done);
+      timer = setTimeout(done, shutdownTimeoutMs);
+    });
+  }
 
   function isDedupeInstance(value: unknown): value is Dedupe {
     return (
@@ -516,6 +541,7 @@ export function createConsumer(params: {
         })
         .finally(() => {
           activeHandlers--;
+          notifyDrained();
           processNext();
         });
     }
@@ -623,6 +649,19 @@ export function createConsumer(params: {
         } catch {
           // channel may be closed, ignore
         }
+
+        const c = consumeCh;
+        while (pendingMessages.length > 0) {
+          const pending = pendingMessages.shift();
+          if (!pending || !c) continue;
+          try {
+            c.nack(pending, false, true);
+          } catch {
+            // channel may be closed
+          }
+        }
+
+        await waitForActiveHandlers();
 
         await emitLifecycle("consumer.stopped", {
           peerName,

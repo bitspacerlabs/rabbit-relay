@@ -1,5 +1,5 @@
 import { Channel, GetMessage, Options } from "amqplib";
-import { publishWithBackpressure } from "./backpressure";
+import { publishWithBackpressure } from "./backpressure.js";
 
 export interface DlqRedriveOptions {
   /**

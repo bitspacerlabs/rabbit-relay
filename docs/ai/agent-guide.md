@@ -396,6 +396,10 @@ process.on("SIGTERM", async () => {
 });
 ```
 
+For handlers that may take longer than 30 seconds, configure a bounded drain
+timeout with `shutdownTimeoutMs`. Broker instances own independent connections;
+closing one broker does not close another.
+
 ---
 
 ## Avoid generating

@@ -1,4 +1,4 @@
-import { EventEnvelope } from "./eventFactories";
+import { EventEnvelope } from "./eventFactories.js";
 
 export interface Plugin {
   beforeProduce?(event: EventEnvelope): Promise<void>;

@@ -54,7 +54,7 @@ Rabbit Relay wraps your payload in a plain JSON envelope:
 export interface EventEnvelope<T = unknown> {
   id: string;          // globally unique (idempotency key)
   name: string;        // event name / routing key
-  version: string;     // e.g. "v1"
+  v: string;           // e.g. "v1"
   time?: number;       // epoch ms
   data: T;             // your typed payload
   meta?: {

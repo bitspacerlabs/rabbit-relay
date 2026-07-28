@@ -25,6 +25,8 @@ process.on("SIGTERM", async () => {
 
 - stop active consumers
 - cancel consumer subscriptions
+- wait for active handlers to finish, up to `shutdownTimeoutMs`
+- requeue deliveries that were pending locally but had not started
 - stop reconnect attempts
 - close the normal channel
 - close the confirm channel
@@ -56,19 +58,18 @@ process.on("SIGTERM", async () => {
 
 ---
 
-## Shared connection note
+## Drain timeout
 
-Rabbit Relay currently uses a process-level shared RabbitMQ connection.
-
-That means calling:
+The default drain timeout is 30 seconds. Configure it per broker:
 
 ```ts
-await broker.close();
+const broker = new RabbitMQBroker("orders-service", {
+  shutdownTimeoutMs: 15_000,
+});
 ```
 
-closes the shared connection used by Rabbit Relay in this process.
-
-This matches the current architecture and keeps shutdown simple.
+Each broker owns its RabbitMQ connection and channels. Closing one broker does
+not close other brokers in the same process.
 
 ---
 
@@ -76,5 +77,7 @@ This matches the current architecture and keeps shutdown simple.
 
 - Use `broker.close()` during shutdown
 - Handles consumers, channels, and connection cleanup
+- Drains active handlers with a bounded timeout
+- Broker instances have isolated connection lifecycles
 - Useful for tests and production services
 - Safe to call during process termination

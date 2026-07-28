@@ -6,6 +6,55 @@ This project follows semantic versioning.
 
 ---
 
+## [1.1.0] - 2026-07-28
+
+### Added
+
+- Added per-broker `connectionUrl` and `connectionName` options.
+- Added `shutdownTimeoutMs` for bounded graceful consumer draining.
+- Added live RabbitMQ integration coverage for publishing, confirms, RPC,
+  retry, DLQ, redrive, reconnect, broker isolation, shutdown, and validation.
+- Added deterministic connection-manager shutdown-race coverage.
+- Added TypeScript declaration coverage for CommonJS and native ESM projects.
+- Added CI coverage for Node.js 18, 20, 22, and 24.
+- Added `AGENTS.md` and curated `llms.txt` guidance.
+
+### Changed
+
+- Each `RabbitMQBroker` now owns its RabbitMQ connection and channels.
+- `broker.close()` no longer closes resources owned by other broker instances.
+- Graceful shutdown waits for active handlers and requeues pending deliveries.
+- Topology validation uses one isolated disposable connection per run and a
+  fresh channel per resource so
+  every missing exchange and queue is reported without poisoning operational
+  channels after a failed passive check.
+- Expanded packed-package coverage across every public runtime export.
+
+### Fixed
+
+- Fixed active handlers being interrupted when `broker.close()` returned.
+- Fixed incomplete topology validation after the first missing resource.
+- Fixed cross-broker connection teardown during independent shutdown.
+- Fixed concurrent `broker.close()` calls bypassing active-handler draining.
+
+### Backward Compatibility
+
+- Existing constructor and exchange options remain supported.
+- `RABBITMQ_URL` remains the default when `connectionUrl` is omitted.
+- Public publishing, consuming, retry, RPC, topology, and operations APIs are
+  unchanged.
+
+---
+
+## [1.0.1] - 2026-06-26
+
+### Changed
+
+- Published a version-only maintenance release after `1.0.0` with no runtime
+  or public API changes.
+
+---
+
 ## [1.0.0] - 2026-06-25
 
 ### Added

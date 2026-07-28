@@ -5,13 +5,13 @@ import {
   InternalCfg,
   QueueConfig,
   TopologyMode,
-} from "./types";
+} from "./types.js";
 import {
   TopologyBindingPlan,
   TopologyExchangePlan,
   TopologyPlan,
   TopologyQueuePlan,
-} from "./topologyPlan";
+} from "./topologyPlan.js";
 
 function mergeArguments(
   ...args: Array<Options.AssertQueue["arguments"] | undefined>

@@ -22,6 +22,9 @@ The first argument is the peer/service name. It is used in lifecycle events, hea
 
 ```ts
 const broker = new RabbitMQBroker("orders-service", {
+  connectionUrl: "amqp://user:password@rabbitmq.internal:5672",
+  connectionName: "orders-service-primary",
+  shutdownTimeoutMs: 30_000,
   exchangeType: "topic",
   routingKey: "#",
   durable: true,
@@ -31,9 +34,20 @@ const broker = new RabbitMQBroker("orders-service", {
 });
 ```
 
-Supported broker-level options are the same as exchange-level defaults.
+Broker-only options configure connection and shutdown ownership:
+
+| Option | Description |
+|---|---|
+| `connectionUrl` | RabbitMQ URL for this broker; defaults to `RABBITMQ_URL` |
+| `connectionName` | Name shown in RabbitMQ tooling; falls back to `AMQP_CONN_NAME`, then the peer name |
+| `shutdownTimeoutMs` | Maximum active-handler drain time; defaults to 30 seconds |
+
+The remaining broker-level options become exchange defaults.
 
 Exchange-level options override broker-level options.
+
+Each broker owns its connection and channels. Calling `close()` does not close
+resources owned by other broker instances.
 
 ---
 

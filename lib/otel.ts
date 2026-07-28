@@ -2,7 +2,7 @@ import {
   LifecycleEventMap,
   LifecycleEventName,
   LifecycleHandler,
-} from "./lifecycle";
+} from "./lifecycle.js";
 
 type SpanStatusCodeLike = {
   OK?: number;

@@ -1,5 +1,5 @@
 import { Channel } from "amqplib";
-import { TopologyPlan } from "./topologyPlan";
+import { TopologyPlan } from "./topologyPlan.js";
 
 export type TopologyValidationIssueType =
   | "missing_exchange"

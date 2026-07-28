@@ -1,10 +1,10 @@
 import { Channel, Options } from "amqplib";
-import { EventEnvelope } from "./eventFactories";
-import { Dedupe, DedupeOpts } from "./utils/dedupe";
-import { LifecycleEventName, LifecycleHandler } from "./lifecycle";
-import { TopologyPlan } from "./topologyPlan";
-import { TopologyValidationResult } from "./topologyValidation";
-import { DlqRedriveOptions, DlqRedriveResult } from "./dlqRedrive";
+import { EventEnvelope } from "./eventFactories.js";
+import { Dedupe, DedupeOpts } from "./utils/dedupe.js";
+import { LifecycleEventName, LifecycleHandler } from "./lifecycle.js";
+import { TopologyPlan } from "./topologyPlan.js";
+import { TopologyValidationResult } from "./topologyValidation.js";
+import { DlqRedriveOptions, DlqRedriveResult } from "./dlqRedrive.js";
 
 export type TopologyMode = "assert" | "passive" | "plan-only";
 
@@ -110,6 +110,17 @@ export interface ExchangeConfig {
    * Rabbit Relay keeps safe defaults, while advanced users can pass raw AMQP options.
    */
   amqp?: Pick<AmqpPassthroughOptions, "exchange" | "queue" | "bind">;
+}
+
+export interface BrokerConfig extends ExchangeConfig {
+  /** RabbitMQ URL for this broker. Defaults to RABBITMQ_URL. */
+  connectionUrl?: string;
+
+  /** AMQP connection name. Defaults to the broker peer name. */
+  connectionName?: string;
+
+  /** Maximum time broker.close() waits for active handlers. Default: 30000. */
+  shutdownTimeoutMs?: number;
 }
 
 export interface PublishOptions {

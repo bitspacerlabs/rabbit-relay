@@ -19,6 +19,9 @@ When the RabbitMQ connection or channel is closed due to a broker restart, netwo
 
 Your application process stays running throughout.
 
+Each `RabbitMQBroker` owns its connection and reconnect lifecycle. An outage or
+shutdown for one broker does not close another broker's connection.
+
 ---
 
 ## What is restored automatically
