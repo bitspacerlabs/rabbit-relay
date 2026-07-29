@@ -25,10 +25,10 @@ This example demonstrates:
 
 ```bash
 # terminal 1 – start consumer
-npx ts-node-dev --transpile-only examples/07-escape-hatch/consumer.ts
+npx tsx examples/07-escape-hatch/consumer.ts
 
 # terminal 2 – start publisher
-npx ts-node-dev --transpile-only examples/07-escape-hatch/publisher.ts
+npx tsx examples/07-escape-hatch/publisher.ts
 ```
 
 ---

@@ -20,10 +20,10 @@ A requester sends a message and waits for a typed reply from a responder.
 
 ```bash
 # terminal 1 – start the responder
-npx ts-node-dev --transpile-only examples/02-rpc/responder.ts
+npx tsx examples/02-rpc/responder.ts
 
 # terminal 2 – run the requester
-npx ts-node-dev --transpile-only examples/02-rpc/requester.ts
+npx tsx examples/02-rpc/requester.ts
 ```
 
 ---

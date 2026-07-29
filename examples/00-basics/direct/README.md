@@ -11,13 +11,13 @@
 **Run**
 ```bash
 # terminal 1
-npx ts-node-dev --transpile-only examples/00-basics/direct/consumer.alpha.ts
+npx tsx examples/00-basics/direct/consumer.alpha.ts
 
 # terminal 2
-npx ts-node-dev --transpile-only examples/00-basics/direct/consumer.beta.ts
+npx tsx examples/00-basics/direct/consumer.beta.ts
 
 # terminal 3
-npx ts-node-dev --transpile-only examples/00-basics/direct/publisher.ts
+npx tsx examples/00-basics/direct/publisher.ts
 ```
 
 **Expect**

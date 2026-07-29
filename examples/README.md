@@ -11,7 +11,7 @@ docker compose -f examples/docker-compose.yml up -d
 Most examples can be run with:
 
 ```bash
-npx ts-node-dev --transpile-only examples/<example-folder>/<file>.ts
+npx tsx examples/<example-folder>/<file>.ts
 ```
 
 ---

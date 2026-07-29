@@ -22,10 +22,10 @@ Without confirms, `produce()` resolves immediately after writing to the socket -
 
 ```bash
 # with publisher confirms
-npx ts-node-dev --transpile-only examples/01-confirms/publisherConfirms.with.ts
+npx tsx examples/01-confirms/publisherConfirms.with.ts
 
 # without publisher confirms
-npx ts-node-dev --transpile-only examples/01-confirms/publisherConfirms.without.ts
+npx tsx examples/01-confirms/publisherConfirms.without.ts
 ```
 
 ---

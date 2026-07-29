@@ -53,19 +53,19 @@ docker compose -f examples/docker-compose.yml up -d
 Terminal 1:
 
 ```bash
-npx ts-node-dev --transpile-only examples/10-delayed-retry/consumer.retry-delayed.ts
+npx tsx examples/10-delayed-retry/consumer.retry-delayed.ts
 ```
 
 Terminal 2:
 
 ```bash
-npx ts-node-dev --transpile-only examples/10-delayed-retry/consumer.dlq.ts
+npx tsx examples/10-delayed-retry/consumer.dlq.ts
 ```
 
 Terminal 3:
 
 ```bash
-npx ts-node-dev --transpile-only examples/10-delayed-retry/publisher.ts
+npx tsx examples/10-delayed-retry/publisher.ts
 ```
 
 ---

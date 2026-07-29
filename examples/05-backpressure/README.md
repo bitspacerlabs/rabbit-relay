@@ -65,7 +65,7 @@ There are two layers of flow control working together.
 
 ```bash
 PREFETCH=10 BP_SLOW_MS=200 \
-npx ts-node-dev --transpile-only examples/05-backpressure/consumer.slow.ts
+npx tsx examples/05-backpressure/consumer.slow.ts
 ```
 
 Expected:
@@ -80,7 +80,7 @@ Expected:
 
 ```bash
 BP_MSG_SIZE=256000 \
-npx ts-node-dev --transpile-only examples/05-backpressure/publisher.fast.ts
+npx tsx examples/05-backpressure/publisher.fast.ts
 ```
 
 Watch for logs like:
@@ -98,7 +98,7 @@ These lines mean **backpressure is active**.
 
 ```bash
 PREFETCH=100 \
-npx ts-node-dev --transpile-only examples/05-backpressure/consumer.fast.ts
+npx tsx examples/05-backpressure/consumer.fast.ts
 ```
 
 Result:

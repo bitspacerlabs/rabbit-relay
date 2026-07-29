@@ -15,14 +15,14 @@
 **Run (suggested order)**
 ```bash
 # Ship + Notify first
-npx ts-node-dev --transpile-only examples/00-basics/topic-microservices/shippingService.ts
-npx ts-node-dev --transpile-only examples/00-basics/topic-microservices/notificationsService.ts
+npx tsx examples/00-basics/topic-microservices/shippingService.ts
+npx tsx examples/00-basics/topic-microservices/notificationsService.ts
 
 # Payments next
-npx ts-node-dev --transpile-only examples/00-basics/topic-microservices/paymentsService.ts
+npx tsx examples/00-basics/topic-microservices/paymentsService.ts
 
 # Orders last (producer)
-npx ts-node-dev --transpile-only examples/00-basics/topic-microservices/ordersService.ts
+npx tsx examples/00-basics/topic-microservices/ordersService.ts
 ```
 
 **Expect**

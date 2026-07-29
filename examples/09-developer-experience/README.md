@@ -18,10 +18,10 @@ This example demonstrates:
 
 ```bash
 # terminal 1
-npx ts-node-dev --transpile-only examples/09-developer-experience/consumer.ts
+npx tsx examples/09-developer-experience/consumer.ts
 
 # terminal 2
-npx ts-node-dev --transpile-only examples/09-developer-experience/publisher.ts
+npx tsx examples/09-developer-experience/publisher.ts
 ```
 
 ---

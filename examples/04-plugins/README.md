@@ -49,7 +49,7 @@ This is how Rabbit Relay moves beyond a simple RabbitMQ wrapper and acts as a **
 ### 1) Start the consumer
 
 ```bash
-npx ts-node-dev --transpile-only examples/04-plugins/consumer.ts
+npx tsx examples/04-plugins/consumer.ts
 ```
 
 Expected output:
@@ -63,7 +63,7 @@ Expected output:
 ### 2) Start the publisher
 
 ```bash
-npx ts-node-dev --transpile-only examples/04-plugins/publisher.ts
+npx tsx examples/04-plugins/publisher.ts
 ```
 
 Expected output:

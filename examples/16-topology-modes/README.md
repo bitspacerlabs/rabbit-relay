@@ -75,7 +75,7 @@ docker compose -f examples/docker-compose.yml up -d
 Run:
 
 ```bash
-npx ts-node-dev --transpile-only examples/16-topology-modes/service.ts
+npx tsx examples/16-topology-modes/service.ts
 ```
 
 ---

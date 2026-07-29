@@ -28,10 +28,10 @@ This example builds on **RPC - Basics** and is intended for **advanced users**.
 
 ```bash
 # normal responder
-npx ts-node-dev --transpile-only examples/02-rpc-advanced/responder.ts
+npx tsx examples/02-rpc-advanced/responder.ts
 
 # OR slow responder (simulates downstream slowness)
-npx ts-node-dev --transpile-only examples/02-rpc-advanced/responder.slow.ts
+npx tsx examples/02-rpc-advanced/responder.slow.ts
 ```
 
 ---
@@ -39,7 +39,7 @@ npx ts-node-dev --transpile-only examples/02-rpc-advanced/responder.slow.ts
 ### 2) Run the requester
 
 ```bash
-npx ts-node-dev --transpile-only examples/02-rpc-advanced/requester.ts
+npx tsx examples/02-rpc-advanced/requester.ts
 ```
 
 ---
@@ -47,7 +47,7 @@ npx ts-node-dev --transpile-only examples/02-rpc-advanced/requester.ts
 ### 3) (Optional) Send a poison message
 
 ```bash
-npx ts-node-dev --transpile-only examples/02-rpc-advanced/poison.sender.ts
+npx tsx examples/02-rpc-advanced/poison.sender.ts
 ```
 
 ---

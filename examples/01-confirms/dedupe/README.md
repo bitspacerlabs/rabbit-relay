@@ -10,10 +10,10 @@ De-duplication is useful when the same event may be delivered more than once and
 
 ```bash
 # terminal 1
-npx ts-node-dev --transpile-only examples/01-confirms/dedupe/consumer.dedupe.ts
+npx tsx examples/01-confirms/dedupe/consumer.dedupe.ts
 
 # terminal 2
-npx ts-node-dev --transpile-only examples/01-confirms/dedupe/publisher.dupes.ts
+npx tsx examples/01-confirms/dedupe/publisher.dupes.ts
 ```
 
 ---

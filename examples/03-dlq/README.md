@@ -51,13 +51,13 @@ routing key: orders.dead
 
 ```bash
 # terminal 1 – start the failing consumer
-npx ts-node-dev --transpile-only examples/03-dlq/consumer.fail.ts
+npx tsx examples/03-dlq/consumer.fail.ts
 
 # terminal 2 – start the DLQ consumer
-npx ts-node-dev --transpile-only examples/03-dlq/consumer.dlq.ts
+npx tsx examples/03-dlq/consumer.dlq.ts
 
 # terminal 3 – publish messages
-npx ts-node-dev --transpile-only examples/03-dlq/publisher.ts
+npx tsx examples/03-dlq/publisher.ts
 ```
 
 ---

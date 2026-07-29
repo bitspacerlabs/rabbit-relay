@@ -16,7 +16,7 @@ This example is useful for services that need readiness checks, dashboards, or K
 ## Run
 
 ```bash
-npx ts-node-dev --transpile-only examples/08-health-shutdown/service.ts
+npx tsx examples/08-health-shutdown/service.ts
 ```
 
 In another terminal, stop it with `Ctrl+C`.

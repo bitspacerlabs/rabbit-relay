@@ -36,13 +36,13 @@ retry.jobs.dlx      -> retry.jobs.dlq
 
 ```bash
 # terminal 1 – start retry consumer
-npx ts-node-dev --transpile-only examples/06-retry-dlq/consumer.retry.ts
+npx tsx examples/06-retry-dlq/consumer.retry.ts
 
 # terminal 2 – start DLQ consumer
-npx ts-node-dev --transpile-only examples/06-retry-dlq/consumer.dlq.ts
+npx tsx examples/06-retry-dlq/consumer.dlq.ts
 
 # terminal 3 – publish jobs
-npx ts-node-dev --transpile-only examples/06-retry-dlq/publisher.ts
+npx tsx examples/06-retry-dlq/publisher.ts
 ```
 
 ---

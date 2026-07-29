@@ -32,7 +32,7 @@ That means it builds the topology plan without declaring exchanges, queues, or b
 This example does not need RabbitMQ because it uses `topologyMode: "plan-only"`.
 
 ```bash
-npx ts-node-dev --transpile-only examples/13-topology-planner/service.ts
+npx tsx examples/13-topology-planner/service.ts
 ```
 
 ---

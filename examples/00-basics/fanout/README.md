@@ -10,11 +10,11 @@
 **Run**
 ```bash
 # terminal 1
-npx ts-node-dev --transpile-only examples/00-basics/fanout/consumer.a.ts
+npx tsx examples/00-basics/fanout/consumer.a.ts
 # terminal 2
-npx ts-node-dev --transpile-only examples/00-basics/fanout/consumer.b.ts
+npx tsx examples/00-basics/fanout/consumer.b.ts
 # terminal 3
-npx ts-node-dev --transpile-only examples/00-basics/fanout/publisher.ts
+npx tsx examples/00-basics/fanout/publisher.ts
 ```
 
 **Expect**

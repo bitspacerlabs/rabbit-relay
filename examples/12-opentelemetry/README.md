@@ -39,7 +39,7 @@ docker compose -f examples/docker-compose.yml up -d
 Run:
 
 ```bash
-npx ts-node-dev --transpile-only examples/12-opentelemetry/service.ts
+npx tsx examples/12-opentelemetry/service.ts
 ```
 
 ---

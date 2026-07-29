@@ -35,7 +35,7 @@ docker compose -f examples/docker-compose.yml up -d
 Run:
 
 ```bash
-npx ts-node-dev --transpile-only examples/14-topology-validation/service.ts
+npx tsx examples/14-topology-validation/service.ts
 ```
 
 ---
