@@ -1,5 +1,4 @@
-import { RabbitMQBroker } from "../../../lib";
-import { event } from "../../../lib/eventFactories";
+import { RabbitMQBroker, event } from "../../../lib";
 import type { EventEnvelope } from "../../../lib";
 
 type Payload = { seq: number; msg: string };
@@ -17,11 +16,17 @@ type Ev = EventEnvelope<Payload>;
 
   let seq = 1;
   console.log("[fanout/publisher] broadcasting to all bound queues");
-  (function tick() {
+  (async function tick() {
     const ev = mk({ seq, msg: `hello #${seq}` });
-    pub.produce(ev)
-      .then(() => console.log(`[fanout/publisher] sent seq=${seq}`))
-      .catch(err => console.error("[fanout/publisher] publish error:", err))
-      .finally(() => { seq++; setTimeout(tick, 400); });
+
+    try {
+      await pub.produce(ev);
+      console.log(`[fanout/publisher] sent seq=${seq}`);
+    } catch (err) {
+      console.error("[fanout/publisher] publish error:", err);
+    }
+
+    seq++;
+    setTimeout(tick, 400);
   })();
 })();

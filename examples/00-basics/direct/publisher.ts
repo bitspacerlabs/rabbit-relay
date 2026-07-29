@@ -1,5 +1,4 @@
-import { RabbitMQBroker } from "../../../lib";
-import { event } from "../../../lib/eventFactories";
+import { RabbitMQBroker, event } from "../../../lib";
 import type { EventEnvelope } from "../../../lib";
 
 type Payload = { seq: number; note: string };
@@ -19,14 +18,19 @@ type Ev = EventEnvelope<Payload>;
 
   let seq = 1;
   console.log("[direct/publisher] alternating alpha/beta");
-  (function tick() {
+  (async function tick() {
     const isAlpha = seq % 2 === 1;
     const payload = { seq, note: isAlpha ? "to alpha" : "to beta" };
     const ev = isAlpha ? mkAlpha(payload) : mkBeta(payload);
 
-    pub.produce(ev)
-      .then(() => console.log(`[direct/publisher] sent seq=${seq} key=${isAlpha ? "alpha" : "beta"}`))
-      .catch(err => console.error("[direct/publisher] publish error:", err))
-      .finally(() => { seq++; setTimeout(tick, 250); });
+    try {
+      await pub.produce(ev);
+      console.log(`[direct/publisher] sent seq=${seq} key=${isAlpha ? "alpha" : "beta"}`);
+    } catch (err) {
+      console.error("[direct/publisher] publish error:", err);
+    }
+
+    seq++;
+    setTimeout(tick, 250);
   })();
 })();

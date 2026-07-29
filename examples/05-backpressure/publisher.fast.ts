@@ -1,5 +1,4 @@
-import { RabbitMQBroker } from "../../lib";
-import { event } from "../../lib/eventFactories";
+import { RabbitMQBroker, event } from "../../lib";
 import type { EventEnvelope } from "../../lib";
 
 type Payload = { seq: number; note: string; pad: string };

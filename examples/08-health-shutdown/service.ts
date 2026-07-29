@@ -7,7 +7,9 @@ type Payload = {
 };
 
 (async () => {
-  const broker = new RabbitMQBroker("health.service");
+  const broker = new RabbitMQBroker("health.service", {
+    shutdownTimeoutMs: 10_000,
+  });
 
   const iface = await broker
     .queue("health.demo.q")
@@ -31,7 +33,7 @@ type Payload = {
 
   let seq = 1;
 
-  const publishTimer = setInterval(async () => {
+  (async function publishTick() {
     try {
       await iface.produce(
         makeEvent({
@@ -43,21 +45,24 @@ type Payload = {
     } catch (err) {
       console.error("[service] publish failed:", err);
     }
-  }, 1000);
+    setTimeout(publishTick, 1000);
+  })();
 
-  const healthTimer = setInterval(async () => {
+  let healthTimer: ReturnType<typeof setTimeout>;
+
+  (async function healthTick() {
     try {
       console.log("[health]", await broker.health());
     } catch (err) {
       console.error("[health] failed:", err);
     }
-  }, 3000);
+    healthTimer = setTimeout(healthTick, 3000);
+  })();
 
   async function shutdown(signal: string) {
     console.log(`[service] received ${signal}, shutting down...`);
 
-    clearInterval(publishTimer);
-    clearInterval(healthTimer);
+    if (healthTimer) clearTimeout(healthTimer);
 
     await broker.close();
 

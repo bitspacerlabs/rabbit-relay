@@ -1,4 +1,5 @@
-import { RabbitMQBroker, event, EventEnvelope } from "../../lib";
+import { RabbitMQBroker, event } from "../../lib";
+import type { EventEnvelope } from "../../lib";
 import { registerPlugins } from "./register";
 
 registerPlugins("plugins.publisher");

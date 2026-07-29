@@ -1,5 +1,4 @@
-import { RabbitMQBroker } from "../../../lib";
-import { event } from "../../../lib/eventFactories";
+import { RabbitMQBroker, event } from "../../../lib";
 import type { EventEnvelope } from "../../../lib";
 
 type Order = { orderId: string; items: Array<{ sku: string; qty: number }> };
@@ -18,11 +17,18 @@ type Ev = EventEnvelope<Order>;
 
   let n = 1;
   console.log("[orders] emitting orderCreated every ~1s");
-  setInterval(() => {
+  (async function tick() {
     const order: Order = {
       orderId: `o-${Date.now()}-${n++}`,
       items: [{ sku: "coffee", qty: 1 }],
     };
-    pub.produce(mkOrderCreated(order)).catch(err => console.error("[orders] publish error:", err));
-  }, 1000);
+
+    try {
+      await pub.produce(mkOrderCreated(order));
+    } catch (err) {
+      console.error("[orders] publish error:", err);
+    }
+
+    setTimeout(tick, 1000);
+  })();
 })();
