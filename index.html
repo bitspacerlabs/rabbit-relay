@@ -150,9 +150,9 @@
 
     .code-card {
       position: absolute;
-      top: 36%;
-      left: 50.5%;
-      width: min(686px, 46vw);
+      top: 28%;
+      right: 4%;
+      width: min(840px, 60vw);
       min-height: 310px;
       padding: 34px 40px 44px;
       border-radius: 12px;
@@ -298,7 +298,8 @@
         <section class="code-card">
 <pre><code><span class="keyword">import</span> { RabbitMQBroker, event } <span class="keyword">from</span> <span class="string">'@bitspacerlabs/rabbit-relay'</span>
 
-<span class="keyword">const</span> scheduleTask = event(<span class="string">'scheduler.scheduleTask'</span>, <span class="string">'v1'</span>).of&lt;<span class="keyword">unknown</span>&gt;()
+<span class="keyword">const</span> scheduleTask = event(<span class="string">'scheduler.scheduleTask'</span>, <span class="string">'v1'</span>)
+  .of&lt;{ <span class="prop">id</span>: <span class="keyword">string</span>; <span class="prop">when</span>: <span class="keyword">number</span> }&gt;()
 
 <span class="keyword">const</span> broker = <span class="keyword">new</span> RabbitMQBroker(<span class="string">'scheduler_service'</span>)
 
