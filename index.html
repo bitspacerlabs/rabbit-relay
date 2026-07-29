@@ -298,10 +298,7 @@
         <section class="code-card">
 <pre><code><span class="keyword">import</span> { RabbitMQBroker, event } <span class="keyword">from</span> <span class="string">'@bitspacerlabs/rabbit-relay'</span>
 
-<span class="keyword">const</span> scheduleTask = event(<span class="string">'scheduler.scheduleTask'</span>, <span class="string">'v1'</span>).of&lt;{
-  <span class="prop">id</span>: <span class="keyword">string</span>;
-  <span class="prop">when</span>: <span class="keyword">number</span>;
-}&gt;()
+<span class="keyword">const</span> scheduleTask = event(<span class="string">'scheduler.scheduleTask'</span>, <span class="string">'v1'</span>).of&lt;<span class="keyword">unknown</span>&gt;()
 
 <span class="keyword">const</span> broker = <span class="keyword">new</span> RabbitMQBroker(<span class="string">'scheduler_service'</span>)
 
@@ -312,10 +309,10 @@
     <span class="prop">publisherConfirms</span>: <span class="keyword">true</span>
   })
 
-<span class="keyword">await</span> pub.produce(scheduleTask({
-  <span class="prop">id</span>: <span class="string">'task_123'</span>,
-  <span class="prop">when</span>: Date.now()
-}))</code></pre>
+<span class="keyword">await</span> pub.produce(
+  scheduleTask({ <span class="prop">id</span>: <span class="string">'task_123'</span>, <span class="prop">when</span>: Date.now() })
+)
+<span class="keyword">await</span> broker.close()</code></pre>
           <div class="lang">TypeScript</div>
         </section>
       </main>
