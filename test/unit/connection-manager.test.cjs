@@ -41,13 +41,16 @@ async function raceCloseWithChannelCreation(kind) {
   if (kind === "regular") channelPromise = manager.getChannel();
   else if (kind === "confirm") channelPromise = manager.getConfirmChannel();
   else if (kind === "disposable") channelPromise = manager.createChannel();
-  else channelPromise = manager.createIsolatedChannel();
+  else {
+    const session = await manager.createValidationSession();
+    channelPromise = session.createChannel();
+  }
 
   await new Promise((resolve) => setImmediate(resolve));
   await manager.close();
   opening.resolve(channel);
 
-  await assert.rejects(channelPromise, /connection manager is closed/);
+  await assert.rejects(channelPromise, /is closed/);
   assert.equal(channel.closeCalls, 1);
 }
 

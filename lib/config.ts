@@ -200,50 +200,6 @@ export class RabbitMQConnectionManager {
     return channel;
   }
 
-  public async createIsolatedChannel(): Promise<{
-    channel: Channel;
-    close(): Promise<void>;
-  }> {
-    if (this.closed) {
-      throw new Error("RabbitMQ connection manager is closed");
-    }
-
-    let connection: ChannelModel | undefined;
-    let channel: Channel | undefined;
-
-    try {
-      connection = await this.connector(this.url, {
-        clientProperties: {
-          connection_name: `${this.connectionName}:validation`,
-        },
-      });
-      connection.on("error", () => undefined);
-
-      if (this.closed) {
-        throw new Error("RabbitMQ connection manager is closed");
-      }
-
-      channel = await connection.createChannel();
-      channel.on("error", () => undefined);
-
-      if (this.closed) {
-        throw new Error("RabbitMQ connection manager is closed");
-      }
-
-      return {
-        channel,
-        close: async () => {
-          await channel?.close().catch(() => undefined);
-          await connection?.close().catch(() => undefined);
-        },
-      };
-    } catch (error) {
-      await channel?.close().catch(() => undefined);
-      await connection?.close().catch(() => undefined);
-      throw error;
-    }
-  }
-
   public async createValidationSession(): Promise<{
     createChannel(): Promise<Channel>;
     close(): Promise<void>;
