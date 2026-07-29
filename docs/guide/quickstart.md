@@ -208,15 +208,24 @@ await pub.produce(
 );
 ```
 
-Use `traceFrom()` when creating a child event from an existing event.
+Use `traceFrom()` when creating a child event from an existing event. It preserves the correlation ID and sets the causation ID to the parent event's ID.
 
 ```ts
-import { traceFrom } from "@bitspacerlabs/rabbit-relay";
+import { event, traceFrom } from "@bitspacerlabs/rabbit-relay";
+
+const taskCompleted = event("scheduler.taskCompleted", "v1").of<{
+  id: string;
+  result: string;
+}>();
 
 sub.handle(SchedulerEvents.ScheduleTask, async (_id, ev) => {
-  const trace = traceFrom(ev);
-
-  console.log("Trace metadata:", trace);
+  // Child event inherits corrId and gets causationId = ev.id
+  await pub.produce(
+    taskCompleted(
+      { id: ev.data.id, result: "done" },
+      traceFrom(ev)
+    )
+  );
 });
 ```
 
@@ -319,7 +328,7 @@ process.on("SIGTERM", async () => {
 - `produce()` is the simplest way to publish an event
 - `with()` creates a small typed publish API
 - `request<TReply>()` supports typed RPC
-- `withHeaders()` and `traceFrom()` help with metadata
+- `withHeaders()`, `withCorrelation()`, and `traceFrom()` help with metadata
 - retry + delayed retry + DLQ gives safer production failure handling
 - lifecycle hooks, topology planning, validation, and DLQ redrive help operations
 - native `amqplib` options remain available when needed

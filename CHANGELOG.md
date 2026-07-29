@@ -6,6 +6,22 @@ This project follows semantic versioning.
 
 ---
 
+## [1.1.1] - 2026-07-29
+
+### Fixed
+
+- Landing page code example (`index.html`) now uses the correct `event()` and
+  `produce()` API instead of an invalid chained `.publish(event(name, data))` call.
+- Quickstart `traceFrom()` example now shows a real child-event usage pattern
+  instead of a non-functional standalone `traceFrom()` call.
+
+### Added
+
+- Integration test coverage for message size guard, concurrent RPC, multi-event
+  routing, and non-Error handler throws.
+
+---
+
 ## [1.1.0] - 2026-07-28
 
 ### Added

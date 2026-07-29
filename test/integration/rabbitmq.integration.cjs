@@ -393,3 +393,153 @@ test("passive startup reports every missing resource without poisoning the broke
     await broker.close();
   }
 });
+
+test("message size guard rejects oversized payloads at the exchange level", { timeout: timeoutMs }, async () => {
+  const id = unique("size-guard");
+  const eventName = `${id}.big`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+
+  try {
+    const pub = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        maxMessageBytes: 256,
+      });
+
+    // Small message within limit
+    await pub.produce(makeEvent({ data: "x".repeat(50) }));
+
+    // Large message exceeding limit
+    await assert.rejects(
+      () => pub.produce(makeEvent({ data: "x".repeat(2000) })),
+      (error) => {
+        assert.match(error.message, /max allowed is/);
+        return true;
+      }
+    );
+  } finally {
+    await broker.close();
+  }
+});
+
+test("concurrent rpc requests all get correct replies", { timeout: timeoutMs }, async () => {
+  const id = unique("concurrent-rpc");
+  const eventName = `${id}.request`;
+  const makeRequest = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+
+    let counter = 0;
+    relay.handle(eventName, async (_deliveryTag, envelope) => {
+      counter++;
+      return { n: envelope.data.n, sq: counter };
+    });
+    await relay.consume({ prefetch: 10, concurrency: 10 });
+
+    // Fire 5 RPCs in parallel
+    const results = await Promise.all(
+      [10, 20, 30, 40, 50].map((n) =>
+        relay.request(makeRequest({ n }), { timeoutMs: 5_000 })
+      )
+    );
+
+    assert.equal(results.length, 5);
+    const ns = results.map((r) => r.n).sort((a, b) => a - b);
+    assert.deepEqual(ns, [10, 20, 30, 40, 50]);
+  } finally {
+    await broker.close();
+  }
+});
+
+test("multiple event types on one queue route to correct handlers", { timeout: timeoutMs }, async () => {
+  const id = unique("multi-event");
+  const eventA = `${id}.a`;
+  const eventB = `${id}.b`;
+  const makeA = event(eventA, "v1").of();
+  const makeB = event(eventB, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const received = [];
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: `${id}.*`,
+      });
+
+    relay.handle(eventA, async (_dt, ev) => { received.push(`A:${ev.data.v}`); });
+    relay.handle(eventB, async (_dt, ev) => { received.push(`B:${ev.data.v}`); });
+    await relay.consume({ prefetch: 10, concurrency: 1 });
+
+    await relay.produce(makeA({ v: 1 }));
+    await relay.produce(makeB({ v: 2 }));
+    await relay.produce(makeA({ v: 3 }));
+
+    await waitFor(() => received.length === 3, "not all events processed");
+    assert.deepEqual(received, ["A:1", "B:2", "A:3"]);
+  } finally {
+    await broker.close();
+  }
+});
+
+test("handler that throws a non-error value still retries and dead-letters", { timeout: timeoutMs }, async () => {
+  const id = unique("non-error-throw");
+  const eventName = `${id}.fail`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const attempts = [];
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+        deadLetter: {
+          exchange: `${id}.dlx`,
+          queue: `${id}.dlq`,
+          routingKey: `${id}.dead`,
+          autoDeclare: true,
+        },
+      });
+
+    relay.handle(eventName, async () => {
+      attempts.push("tried");
+      throw "string error, not an Error object";
+    });
+    const consumer = await relay.consume({
+      prefetch: 1,
+      concurrency: 1,
+      onError: "retry",
+      retry: { attempts: 1, delayMs: 200, then: "dead-letter" },
+    });
+
+    await relay.produce(makeEvent({ v: 1 }));
+
+    await waitFor(
+      () => broker.withChannel(async (channel) => {
+        const info = await channel.checkQueue(`${id}.dlq`);
+        return info.messageCount === 1;
+      }),
+      "message did not reach the DLQ"
+    );
+
+    await consumer.stop();
+
+    assert.equal(attempts.length, 2, "expected 2 attempts (initial + 1 retry)");
+  } finally {
+    await broker.close();
+  }
+});
