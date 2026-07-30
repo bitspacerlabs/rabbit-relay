@@ -515,19 +515,23 @@ test("recovers from connection drop during active consumption", { timeout: timeo
     await relay.produce(makeEvent({ v: "before" }));
     await waitFor(() => received.length === 1, "first message not received");
 
-    // Force-close the underlying TCP connection
-    await broker.withChannel((ch) => {
-      // Access the connection through the channel and close it
-      return new Promise((resolve, reject) => {
+    // Force-close the underlying TCP connection by closing all channels
+    await broker.withChannel((ch) =>
+      new Promise((resolve, reject) => {
         ch.on("close", resolve);
         ch.connection.close();
-      });
-    });
+      })
+    );
 
-    // Wait for reconnect
+    // Wait for connection-level recovery AND consumer re-registration
     await waitFor(
-      () => broker.health().then((h) => !h.reconnecting && h.connected),
-      "broker did not reconnect after connection drop",
+      () => broker.health().then((h) =>
+        !h.reconnecting &&
+        h.connected &&
+        h.consumers.length > 0 &&
+        h.consumers[0].active
+      ),
+      "consumer did not resume after connection drop",
       12_000
     );
 
@@ -567,7 +571,12 @@ test("survives multiple rapid connection interruptions", { timeout: timeoutMs },
       );
 
       await waitFor(
-        () => broker.health().then((h) => !h.reconnecting && h.connected),
+        () => broker.health().then((h) =>
+          !h.reconnecting &&
+          h.connected &&
+          h.consumers.length > 0 &&
+          h.consumers[0].active
+        ),
         `broker did not reconnect after interruption #${i + 1}`,
         12_000
       );
