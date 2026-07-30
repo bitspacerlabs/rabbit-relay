@@ -125,6 +125,13 @@ export default defineConfig({
         ],
       },
       {
+        text: 'CLI Reference',
+        items: [
+          { text: 'CLI Reference', link: '/features/cli-reference' },
+          { text: 'Topology Diff CLI', link: '/features/topology-diff-cli' },
+        ],
+      },
+      {
         text: 'API Reference',
         items: [
           { text: 'RabbitMQBroker', link: '/api/rabbitmq-broker' },

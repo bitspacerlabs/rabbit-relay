@@ -6,6 +6,8 @@ process.env.RABBITMQ_URL ??= "amqp://user:password@localhost:5672";
 const {
   RabbitMQBroker,
   event,
+  eventWithReply,
+  attachOpenTelemetry,
 } = require("../../dist/cjs/index.js");
 
 const timeoutMs = 15_000;
@@ -1779,6 +1781,258 @@ test("broker reconnect lifecycle event fires", { timeout: timeoutMs }, async () 
 
     assert.ok(reconnectEvents.length >= 1, "expected at least 1 reconnect event");
     assert.equal(reconnectEvents[0], `${id}.broker`);
+  } finally {
+    await broker.close();
+  }
+});
+
+test("broker.planTopology returns the accumulated topology plan", { timeout: timeoutMs }, async () => {
+  const id = unique("plan-topology");
+  const broker = new RabbitMQBroker(`${id}.broker`, {
+    topologyMode: "plan-only",
+  });
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: `${id}.#`,
+        deadLetter: {
+          exchange: `${id}.dlx`,
+          queue: `${id}.dlq`,
+          routingKey: `${id}.dead`,
+          autoDeclare: true,
+        },
+      });
+
+    relay.handle(`${id}.event`, async () => {});
+
+    const plan = broker.planTopology();
+    assert.ok(Array.isArray(plan.exchanges));
+    assert.ok(Array.isArray(plan.queues));
+    assert.ok(Array.isArray(plan.bindings));
+
+    assert.ok(plan.exchanges.some((e) => e.name === `${id}.ex`));
+    assert.ok(plan.queues.some((q) => q.name === `${id}.q`));
+    assert.ok(plan.bindings.some((b) => b.queue === `${id}.q` && b.exchange === `${id}.ex`));
+
+    // DLQ should also be in the plan
+    assert.ok(plan.queues.some((q) => q.name === `${id}.dlq`));
+  } finally {
+    await broker.close();
+  }
+});
+
+test("broker.planTopology accumulates from multiple exchanges", { timeout: timeoutMs }, async () => {
+  const id = unique("plan-multi");
+  const broker = new RabbitMQBroker(`${id}.broker`, {
+    topologyMode: "plan-only",
+  });
+
+  try {
+    await broker
+      .queue(`${id}.a.q`)
+      .exchange(`${id}.a.ex`, { exchangeType: "topic", routingKey: `${id}.a` });
+
+    await broker
+      .queue(`${id}.b.q`)
+      .exchange(`${id}.b.ex`, { exchangeType: "direct", routingKey: `${id}.b` });
+
+    const plan = broker.planTopology();
+    assert.equal(plan.exchanges.length, 2);
+    assert.equal(plan.queues.length, 2);
+    assert.equal(plan.bindings.length, 2);
+  } finally {
+    await broker.close();
+  }
+});
+
+test("broker.validateTopology succeeds for existing resources", { timeout: timeoutMs }, async () => {
+  const id = unique("validate-ok");
+  const setup = new RabbitMQBroker(`${id}.setup`);
+
+  try {
+    // Create resources normally first
+    const relay = await setup
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: `${id}.#`,
+      });
+    relay.handle(`${id}.event`, async () => {});
+    await relay.consume({ prefetch: 1, concurrency: 1 });
+    await setup.close();
+
+    // Now validate they exist from a plan-only broker
+    const validator = new RabbitMQBroker(`${id}.validator`, {
+      topologyMode: "plan-only",
+    });
+
+    try {
+      await validator
+        .queue(`${id}.q`)
+        .exchange(`${id}.ex`, {
+          exchangeType: "topic",
+          routingKey: `${id}.#`,
+        });
+
+      const result = await validator.validateTopology();
+      assert.equal(result.valid, true);
+      // Only binding_not_validated issues are non-blocking
+      assert.ok(result.issues.every((i) => i.type === "binding_not_validated"));
+    } finally {
+      await validator.close();
+    }
+  } finally {
+    await setup.close().catch(() => undefined);
+  }
+});
+
+test("BrokerInterface.with() creates auto-producing event methods", { timeout: timeoutMs }, async () => {
+  const id = unique("with-method");
+  const eventA = `${id}.a`;
+  const eventB = `${id}.b`;
+  const makeA = event(eventA, "v1").of();
+  const makeB = event(eventB, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const received = [];
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: `${id}.*`,
+        publisherConfirms: true,
+      });
+
+    relay.handle(eventA, async (_dt, ev) => { received.push(`A:${ev.data.v}`); });
+    relay.handle(eventB, async (_dt, ev) => { received.push(`B:${ev.data.v}`); });
+    await relay.consume({ prefetch: 10, concurrency: 1 });
+
+    // Use with() to create auto-producing helpers
+    const evts = relay.with({ a: makeA, b: makeB });
+
+    // These call produce() automatically
+    await evts.a({ v: 1 });
+    await evts.b({ v: 2 });
+    await evts.a({ v: 3 });
+
+    await waitFor(() => received.length === 3, "with() events not all received");
+    assert.deepEqual(received, ["A:1", "B:2", "A:3"]);
+  } finally {
+    await broker.close();
+  }
+});
+
+test("BrokerInterface.with() works with eventWithReply factories", { timeout: timeoutMs }, async () => {
+  const id = unique("with-reply");
+  const eventName = `${id}.request`;
+  const makeRequest = eventWithReply(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const received = [];
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+
+    relay.handle(eventName, async (_dt, envelope) => {
+      received.push(envelope.data.value);
+    });
+    await relay.consume({ prefetch: 1, concurrency: 1 });
+
+    const evts = relay.with({ request: makeRequest });
+    await evts.request({ value: 21 });
+
+    await waitFor(() => received.length === 1, "eventWithReply event not received");
+    assert.equal(received[0], 21);
+  } finally {
+    await broker.close();
+  }
+});
+
+test("BrokerInterface.with() preserves broker methods like health", { timeout: timeoutMs }, async () => {
+  const id = unique("with-health");
+  const makeEvent = event(`${id}.evt`, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`, {
+    topologyMode: "plan-only",
+  });
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, { routingKey: `${id}.#` });
+
+    const evts = relay.with({ evt: makeEvent });
+    const health = await evts.health();
+    assert.equal(typeof health.connected, "boolean");
+  } finally {
+    await broker.close();
+  }
+});
+
+test("OpenTelemetry adapter creates spans via lifecycle events", { timeout: timeoutMs }, async () => {
+  const id = unique("otel-integration");
+  const eventName = `${id}.event`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const spans = [];
+
+  const tracer = {
+    startSpan: (name) => {
+      const span = { name, ended: false, status: undefined };
+      span.setStatus = (s) => { span.status = s; };
+      span.end = () => { span.ended = true; };
+      span.setAttribute = () => {};
+      span.setAttributes = () => {};
+      span.addEvent = () => {};
+      span.recordException = () => {};
+      spans.push(span);
+      return span;
+    },
+  };
+
+  try {
+    const handle = attachOpenTelemetry(broker, { tracer, serviceName: "it-svc" });
+
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+
+    relay.handle(eventName, async () => { /* noop */ });
+    const consumer = await relay.consume({ prefetch: 1, concurrency: 1 });
+
+    await relay.produce(makeEvent({ v: 1 }));
+
+    // Wait for handler.completed to fire
+    await waitFor(
+      () => spans.some((s) => s.name === "rabbit-relay.handler.completed"),
+      "handler.completed span not created",
+    );
+
+    await consumer.stop();
+
+    // Check that consumer.stopped span was created
+    assert.ok(spans.some((s) => s.name === "rabbit-relay.consumer.started"));
+    assert.ok(spans.some((s) => s.name === "rabbit-relay.consumer.stopped"));
+    assert.ok(spans.some((s) => s.name === "rabbit-relay.handler.completed"));
+
+    // Verify all spans ended
+    for (const span of spans) {
+      assert.ok(span.ended, `span ${span.name} was not ended`);
+    }
+
+    handle.detach();
   } finally {
     await broker.close();
   }
