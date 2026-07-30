@@ -370,6 +370,16 @@ Remember: binding validation is informational because AMQP does not expose a sim
 
 Always dry-run first.
 
+The CLI has inspect, peek, and redrive commands:
+
+```bash
+rabbit-relay dlq inspect orders.dlq --url amqp://localhost
+rabbit-relay dlq peek orders.dlq --limit 10
+rabbit-relay dlq redrive orders.dlq orders.ex --limit 50 --dry-run
+```
+
+Programmatic redrive:
+
 ```ts
 const dryRun = await broker.redriveDlq({
   fromQueue: "orders.dlq",

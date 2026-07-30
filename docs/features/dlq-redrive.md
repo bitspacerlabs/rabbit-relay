@@ -6,6 +6,36 @@ Use it after the root cause of failures has been fixed.
 
 ---
 
+## CLI
+
+The `rabbit-relay` CLI provides DLQ commands for inspection, peeking, and redriving:
+
+```bash
+# Inspect queue depth
+rabbit-relay dlq inspect orders.dlq --url amqp://localhost
+
+# Peek at messages without consuming them
+rabbit-relay dlq peek orders.dlq --limit 5 --url amqp://localhost
+
+# Dry-run redrive (safety check)
+rabbit-relay dlq redrive orders.dlq orders.ex --dry-run --url amqp://localhost
+
+# Redrive with a limit
+rabbit-relay dlq redrive orders.dlq orders.ex --limit 50 --url amqp://localhost
+```
+
+The `inspect` command shows queue depth and consumer count:
+
+```json
+{ "queue": "orders.dlq", "messageCount": 42, "consumerCount": 0 }
+```
+
+The `peek` command shows message headers, routing metadata, and body
+without removing messages from the queue. Messages are returned to the
+queue when the peek consumer is cancelled.
+
+---
+
 ## Basic usage
 
 ```ts

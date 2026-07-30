@@ -96,7 +96,7 @@ export default defineConfig({
           { text: 'Topology Modes', link: '/features/topology-modes' },
           { text: 'Topology Planner', link: '/features/topology-planner' },
           { text: 'Topology Validation', link: '/features/topology-validation' },
-          { text: 'DLQ Redrive', link: '/features/dlq-redrive' },
+          { text: 'DLQ Redrive & CLI', link: '/features/dlq-redrive' },
           { text: 'Plugin Hooks', link: '/features/plugins' },
           { text: 'Topology Diff CLI', link: '/features/topology-diff-cli' },
         ],

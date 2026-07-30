@@ -2,14 +2,13 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { inspect } from "node:util";
 
-const commands = ["plan", "validate", "diff", "help"];
+const commands = ["plan", "validate", "diff", "dlq", "help"];
 
 function usage(exitCode = 0) {
   console.log(
     [
-      "Rabbit Relay topology CLI",
+      "Rabbit Relay CLI",
       "",
       "Usage:",
       "  rabbit-relay plan <script> [--output <file>]",
@@ -21,13 +20,28 @@ function usage(exitCode = 0) {
       "  rabbit-relay diff <plan-a.json> <plan-b.json>",
       "    Show differences between two topology plans.",
       "",
+      "  rabbit-relay dlq inspect <queue> [--url <amqp-url>]",
+      "    Show queue depth and message statistics.",
+      "",
+      "  rabbit-relay dlq peek <queue> [--limit N] [--url <amqp-url>]",
+      "    View messages in a DLQ without removing them.",
+      "",
+      "  rabbit-relay dlq redrive <from-queue> <to-exchange> [options]",
+      "    Redrive messages from a DLQ to a target exchange.",
+      "    Options:",
+      "      --routing-key <key>  Target routing key (default: original)",
+      "      --limit <N>          Max messages to redrive (default: 100)",
+      "      --dry-run            Peek without consuming",
+      "      --url <amqp-url>     RabbitMQ connection URL",
+      "",
       "  rabbit-relay help",
       "    Show this help message.",
       "",
       "Examples:",
-      "  rabbit-relay plan ./setup.mjs > plan.json",
-      "  rabbit-relay validate plan.json --url amqp://localhost",
-      "  rabbit-relay diff plan.json plan.production.json",
+      "  rabbit-relay dlq inspect orders.dlq --url amqp://localhost",
+      "  rabbit-relay dlq peek orders.dlq --limit 5",
+      "  rabbit-relay dlq redrive orders.dlq orders.ex --limit 50",
+      "  rabbit-relay dlq redrive orders.dlq orders.ex --dry-run",
     ].join("\n")
   );
   process.exit(exitCode);
@@ -44,6 +58,55 @@ function readJSON(path) {
   } catch (err) {
     error(`cannot read '${path}': ${err.message}`);
   }
+}
+
+async function connect(url) {
+  let amqplib;
+  try {
+    amqplib = await import("amqplib");
+  } catch {
+    error("amqplib is required. Run: npm install amqplib");
+  }
+  const resolved = url || process.env.RABBITMQ_URL || "amqp://localhost";
+  let conn;
+  try {
+    conn = await amqplib.connect(resolved);
+  } catch (err) {
+    error(`cannot connect to RabbitMQ at '${resolved}': ${err.message}`);
+  }
+  conn.on("error", () => {});
+  return conn;
+}
+
+async function getChannel(conn) {
+  const ch = await conn.createChannel();
+  ch.on("error", () => {});
+  return ch;
+}
+
+function argValue(args, name) {
+  const idx = args.indexOf(name);
+  return idx !== -1 ? args[idx + 1] : undefined;
+}
+
+function formatMessage(msg) {
+  const fields = {
+    deliveryTag: msg.fields.deliveryTag,
+    routingKey: msg.fields.routingKey,
+    exchange: msg.fields.exchange,
+    redelivered: msg.fields.redelivered,
+  };
+  const props = {};
+  for (const [k, v] of Object.entries(msg.properties)) {
+    if (v != null && k !== "headers") props[k] = v;
+  }
+  let body;
+  try {
+    body = JSON.parse(msg.content.toString());
+  } catch {
+    body = msg.content.toString();
+  }
+  return { fields, properties: props, headers: msg.properties.headers, body };
 }
 
 // ── diff logic ────────────────────────────────────────────────────────
@@ -88,7 +151,7 @@ function formatQueue(q) {
 }
 
 function formatBinding(b) {
-  let s = `${b.queue} → ${b.exchange}`;
+  let s = `${b.queue} \u2192 ${b.exchange}`;
   if (b.routingKey) s += ` [routingKey: "${b.routingKey}"]`;
   if (b.arguments && Object.keys(b.arguments).length > 0)
     s += ` args=${JSON.stringify(b.arguments)}`;
@@ -160,30 +223,14 @@ async function cmdValidate(planPath, amqpUrl) {
     error("invalid topology plan: expected { exchanges, queues, bindings }");
   }
 
-  let amqplib;
-  try {
-    amqplib = await import("amqplib");
-  } catch {
-    error("amqplib is required for validation. Run: npm install amqplib");
-  }
-
-  const url = amqpUrl || process.env.RABBITMQ_URL || "amqp://localhost";
-  let conn;
-  try {
-    conn = await amqplib.connect(url);
-  } catch (err) {
-    error(`cannot connect to RabbitMQ at '${url}': ${err.message}`);
-  }
-
-  conn.on("error", () => {});
+  const conn = await connect(amqpUrl);
   const issues = [];
   let valid = true;
 
   async function checkExchange(name) {
     let ch;
     try {
-      ch = await conn.createChannel();
-      ch.on("error", () => {});
+      ch = await getChannel(conn);
       await ch.checkExchange(name);
     } catch (err) {
       const code = err && (err.code ?? err?.constructor?.name);
@@ -205,8 +252,7 @@ async function cmdValidate(planPath, amqpUrl) {
   async function checkQueue(name) {
     let ch;
     try {
-      ch = await conn.createChannel();
-      ch.on("error", () => {});
+      ch = await getChannel(conn);
       await ch.checkQueue(name);
     } catch (err) {
       const code = err && (err.code ?? err?.constructor?.name);
@@ -225,21 +271,15 @@ async function cmdValidate(planPath, amqpUrl) {
     }
   }
 
-  for (const ex of plan.exchanges) {
-    await checkExchange(ex.name);
-  }
-
-  for (const q of plan.queues) {
-    await checkQueue(q.name);
-  }
-
+  for (const ex of plan.exchanges) await checkExchange(ex.name);
+  for (const q of plan.queues) await checkQueue(q.name);
   for (const b of plan.bindings) {
     issues.push({
       type: "binding_not_validated",
       queue: b.queue,
       exchange: b.exchange,
       routingKey: b.routingKey,
-      message: `Binding '${b.queue}' → '${b.exchange}' [${b.routingKey}] not validated (AMQP has no passive binding check)`,
+      message: `Binding '${b.queue}' \u2192 '${b.exchange}' [${b.routingKey}] not validated (AMQP has no passive binding check)`,
     });
   }
 
@@ -308,6 +348,149 @@ async function cmdPlan(scriptPath, outputPath) {
   }
 }
 
+// ── dlq commands ──────────────────────────────────────────────────────
+
+async function cmdDlqInspect(queue, amqpUrl) {
+  const conn = await connect(amqpUrl);
+  const ch = await getChannel(conn);
+
+  let info;
+  try {
+    info = await ch.checkQueue(queue);
+  } catch (err) {
+    const is404 =
+      (err.code ?? err?.constructor?.name) === 404 ||
+      String(err.message ?? "").includes("404");
+    error(is404 ? `Queue '${queue}' not found` : `Queue check failed: ${err.message}`);
+  }
+
+  await ch.close();
+  await conn.close();
+
+  console.log(JSON.stringify({ queue, ...info }, null, 2));
+}
+
+async function cmdDlqPeek(queue, limit, amqpUrl) {
+  const conn = await connect(amqpUrl);
+  const ch = await getChannel(conn);
+
+  let info;
+  try {
+    info = await ch.checkQueue(queue);
+  } catch (err) {
+    const is404 =
+      (err.code ?? err?.constructor?.name) === 404 ||
+      String(err.message ?? "").includes("404");
+    error(is404 ? `Queue '${queue}' not found` : `Queue check failed: ${err.message}`);
+  }
+
+  if (info.messageCount === 0) {
+    console.log(`Queue '${queue}' is empty.`);
+    await ch.close();
+    await conn.close();
+    return;
+  }
+
+  const count = Math.min(limit, info.messageCount);
+  const messages = [];
+
+  const { consumerTag } = await ch.consume(
+    queue,
+    (msg) => {
+      if (!msg || messages.length >= count) return;
+      messages.push(msg);
+      if (messages.length >= count) {
+        ch.cancel(consumerTag).catch(() => {});
+      }
+    },
+    { noAck: false }
+  );
+
+  // Wait until we have enough messages or the consumer is cancelled
+  await new Promise((resolve) => {
+    const id = setInterval(() => {
+      if (messages.length >= count) {
+        clearInterval(id);
+        resolve();
+      }
+    }, 50);
+    // safety timeout
+    setTimeout(() => {
+      clearInterval(id);
+      resolve();
+    }, 5000);
+  });
+
+  console.log(
+    `Queue: ${queue} (${info.messageCount} available, showing ${messages.length})`
+  );
+  console.log("");
+
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    const formatted = formatMessage(msg);
+
+    console.log(`--- Message ${i + 1} ---`);
+    console.log(`Exchange: ${formatted.fields.exchange}`);
+    console.log(`Routing key: ${formatted.fields.routingKey}`);
+    console.log(`Redelivered: ${formatted.fields.redelivered}`);
+
+    if (formatted.properties.contentType)
+      console.log(`Content-Type: ${formatted.properties.contentType}`);
+    if (formatted.properties.messageId)
+      console.log(`Message-ID: ${formatted.properties.messageId}`);
+    if (formatted.properties.correlationId)
+      console.log(`Correlation-ID: ${formatted.properties.correlationId}`);
+    if (formatted.properties.timestamp)
+      console.log(`Timestamp: ${formatted.properties.timestamp}`);
+
+    if (formatted.headers && Object.keys(formatted.headers).length > 0) {
+      console.log("Headers:");
+      for (const [hk, hv] of Object.entries(formatted.headers)) {
+        console.log(`  ${hk}: ${hv}`);
+      }
+    }
+
+    console.log("Body:");
+    console.log(JSON.stringify(formatted.body, null, 2));
+    console.log("");
+  }
+
+  await ch.close();
+  await conn.close();
+}
+
+async function cmdDlqRedrive(fromQueue, toExchange, opts) {
+  const conn = await connect(opts.url);
+  const ch = await getChannel(conn);
+
+  let pkg;
+  try {
+    pkg = await import("../dist/esm/index.js");
+  } catch {
+    try {
+      pkg = await import("@bitspacerlabs/rabbit-relay");
+    } catch {
+      error("Cannot find rabbit-relay. Run from the package root.");
+    }
+  }
+
+  const result = await pkg.redriveDlq(ch, {
+    fromQueue,
+    toExchange,
+    routingKey: opts.routingKey,
+    limit: opts.limit,
+    dryRun: opts.dryRun,
+  });
+
+  await ch.close();
+  await conn.close();
+
+  console.log(JSON.stringify(result, null, 2));
+
+  if (result.failed > 0) process.exit(1);
+}
+
 // ── main ──────────────────────────────────────────────────────────────
 
 async function main() {
@@ -319,7 +502,7 @@ async function main() {
 
   const cmd = args[0];
 
-  if (!commands.includes(cmd) || cmd === "help") {
+  if (!commands.includes(cmd)) {
     console.error(`Unknown command: '${cmd}'`);
     usage(1);
   }
@@ -327,8 +510,7 @@ async function main() {
   if (cmd === "plan") {
     const script = args[1];
     if (!script) error("plan requires a script path");
-    const outputIdx = args.indexOf("--output");
-    const output = outputIdx !== -1 ? args[outputIdx + 1] : undefined;
+    const output = argValue(args, "--output");
     await cmdPlan(script, output);
     return;
   }
@@ -336,8 +518,7 @@ async function main() {
   if (cmd === "validate") {
     const planPath = args[1];
     if (!planPath) error("validate requires a plan JSON file path");
-    const urlIdx = args.indexOf("--url");
-    const url = urlIdx !== -1 ? args[urlIdx + 1] : undefined;
+    const url = argValue(args, "--url");
     await cmdValidate(planPath, url);
     return;
   }
@@ -350,6 +531,71 @@ async function main() {
     const b = readJSON(bPath);
     console.log(diffPlans(a, b));
     return;
+  }
+
+  if (cmd === "dlq") {
+    const sub = args[1];
+    if (!sub || sub === "help") {
+      console.log(
+        [
+          "DLQ commands:",
+          "",
+          "  rabbit-relay dlq inspect <queue> [--url <amqp-url>]",
+          "    Show queue depth and message statistics.",
+          "",
+          "  rabbit-relay dlq peek <queue> [--limit N] [--url <amqp-url>]",
+          "    View messages in a DLQ without removing them.",
+          "",
+          "  rabbit-relay dlq redrive <from-queue> <to-exchange> [options]",
+          "    Redrive messages from a DLQ to a target exchange.",
+          "",
+          "Options:",
+          "  --url <amqp-url>       RabbitMQ connection URL",
+          "  --limit <N>            Max messages (default 100)",
+          "  --routing-key <key>    Target routing key",
+          "  --dry-run              Validate without consuming",
+        ].join("\n")
+      );
+      return;
+    }
+
+    const url = argValue(args, "--url");
+
+    if (sub === "inspect") {
+      const queue = args[2];
+      if (!queue) error("dlq inspect requires a queue name");
+      await cmdDlqInspect(queue, url);
+      return;
+    }
+
+    if (sub === "peek") {
+      const queue = args[2];
+      if (!queue) error("dlq peek requires a queue name");
+      const limit = parseInt(argValue(args, "--limit") || "1", 10);
+      if (!Number.isFinite(limit) || limit < 1)
+        error("--limit must be a positive number");
+      await cmdDlqPeek(queue, Math.min(limit, 100), url);
+      return;
+    }
+
+    if (sub === "redrive") {
+      const fromQueue = args[2];
+      const toExchange = args[3];
+      if (!fromQueue || !toExchange)
+        error("dlq redrive requires <from-queue> <to-exchange>");
+      const limit = parseInt(argValue(args, "--limit") || "100", 10);
+      const routingKey = argValue(args, "--routing-key");
+      const dryRun = args.includes("--dry-run");
+      await cmdDlqRedrive(fromQueue, toExchange, {
+        url,
+        limit,
+        routingKey,
+        dryRun,
+      });
+      return;
+    }
+
+    error(`Unknown dlq subcommand: '${sub}'`);
   }
 }
 
