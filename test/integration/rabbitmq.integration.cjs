@@ -1217,6 +1217,304 @@ test("dedupe skips duplicate messages", { timeout: timeoutMs }, async () => {
   }
 });
 
+test("lifecycle consumer.started and consumer.stopped events fire", { timeout: timeoutMs }, async () => {
+  const id = unique("lc-consume");
+  const eventName = `${id}.event`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const events = [];
+
+  try {
+    broker.on("consumer.started", (ev) => {
+      events.push({ type: "consumer.started", queue: ev.queue, prefetch: ev.prefetch, concurrency: ev.concurrency });
+    });
+    broker.on("consumer.stopped", (ev) => {
+      events.push({ type: "consumer.stopped", queue: ev.queue });
+    });
+
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+
+    relay.handle(eventName, async (_dt, ev) => { /* noop */ });
+    const consumer = await relay.consume({ prefetch: 2, concurrency: 2 });
+    await consumer.stop();
+
+    assert.equal(events.length, 2);
+    assert.equal(events[0].type, "consumer.started");
+    assert.equal(events[0].queue, `${id}.q`);
+    assert.equal(events[0].prefetch, 2);
+    assert.equal(events[0].concurrency, 2);
+    assert.equal(events[1].type, "consumer.stopped");
+    assert.equal(events[1].queue, `${id}.q`);
+  } finally {
+    await broker.close();
+  }
+});
+
+test("lifecycle handler.completed event fires on success and error", { timeout: timeoutMs }, async () => {
+  const id = unique("lc-handler");
+  const eventName = `${id}.event`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const completed = [];
+
+  try {
+    broker.on("handler.completed", (ev) => {
+      completed.push({ eventName: ev.eventName, durationMs: ev.durationMs, error: ev.error ? true : false });
+    });
+
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+
+    let callCount = 0;
+    relay.handle(eventName, async () => {
+      callCount++;
+      if (callCount === 2) throw new Error("fail on purpose");
+    });
+
+    await relay.consume({ prefetch: 10, concurrency: 1 });
+    await relay.produce(makeEvent({ v: 1 }));
+    await relay.produce(makeEvent({ v: 2 }));
+
+    await waitFor(() => completed.length === 2, "handler.completed did not fire twice");
+    assert.equal(completed.length, 2);
+    assert.equal(completed[0].error, false, "first handler should succeed");
+    assert.equal(completed[1].error, true, "second handler should error");
+    assert.ok(completed[0].durationMs >= 0, "duration should be non-negative");
+  } finally {
+    await broker.close();
+  }
+});
+
+test("lifecycle retry.scheduled fires with correct count", { timeout: timeoutMs }, async () => {
+  const id = unique("lc-retry");
+  const eventName = `${id}.event`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const retries = [];
+
+  try {
+    broker.on("retry.scheduled", (ev) => {
+      retries.push({ retryCount: ev.retryCount, attempts: ev.attempts });
+    });
+
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+        deadLetter: {
+          exchange: `${id}.dlx`,
+          queue: `${id}.dlq`,
+          routingKey: `${id}.dead`,
+          autoDeclare: true,
+        },
+      });
+
+    relay.handle(eventName, async () => { throw new Error("retry me"); });
+    const consumer = await relay.consume({
+      prefetch: 1,
+      concurrency: 1,
+      onError: "retry",
+      retry: { attempts: 2, delayMs: 50, then: "dead-letter" },
+    });
+
+    await relay.produce(makeEvent({ v: 1 }));
+
+    // Wait for 2 retry events + final dead-letter
+    await waitFor(
+      () => broker.withChannel(async (ch) => {
+        const info = await ch.checkQueue(`${id}.dlq`);
+        return info.messageCount === 1;
+      }),
+      "message did not reach DLQ after retries"
+    );
+
+    await consumer.stop();
+
+    assert.equal(retries.length, 2, "expected 2 retry.scheduled events");
+    assert.equal(retries[0].retryCount, 1);
+    assert.equal(retries[1].retryCount, 2);
+    assert.equal(retries[0].attempts, 2);
+  } finally {
+    await broker.close();
+  }
+});
+
+test("lifecycle message.dead-lettered fires with reason", { timeout: timeoutMs }, async () => {
+  const id = unique("lc-dlq");
+  const eventName = `${id}.dlq`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const dlqEvents = [];
+
+  try {
+    broker.on("message.dead-lettered", (ev) => {
+      dlqEvents.push({ reason: typeof ev.reason === "string" ? ev.reason : "Error" });
+    });
+
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+        deadLetter: {
+          exchange: `${id}.dlx`,
+          queue: `${id}.dlq`,
+          routingKey: `${id}.dead`,
+          autoDeclare: true,
+        },
+      });
+
+    relay.handle(eventName, async () => { throw new Error("dead-letter reason"); });
+    const consumer = await relay.consume({
+      prefetch: 1,
+      concurrency: 1,
+      onError: "dead-letter",
+    });
+
+    await relay.produce(makeEvent({ v: 1 }));
+
+    await waitFor(() => dlqEvents.length === 1, "message.dead-lettered did not fire");
+    await consumer.stop();
+
+    assert.equal(dlqEvents.length, 1);
+    assert.equal(dlqEvents[0].reason, "Error");
+  } finally {
+    await broker.close();
+  }
+});
+
+test("onError ack silently consumes on handler error", { timeout: timeoutMs }, async () => {
+  const id = unique("onerror-ack");
+  const eventName = `${id}.fail`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+
+    relay.handle(eventName, async () => { throw new Error("silently acked"); });
+
+    await relay.consume({
+      prefetch: 1,
+      concurrency: 1,
+      onError: "ack",
+    });
+
+    await relay.produce(makeEvent({ v: 1 }));
+
+    // Give it time to be consumed and acked
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    // Queue should be empty — message was acked despite the error
+    const info = await broker.withChannel((ch) => ch.checkQueue(`${id}.q`));
+    assert.equal(info.messageCount, 0);
+  } finally {
+    await broker.close();
+  }
+});
+
+test("requeueOnError legacy option requeues on handler error", { timeout: timeoutMs }, async () => {
+  const id = unique("legacy-req");
+  const eventName = `${id}.fail`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+
+    relay.handle(eventName, async () => { throw new Error("requeue me (legacy)"); });
+    const consumer = await relay.consume({
+      prefetch: 1,
+      concurrency: 1,
+      requeueOnError: true,
+    });
+
+    await relay.produce(makeEvent({ v: 1 }));
+
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await consumer.stop();
+
+    // Message requeued — still in queue
+    const info = await broker.withChannel((ch) => ch.checkQueue(`${id}.q`));
+    assert.equal(info.messageCount, 1);
+  } finally {
+    await broker.close();
+  }
+});
+
+test("multiple exchanges on one broker operate independently", { timeout: timeoutMs }, async () => {
+  const id = unique("multi-ex");
+  const eventA = `${id}.a`;
+  const eventB = `${id}.b`;
+  const makeA = event(eventA, "v1").of();
+  const makeB = event(eventB, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const received = [];
+
+  try {
+    const relayA = await broker
+      .queue(`${id}.a.q`)
+      .exchange(`${id}.a.ex`, {
+        exchangeType: "topic",
+        routingKey: eventA,
+        publisherConfirms: true,
+      });
+
+    const relayB = await broker
+      .queue(`${id}.b.q`)
+      .exchange(`${id}.b.ex`, {
+        exchangeType: "topic",
+        routingKey: eventB,
+        publisherConfirms: true,
+      });
+
+    relayA.handle(eventA, async (_dt, ev) => { received.push({ relay: "A", v: ev.data.v }); });
+    relayB.handle(eventB, async (_dt, ev) => { received.push({ relay: "B", v: ev.data.v }); });
+
+    await relayA.consume({ prefetch: 10, concurrency: 1 });
+    await relayB.consume({ prefetch: 10, concurrency: 1 });
+
+    await relayA.produce(makeA({ v: 1 }));
+    await relayA.produce(makeA({ v: 2 }));
+    await relayB.produce(makeB({ v: 3 }));
+
+    await waitFor(() => received.length === 3, "multi-exchange events not all received");
+
+    assert.equal(received[0].relay, "A");
+    assert.equal(received[1].relay, "A");
+    assert.equal(received[2].relay, "B");
+    assert.deepEqual(received.map((r) => r.v).sort(), [1, 2, 3]);
+  } finally {
+    await broker.close();
+  }
+});
+
 test("handler that throws a non-error value still retries and dead-letters", { timeout: timeoutMs }, async () => {
   const id = unique("non-error-throw");
   const eventName = `${id}.fail`;

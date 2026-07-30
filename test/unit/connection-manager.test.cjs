@@ -5,6 +5,9 @@ const { EventEmitter } = require("node:events");
 const {
   RabbitMQConnectionManager,
 } = require("../../dist/cjs/config.js");
+const {
+  SchemaValidationError,
+} = require("../../dist/cjs/index.js");
 
 function deferred() {
   let resolve;
@@ -123,4 +126,35 @@ test("validation session reuses one isolated connection across channels", async 
 
   assert.equal(connectorCalls, 1);
   assert.equal(channelCalls, 2);
+});
+
+test("SchemaValidationError exposes properties correctly", () => {
+  const err = new SchemaValidationError({
+    eventName: "test.event",
+    eventVersion: "v2",
+    eventId: "abc-123",
+    originalError: new TypeError("value must be a string"),
+  });
+
+  assert.equal(err.name, "SchemaValidationError");
+  assert.equal(err.eventName, "test.event");
+  assert.equal(err.eventVersion, "v2");
+  assert.equal(err.eventId, "abc-123");
+  assert.ok(err.originalError instanceof TypeError);
+  assert.match(err.message, /test\.event/);
+  assert.match(err.message, /vv2/);
+  assert.match(err.message, /abc-123/);
+  assert.match(err.message, /value must be a string/);
+});
+
+test("SchemaValidationError handles non-Error originalError", () => {
+  const err = new SchemaValidationError({
+    eventName: "other.event",
+    eventVersion: "v1",
+    eventId: "xyz-789",
+    originalError: "just a string reason",
+  });
+
+  assert.equal(err.eventName, "other.event");
+  assert.match(err.message, /just a string reason/);
 });
