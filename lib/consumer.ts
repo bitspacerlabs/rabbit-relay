@@ -334,13 +334,21 @@ export function createConsumer(params: {
     await republishForImmediateRetry(msg, err);
   }
 
-  function applyFinalFailureAction(ch: Channel, msg: ConsumeMessage) {
+  function applyFinalFailureAction(ch: Channel, msg: ConsumeMessage, payload?: EventEnvelope) {
     if (retryThen === "requeue") {
       ch.nack(msg, false, true);
       return;
     }
 
     if (retryThen === "dead-letter") {
+      emitLifecycle("message.dead-lettered", {
+        peerName,
+        queue: queueName,
+        exchange: msg.fields.exchange,
+        routingKey: msg.fields.routingKey,
+        eventName: payload?.name ?? "unknown",
+        reason: "retry attempts exhausted",
+      }).catch(() => {});
       ch.nack(msg, false, false);
       return;
     }
@@ -403,7 +411,8 @@ export function createConsumer(params: {
   async function handleFailure(
     ch: Channel,
     msg: ConsumeMessage,
-    err: unknown
+    err: unknown,
+    payload?: EventEnvelope
   ): Promise<void> {
     if (onError === "retry") {
       const currentRetryCount = getRetryCount(msg);
@@ -434,6 +443,14 @@ export function createConsumer(params: {
           // If retry publish fails, do not silently lose the original.
           // Prefer DLQ if configured; otherwise requeue.
           if (retryThen === "dead-letter") {
+            await emitLifecycle("message.dead-lettered", {
+              peerName,
+              queue: queueName,
+              exchange: msg.fields.exchange,
+              routingKey: msg.fields.routingKey,
+              eventName: payload?.name ?? "unknown",
+              reason: retryErr,
+            });
             ch.nack(msg, false, false);
           } else {
             ch.nack(msg, false, true);
@@ -443,7 +460,7 @@ export function createConsumer(params: {
         }
       }
 
-      applyFinalFailureAction(ch, msg);
+      applyFinalFailureAction(ch, msg, payload);
       return;
     }
 
@@ -453,6 +470,14 @@ export function createConsumer(params: {
     }
 
     if (onError === "dead-letter") {
+      await emitLifecycle("message.dead-lettered", {
+        peerName,
+        queue: queueName,
+        exchange: msg.fields.exchange,
+        routingKey: msg.fields.routingKey,
+        eventName: payload?.name ?? "unknown",
+        reason: err,
+      });
       ch.nack(msg, false, false);
       return;
     }
@@ -547,6 +572,9 @@ export function createConsumer(params: {
     const handler =
       (handlers.get(payload.name) as any) || (handlers.get("*") as any);
 
+    const handlerStart = Date.now();
+    const handlerEventName = payload.name;
+
     try {
       await pluginManager.executeHook("beforeProcess", id, payload);
 
@@ -572,6 +600,16 @@ export function createConsumer(params: {
       console.error("Handler error:", err);
     }
 
+    const handlerDuration = Date.now() - handlerStart;
+
+    await emitLifecycle("handler.completed", {
+      peerName,
+      queue: queueName,
+      eventName: handlerEventName,
+      durationMs: handlerDuration,
+      ...(errored ? { error: errorValue } : {}),
+    });
+
     const shouldRetry =
       errored &&
       onError === "retry" &&
@@ -583,7 +621,7 @@ export function createConsumer(params: {
 
     try {
       if (errored) {
-        await handleFailure(ch, msg, errorValue);
+        await handleFailure(ch, msg, errorValue, payload);
       } else {
         ch.ack(msg);
       }

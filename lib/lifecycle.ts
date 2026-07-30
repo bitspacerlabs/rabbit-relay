@@ -43,6 +43,23 @@ export type LifecycleEventMap = {
   "broker.closed": {
     peerName: string;
   };
+
+  "handler.completed": {
+    peerName: string;
+    queue: string;
+    eventName: string;
+    durationMs: number;
+    error?: unknown;
+  };
+
+  "message.dead-lettered": {
+    peerName: string;
+    queue: string;
+    exchange: string;
+    routingKey: string;
+    eventName: string;
+    reason: unknown;
+  };
 };
 
 export type LifecycleEventName = keyof LifecycleEventMap;

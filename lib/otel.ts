@@ -234,6 +234,31 @@ function attributesForEvent<K extends LifecycleEventName>(
       };
     }
 
+    case "handler.completed": {
+      const ev = event as LifecycleEventMap["handler.completed"];
+
+      return {
+        ...base,
+        "rabbit-relay.peer": ev.peerName,
+        "messaging.rabbitmq.queue": ev.queue,
+        "messaging.message.type": ev.eventName,
+        "rabbit-relay.handler.duration_ms": ev.durationMs,
+      };
+    }
+
+    case "message.dead-lettered": {
+      const ev = event as LifecycleEventMap["message.dead-lettered"];
+
+      return {
+        ...base,
+        "rabbit-relay.peer": ev.peerName,
+        "messaging.rabbitmq.queue": ev.queue,
+        "messaging.destination.name": ev.exchange,
+        "messaging.rabbitmq.routing_key": ev.routingKey,
+        "messaging.message.type": ev.eventName,
+      };
+    }
+
     default:
       return base;
   }
@@ -302,6 +327,8 @@ export function attachOpenTelemetry(
   attach("publish.failed");
   attach("retry.scheduled");
   attach("broker.closed");
+  attach("handler.completed");
+  attach("message.dead-lettered");
 
   return {
     detach(): void {

@@ -42,13 +42,17 @@ This removes registered lifecycle listeners.
 
 The adapter listens to:
 
-- `reconnect`
-- `topology.asserted`
-- `consumer.started`
-- `consumer.stopped`
-- `publish.failed`
-- `retry.scheduled`
-- `broker.closed`
+| Event | Description |
+|---|---|
+| `reconnect` | Broker re-established connection |
+| `topology.asserted` | Exchange, queue, and bindings declared |
+| `consumer.started` | Consumer registered on a queue |
+| `consumer.stopped` | Consumer cancelled |
+| `publish.failed` | Publish rejected or errored |
+| `retry.scheduled` | Handler failed, retry copy published |
+| `broker.closed` | Broker shut down |
+| `handler.completed` | Handler finished (success or error) |
+| `message.dead-lettered` | Message sent to dead-letter queue |
 
 ---
 
@@ -90,10 +94,10 @@ attachOpenTelemetry(broker, {
 
 ## Attributes
 
-Spans include useful attributes such as:
+Spans include these attributes:
 
 ```text
-messaging.system = rabbitmq
+messaging.system              = rabbitmq
 rabbit-relay.lifecycle.event
 rabbit-relay.peer
 messaging.destination.name
@@ -101,7 +105,12 @@ messaging.rabbitmq.queue
 messaging.rabbitmq.routing_key
 rabbit-relay.retry.count
 rabbit-relay.retry.delay_ms
+rabbit-relay.handler.duration_ms  (handler.completed only)
+messaging.message.type             (event name)
 ```
+
+**Payload data is never recorded** in span attributes or events.
+Only metadata (event name, queue, routing key, duration) is included.
 
 ---
 
@@ -114,6 +123,46 @@ For `publish.failed`, the adapter records the exception and marks the span as er
 ## Retry scheduled
 
 For `retry.scheduled`, the adapter records retry details and attaches the original handler error as span information.
+
+---
+
+## Handler completed
+
+For `handler.completed`, the adapter records the event name, queue,
+and handler duration in milliseconds. If the handler threw, the span
+is marked as error with the error message.
+
+---
+
+## Metrics from lifecycle events
+
+Every lifecycle event is available as a hook — you can build counters,
+histograms, and gauges from them:
+
+```ts
+// Example: prometheus-style counters using lifecycle hooks
+const handlerTotal = new Map<string, number>();
+
+broker.on("handler.completed", (ev) => {
+  const key = ev.eventName;
+  handlerTotal.set(key, (handlerTotal.get(key) ?? 0) + 1);
+});
+
+broker.on("message.dead-lettered", (ev) => {
+  console.warn(`DLQ: ${ev.eventName} on ${ev.queue}`);
+});
+```
+
+Common metric patterns:
+
+| Metric | Source event |
+|---|---|
+| `rabbit_relay_publish_total` | `publish.failed` (errors) or custom hook on `produce()` |
+| `rabbit_relay_handler_duration` | `handler.completed.durationMs` |
+| `rabbit_relay_consume_total` | `handler.completed` |
+| `rabbit_relay_retry_total` | `retry.scheduled` |
+| `rabbit_relay_dead_letter_total` | `message.dead-lettered` |
+| `rabbit_relay_connection_state` | `reconnect`, `broker.closed` |
 
 ---
 
@@ -141,5 +190,7 @@ You can use lifecycle hooks and OpenTelemetry together.
 - OpenTelemetry is optional
 - You pass your own tracer
 - Rabbit Relay maps lifecycle events to spans
+- Payload data is never recorded in spans
+- Lifecycle hooks double as a metrics data source
 - Adapter can be detached
 - Core package stays lightweight
