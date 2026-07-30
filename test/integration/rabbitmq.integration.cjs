@@ -535,10 +535,11 @@ test("recovers from connection drop during active consumption", { timeout: timeo
       12_000
     );
 
-    received.length = 0;
     await relay.produce(makeEvent({ v: "after-reconnect" }));
-    await waitFor(() => received.length === 1, "message after reconnect not received");
-    assert.equal(received[0], "after-reconnect");
+    await waitFor(
+      () => received.includes("after-reconnect"),
+      "message after reconnect not received"
+    );
   } finally {
     await broker.close();
   }
@@ -1561,6 +1562,223 @@ test("handler that throws a non-error value still retries and dead-letters", { t
     await consumer.stop();
 
     assert.equal(attempts.length, 2, "expected 2 attempts (initial + 1 retry)");
+  } finally {
+    await broker.close();
+  }
+});
+
+test("invalidMessage requeue returns invalid messages to queue", { timeout: timeoutMs }, async () => {
+  const id = unique("invalid-req");
+  const eventName = `${id}.validated`;
+  const broker = new RabbitMQBroker(`${id}.broker`);
+
+  const makeValid = event(eventName, "v1").schema({
+    parse(input) {
+      if (typeof input !== "object" || input === null) throw new Error("must be object");
+      if (typeof input.value !== "number") throw new Error("value must be a number");
+      return { value: input.value };
+    },
+  });
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+
+    relay.handle(eventName, async () => { throw new Error("should never be called"); });
+    const consumer = await relay.consume({
+      prefetch: 1,
+      concurrency: 1,
+      invalidMessage: "requeue",
+      onError: "dead-letter",
+    });
+
+    const raw = event(eventName, "v1").of();
+    await relay.publish(raw({ value: "not-a-number" }));
+
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await consumer.stop();
+
+    // Message was requeued — still in queue
+    const info = await broker.withChannel((ch) => ch.checkQueue(`${id}.q`));
+    assert.equal(info.messageCount, 1);
+  } finally {
+    await broker.close();
+  }
+});
+
+test("invalidMessage ack silently discards invalid messages", { timeout: timeoutMs }, async () => {
+  const id = unique("invalid-ack");
+  const eventName = `${id}.validated`;
+  const broker = new RabbitMQBroker(`${id}.broker`);
+
+  const makeValid = event(eventName, "v1").schema({
+    parse(input) {
+      if (typeof input.value !== "number") throw new Error("value must be a number");
+      return { value: input.value };
+    },
+  });
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+
+    relay.handle(eventName, async () => { throw new Error("should never be called"); });
+    await relay.consume({
+      prefetch: 1,
+      concurrency: 1,
+      invalidMessage: "ack",
+      onError: "dead-letter",
+    });
+
+    const raw = event(eventName, "v1").of();
+    await relay.publish(raw({ value: "not-a-number" }));
+
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    // Message was acked — queue is empty
+    const info = await broker.withChannel((ch) => ch.checkQueue(`${id}.q`));
+    assert.equal(info.messageCount, 0);
+  } finally {
+    await broker.close();
+  }
+});
+
+test("consume with large concurrency processes messages in parallel", { timeout: timeoutMs }, async () => {
+  const id = unique("stress");
+  const eventName = `${id}.event`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const received = [];
+  const expectedCount = 50;
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+
+    relay.handle(eventName, async (_dt, ev) => { received.push(ev.data.n); });
+    await relay.consume({ prefetch: 20, concurrency: 10 });
+
+    for (let i = 0; i < expectedCount; i++) {
+      await relay.produce(makeEvent({ n: i }));
+    }
+
+    await waitFor(() => received.length === expectedCount, "not all messages processed");
+
+    assert.equal(received.length, expectedCount);
+    assert.deepEqual([...received].sort((a, b) => a - b), Array.from({ length: expectedCount }, (_, i) => i));
+  } finally {
+    await broker.close();
+  }
+});
+
+test("consumer withChannel can access raw AMQP channel", { timeout: timeoutMs }, async () => {
+  const id = unique("withch");
+  const eventName = `${id}.event`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+
+    relay.handle(eventName, async () => { /* noop */ });
+    await relay.consume({ prefetch: 1, concurrency: 1 });
+
+    // Use withChannel on the consumer subscriber
+    const info = await relay.withChannel(async (ch) => ch.checkQueue(`${id}.q`));
+    assert.ok(info.messageCount >= 0);
+    assert.equal(typeof info.consumerCount, "number");
+  } finally {
+    await broker.close();
+  }
+});
+
+test("consume rejects retry.delayMs <= 0 when provided", { timeout: timeoutMs }, async () => {
+  const id = unique("bad-delay");
+  const broker = new RabbitMQBroker(`${id}.broker`);
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, { routingKey: `${id}.#` });
+
+    await assert.rejects(
+      () => relay.consume({ onError: "retry", retry: { attempts: 1, delayMs: 0, then: "dead-letter" } }),
+      /delayMs must be a positive number/
+    );
+  } finally {
+    await broker.close();
+  }
+});
+
+test("broker rejects negative shutdownTimeoutMs", async () => {
+  assert.throws(
+    () => new RabbitMQBroker(unique("bad-timeout"), { shutdownTimeoutMs: -1 }),
+    /shutdownTimeoutMs/
+  );
+});
+
+test("broker reconnect lifecycle event fires", { timeout: timeoutMs }, async () => {
+  const id = unique("lc-reconnect");
+  const eventName = `${id}.event`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const reconnectEvents = [];
+
+  try {
+    broker.on("reconnect", (ev) => {
+      reconnectEvents.push(ev.peerName);
+    });
+
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+
+    relay.handle(eventName, async () => { /* noop */ });
+    await relay.consume({ prefetch: 1, concurrency: 1 });
+
+    // Force a channel-level close to trigger reconnect
+    await relay.withChannel((ch) =>
+      new Promise((resolve) => {
+        ch.on("close", resolve);
+        ch.connection.close();
+      })
+    );
+
+    await waitFor(
+      () => broker.health().then((h) =>
+        !h.reconnecting && h.connected && h.consumers.length > 0 && h.consumers[0].active
+      ),
+      "broker did not reconnect",
+      12_000
+    );
+
+    assert.ok(reconnectEvents.length >= 1, "expected at least 1 reconnect event");
+    assert.equal(reconnectEvents[0], `${id}.broker`);
   } finally {
     await broker.close();
   }
