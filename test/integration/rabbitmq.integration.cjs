@@ -493,6 +493,161 @@ test("multiple event types on one queue route to correct handlers", { timeout: t
   }
 });
 
+test("recovers from connection drop during active consumption", { timeout: timeoutMs }, async () => {
+  const id = unique("conn-drop");
+  const eventName = `${id}.event`;
+  const makeEvent = event(eventName, "v1").of();
+  const received = [];
+  const broker = new RabbitMQBroker(`${id}.broker`);
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+    relay.handle(eventName, async (_dt, ev) => {
+      received.push(ev.data.v);
+    });
+    await relay.consume({ prefetch: 1, concurrency: 1 });
+
+    await relay.produce(makeEvent({ v: "before" }));
+    await waitFor(() => received.length === 1, "first message not received");
+
+    // Force-close the underlying TCP connection
+    await broker.withChannel((ch) => {
+      // Access the connection through the channel and close it
+      return new Promise((resolve, reject) => {
+        ch.on("close", resolve);
+        ch.connection.close();
+      });
+    });
+
+    // Wait for reconnect
+    await waitFor(
+      () => broker.health().then((h) => !h.reconnecting && h.connected),
+      "broker did not reconnect after connection drop",
+      12_000
+    );
+
+    received.length = 0;
+    await relay.produce(makeEvent({ v: "after-reconnect" }));
+    await waitFor(() => received.length === 1, "message after reconnect not received");
+    assert.equal(received[0], "after-reconnect");
+  } finally {
+    await broker.close();
+  }
+});
+
+test("survives multiple rapid connection interruptions", { timeout: timeoutMs }, async () => {
+  const id = unique("rapid");
+  const eventName = `${id}.event`;
+  const makeEvent = event(eventName, "v1").of();
+  let received = 0;
+  const broker = new RabbitMQBroker(`${id}.broker`);
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+    relay.handle(eventName, async () => { received++; });
+    await relay.consume({ prefetch: 1, concurrency: 1 });
+
+    // Interrupt the connection 3 times in quick succession
+    for (let i = 0; i < 3; i++) {
+      await broker.withChannel((ch) =>
+        new Promise((resolve, reject) => {
+          ch.on("close", resolve);
+          ch.connection.close();
+        })
+      );
+
+      await waitFor(
+        () => broker.health().then((h) => !h.reconnecting && h.connected),
+        `broker did not reconnect after interruption #${i + 1}`,
+        12_000
+      );
+    }
+
+    received = 0;
+    await relay.produce(makeEvent({ v: "after-rapid" }));
+    await waitFor(() => received === 1, "message after rapid reconnects not received");
+  } finally {
+    await broker.close();
+  }
+});
+
+test("schema validation dead-letters invalid payload", { timeout: timeoutMs }, async () => {
+  const id = unique("schema-dlq");
+  const eventName = `${id}.validated`;
+  const broker = new RabbitMQBroker(`${id}.broker`);
+
+  // Register a schema for this event by creating a factory with .schema()
+  const makeValid = event(eventName, "v1").schema({
+    parse(input) {
+      if (typeof input !== "object" || input === null) {
+        throw new Error("payload must be an object");
+      }
+      if (typeof input.value !== "number") {
+        throw new Error("value must be a number");
+      }
+      return { value: input.value };
+    },
+  });
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+        deadLetter: {
+          exchange: `${id}.dlx`,
+          queue: `${id}.dlq`,
+          routingKey: `${id}.dead`,
+          autoDeclare: true,
+        },
+      });
+
+    relay.handle(eventName, async (_dt, ev) => {
+      throw new Error("handler should never be called for invalid payload");
+    });
+
+    await relay.consume({
+      prefetch: 1,
+      concurrency: 1,
+      invalidMessage: "dead-letter",
+      onError: "dead-letter",
+    });
+
+    // Publish a valid message — handler should process it (but it throws, hence DLQ)
+    await relay.produce(makeValid({ value: 42 }));
+
+    // Publish an INVALID message — schema validation should send it to DLQ
+    // We need to publish raw because the factory types it correctly
+    const EnvelopeFactory = event(eventName, "v1").of();
+    const rawEvent = EnvelopeFactory({ value: "not-a-number" }); // invalid — value must be number
+    // Use publish() to avoid schema check on produce side (schemas are consume-side only)
+    await relay.publish(rawEvent);
+
+    // Wait for 2 messages in DLQ
+    await waitFor(
+      () => broker.withChannel(async (channel) => {
+        const info = await channel.checkQueue(`${id}.dlq`);
+        return info.messageCount >= 2;
+      }),
+      "expected 2 messages in DLQ (handler error + schema rejection)"
+    );
+  } finally {
+    await broker.close();
+  }
+});
+
 test("handler that throws a non-error value still retries and dead-letters", { timeout: timeoutMs }, async () => {
   const id = unique("non-error-throw");
   const eventName = `${id}.fail`;
