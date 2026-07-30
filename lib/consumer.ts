@@ -286,7 +286,7 @@ export function createConsumer(params: {
 
     if (!ch) {
       throw new Error(
-        "Cannot retry message because consumer channel is not available"
+        `[broker] Cannot retry message for queue '${queueName}': consumer channel is not available`
       );
     }
 
@@ -307,7 +307,7 @@ export function createConsumer(params: {
 
     if (!ch) {
       throw new Error(
-        "Cannot delayed-retry message because consumer channel is not available"
+        `[broker] Cannot delayed-retry message for queue '${queueName}': consumer channel is not available`
       );
     }
 
@@ -438,7 +438,7 @@ export function createConsumer(params: {
           ch.ack(msg);
           return;
         } catch (retryErr) {
-          console.error("Retry publish failed:", retryErr);
+          console.error(`[peer=${peerName}, queue=${queueName}] Retry publish failed:`, retryErr);
 
           // If retry publish fails, do not silently lose the original.
           // Prefer DLQ if configured; otherwise requeue.
@@ -503,7 +503,7 @@ export function createConsumer(params: {
         { correlationId: msg.properties.correlationId }
       );
     } catch (e) {
-      console.error("Reply publish failed:", e);
+      console.error(`[peer=${peerName}, queue=${queueName}] Reply publish failed:`, e);
     }
   }
 
@@ -523,12 +523,12 @@ export function createConsumer(params: {
       payload = JSON.parse(msg.content.toString()) as EventEnvelope;
       payload = hydrateEventMetaFromMessage(payload, msg);
     } catch (err) {
-      console.error("Invalid message payload:", err);
+      console.error(`[peer=${peerName}, queue=${queueName}] Invalid message payload:`, err);
 
       try {
         ackOrNackParseFailure(ch, msg);
       } catch (e) {
-        console.error("Ack/Nack failed:", e);
+        console.error(`[peer=${peerName}, queue=${queueName}] Ack/Nack failed after parse failure:`, e);
       }
 
       return;
@@ -538,7 +538,7 @@ export function createConsumer(params: {
       try {
         ch.ack(msg);
       } catch (e) {
-        console.error("Ack duplicate failed:", e);
+        console.error(`[peer=${peerName}, queue=${queueName}] Ack duplicate failed:`, e);
       }
 
       return;
@@ -557,12 +557,12 @@ export function createConsumer(params: {
           originalError: err,
         });
 
-        console.error(validationError.message);
+        console.error(validationError);
 
         try {
           await applyInvalidMessagePolicy(ch, msg, payload, validationError);
         } catch (e) {
-          console.error("Invalid message policy failed:", e);
+          console.error(`[peer=${peerName}, queue=${queueName}] Invalid message policy failed:`, e);
         }
 
         return;
@@ -597,7 +597,7 @@ export function createConsumer(params: {
       errorValue = err;
       result = err;
 
-      console.error("Handler error:", err);
+      console.error(`[peer=${peerName}, queue=${queueName}] Handler error:`, err);
     }
 
     const handlerDuration = Date.now() - handlerStart;
@@ -626,7 +626,7 @@ export function createConsumer(params: {
         ch.ack(msg);
       }
     } catch (e) {
-      console.error("Ack/Nack failed:", e);
+      console.error(`[peer=${peerName}, queue=${queueName}] Ack/Nack failed after handler:`, e);
     }
   };
 
@@ -642,7 +642,7 @@ export function createConsumer(params: {
 
       void processMessage(msg)
         .catch((err) => {
-          console.error("Unexpected consumer processing error:", err);
+          console.error(`[peer=${peerName}, queue=${queueName}] Unexpected consumer processing error:`, err);
         })
         .finally(() => {
           activeHandlers--;

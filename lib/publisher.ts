@@ -59,7 +59,7 @@ function assertMessageSize(
   if (maxMessageBytes == null) return;
 
   if (!Number.isFinite(maxMessageBytes) || maxMessageBytes <= 0) {
-    throw new Error("[broker] maxMessageBytes must be a positive number");
+    throw new Error(`[broker] maxMessageBytes must be a positive number, got ${maxMessageBytes}`);
   }
 
   if (content.length > maxMessageBytes) {
@@ -254,7 +254,7 @@ export function createPublisher(params: {
 
         settled = true;
         await cleanup();
-        reject(new Error("Timeout waiting for reply"));
+        reject(new Error(`Timeout waiting for reply for event '${evt.name}' (corrId: ${correlationId})`));
       }, timeoutMs);
 
       rpcCh

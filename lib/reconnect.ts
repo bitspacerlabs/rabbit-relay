@@ -47,7 +47,7 @@ export class ReconnectController {
 
   public async getChannel(): Promise<Channel> {
     if (this.closed) {
-      throw new Error("RabbitMQ broker is closed");
+      throw new Error("[broker] RabbitMQ broker is closed");
     }
 
     if (!this.channelPromise) {

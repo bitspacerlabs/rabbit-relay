@@ -110,7 +110,7 @@ export class RabbitMQBroker {
 
     this.shutdownTimeoutMs = config.shutdownTimeoutMs ?? 30_000;
     if (!Number.isFinite(this.shutdownTimeoutMs) || this.shutdownTimeoutMs < 0) {
-      throw new Error("[broker] shutdownTimeoutMs must be a non-negative number");
+      throw new Error(`[broker] shutdownTimeoutMs must be a non-negative number, got ${config.shutdownTimeoutMs}`);
     }
 
     this.connection = new RabbitMQConnectionManager({
