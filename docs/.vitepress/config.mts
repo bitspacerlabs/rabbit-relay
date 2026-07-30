@@ -43,6 +43,7 @@ export default defineConfig({
         items: [
           { text: 'What is Rabbit Relay?', link: '/guide/what-is-rabbit-relay' },
           { text: 'Quickstart', link: '/guide/quickstart' },
+          { text: 'Delivery Semantics', link: '/guide/delivery-semantics' },
           { text: 'Configuration', link: '/guide/configuration' },
         ],
       },
