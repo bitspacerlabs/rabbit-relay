@@ -263,3 +263,23 @@ test("getEventSchema returns undefined for unknown event", () => {
   const retrieved = getEventSchema("nonexistent.event");
   assert.equal(retrieved, undefined);
 });
+
+test("augmentEvents propagates error when broker.produce rejects", async () => {
+  const makeEvent = event("augment.error", "v1").of();
+  const broker = {
+    produce: async () => { throw new Error("publish failed"); },
+  };
+
+  const augmented = augmentEvents({ evt: makeEvent }, broker);
+  await assert.rejects(
+    () => augmented.evt({ v: 1 }),
+    /publish failed/
+  );
+});
+
+test("augmentEvents with empty events returns broker methods only", () => {
+  const broker = { produce: async () => {} };
+  const augmented = augmentEvents({}, broker);
+  assert.equal(typeof augmented.produce, "function");
+  assert.equal(Object.keys(augmented).length, 1);
+});

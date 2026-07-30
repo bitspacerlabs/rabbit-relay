@@ -1,6 +1,6 @@
 {
   "name": "@bitspacerlabs/rabbit-relay",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Type-safe RabbitMQ framework for Node.js with reliable publishing, retries, DLQs, RPC, and explicit topology",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",
@@ -51,6 +51,7 @@
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
     "test:package": "bash scripts/test-package-usage.sh",
+    "test:real-usage": "bash scripts/test-real-usage.sh",
     "test:unit": "npm run build && node --test test/unit/*.test.cjs",
     "test:integration": "npm run build && node --test --test-concurrency=1 test/integration/*.integration.cjs"
   },

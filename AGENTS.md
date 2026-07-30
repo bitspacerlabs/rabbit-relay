@@ -39,6 +39,7 @@ npm run build
 npm run test:package
 npm run test:unit
 npm run test:integration
+npm run test:real-usage
 npm run docs:build
 ```
 

@@ -2037,3 +2037,152 @@ test("OpenTelemetry adapter creates spans via lifecycle events", { timeout: time
     await broker.close();
   }
 });
+
+test("consumer handles non-JSON message body without crashing", { timeout: timeoutMs }, async () => {
+  const id = unique("non-json");
+  const eventName = `${id}.event`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const received = [];
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+
+    relay.handle(eventName, async (_dt, ev) => { received.push(ev.data.v); });
+    await relay.consume({ prefetch: 1, concurrency: 1 });
+
+    // Publish a valid event first to confirm consumer works
+    await relay.produce(makeEvent({ v: 1 }));
+    await waitFor(() => received.length === 1, "first valid event not received");
+
+    // Now publish a raw non-JSON message directly to the exchange
+    await relay.withChannel(async (ch) => {
+      ch.publish(`${id}.ex`, eventName, Buffer.from("not json"), {});
+    });
+
+    // Publish another valid event after the non-JSON one
+    await relay.produce(makeEvent({ v: 2 }));
+    await waitFor(() => received.length === 2, "second valid event not received after non-JSON");
+
+    assert.equal(received.length, 2);
+    assert.equal(received[0], 1);
+    assert.equal(received[1], 2);
+  } finally {
+    await broker.close();
+  }
+});
+
+test("consumer acks message when no handler matches event name", { timeout: timeoutMs }, async () => {
+  const id = unique("no-handler");
+  const eventName = `${id}.event`;
+  const otherEvent = `${id}.other`;
+  const makeEvent = event(eventName, "v1").of();
+  const makeOther = event(otherEvent, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const received = [];
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: `${id}.*`,
+        publisherConfirms: true,
+        deadLetter: {
+          exchange: `${id}.dlx`,
+          queue: `${id}.dlq`,
+          routingKey: `${id}.dead`,
+          autoDeclare: true,
+        },
+      });
+
+    // Only register handler for eventName, not otherEvent
+    relay.handle(eventName, async (_dt, ev) => { received.push(ev.data.v); });
+    await relay.consume({ prefetch: 1, concurrency: 1, onError: "dead-letter" });
+
+    // Publish an event with no registered handler — should be acked
+    await relay.produce(makeOther({ v: 99 }));
+
+    // Give it time to be consumed and acked
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    // Queue should be empty (message was acked, not stuck or dead-lettered)
+    const info = await broker.withChannel((ch) => ch.checkQueue(`${id}.q`));
+    assert.equal(info.messageCount, 0);
+
+    // DLQ should also be empty (message was acked, not dead-lettered)
+    const dlqInfo = await broker.withChannel((ch) => ch.checkQueue(`${id}.dlq`));
+    assert.equal(dlqInfo.messageCount, 0);
+
+    // Handler for eventName should never have been called
+    assert.equal(received.length, 0);
+
+    // Consumer should still be working
+    await relay.produce(makeEvent({ v: 1 }));
+    await waitFor(() => received.length === 1, "subsequent event not processed");
+  } finally {
+    await broker.close();
+  }
+});
+
+test("reconnect callback failure does not prevent other callbacks from running", { timeout: timeoutMs }, async () => {
+  const id = unique("reconnect-err");
+  const eventName = `${id}.event`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const callbackOrder = [];
+
+  try {
+    // First callback throws
+    broker.on("reconnect", async () => {
+      callbackOrder.push("first-started");
+      throw new Error("first callback failure");
+    });
+
+    // Second callback succeeds
+    broker.on("reconnect", async () => {
+      callbackOrder.push("second-ran");
+    });
+
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+
+    relay.handle(eventName, async () => { /* noop */ });
+    await relay.consume({ prefetch: 1, concurrency: 1 });
+
+    // Force a channel-level close to trigger reconnect
+    await relay.withChannel((ch) =>
+      new Promise((resolve) => {
+        ch.on("close", resolve);
+        ch.connection.close();
+      })
+    );
+
+    await waitFor(
+      () => broker.health().then((h) =>
+        !h.reconnecting && h.connected && h.consumers.length > 0 && h.consumers[0].active
+      ),
+      "broker did not reconnect",
+      12_000
+    );
+
+    // Both callbacks should have been called
+    assert.ok(callbackOrder.includes("first-started"), "first callback should have started");
+    assert.ok(callbackOrder.includes("second-ran"), "second callback should have run");
+    assert.ok(callbackOrder.indexOf("second-ran") > callbackOrder.indexOf("first-started"),
+      "second callback should run after first started");
+  } finally {
+    await broker.close();
+  }
+});

@@ -16,6 +16,9 @@ NOTE:
 </p>
 
 <p align="center">
+  <a href="https://github.com/bitspacerlabs/rabbit-relay/actions/workflows/ci.yml">
+    <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/bitspacerlabs/rabbit-relay/ci.yml?branch=main&label=CI">
+  </a>
   <a href="https://www.npmjs.com/package/@bitspacerlabs/rabbit-relay">
     <img alt="npm version" src="https://img.shields.io/npm/v/@bitspacerlabs/rabbit-relay">
   </a>
@@ -27,6 +30,9 @@ NOTE:
   </a>
   <a href="LICENSE">
     <img alt="license" src="https://img.shields.io/github/license/bitspacerlabs/rabbit-relay">
+  </a>
+  <a href="https://github.com/bitspacerlabs/rabbit-relay/blob/main/CHANGELOG.md">
+    <img alt="changelog" src="https://img.shields.io/badge/changelog-kept-blue">
   </a>
 </p>
 
@@ -58,6 +64,21 @@ and adds:
 - **Isolated broker lifecycles** (each broker owns its connection and shutdown)
 
 If you already use RabbitMQ and you want a better TypeScript developer experience, Rabbit Relay is for you.
+
+### What you get out of the box
+
+| Area | Capabilities |
+|---|---|
+| **Events** | Typed event factories, versioning, headers, correlation/causation IDs, `traceFrom()`, `augmentEvents()`, runtime schema validation |
+| **Publishing** | `produce()` / `publish()` / `with()` typed API, publisher confirms, message-size guard, native AMQP escape hatch |
+| **Consuming** | Prefetch + concurrency, middleware, `\*` wildcard handlers, deterministic acks |
+| **Reliability** | Bounded and delayed retries, dead-letter queues, `redriveDlq` (dry-run safe), in-memory TTL dedupe |
+| **RPC** | Request/reply with correlation IDs, reply queues, timeouts |
+| **Operations** | Auto-reconnect, health checks, graceful shutdown, lifecycle hooks, topology planner/validation/diff CLI |
+| **Observability** | OpenTelemetry adapter, lifecycle events (`handler.completed`, `message.dead-lettered`, …) |
+
+Rabbit Relay treats delivery as **at-least-once** and makes idempotency requirements explicit — see
+[Delivery Semantics](https://bitspacerlabs.github.io/rabbit-relay/docs/guide/delivery-semantics.html).
 
 ---
 
@@ -168,19 +189,38 @@ See runnable examples in:
 
 ## When to use Rabbit Relay
 
-- You already use RabbitMQ
-- You want **type-safe events**
-- You prefer **explicit topology** and ownership
-- You don’t want “magic” abstractions
+Rabbit Relay is a good fit when your services depend on RabbitMQ for real
+application behavior and you want:
 
-For a feature-by-feature choice, see the
+- **typed message contracts** checked by TypeScript, not just at runtime
+- **reliable publishing** with publisher confirms and message-size guards
+- **predictable consumers** with prefetch, concurrency, and explicit acks
+- **consistent retry, DLQ, and redrive** flows instead of per-service glue
+- **RPC over RabbitMQ** without hand-rolling correlation IDs
+- **reconnect recovery** that restores channels, topology, and consumers
+- **production observability** via lifecycle hooks and OpenTelemetry
+- **explicit topology ownership** — app-asserted, infra-owned (passive), or
+  plan-only for CI/review, with a topology diff CLI
+
+If you only publish a few fire-and-forget messages, raw `amqplib` may be
+enough. For a feature-by-feature decision, see the
 [decision guide](https://bitspacerlabs.github.io/rabbit-relay/docs/ai/decision-guide.html).
 
 ---
 
 ## Project status
 
-Rabbit Relay is actively evolving. If something is unclear or missing, please open an issue (or start a discussion) with:
+Rabbit Relay is **stable** on the 1.x line and follows semantic versioning.
+The public API for publishing, consuming, retry, DLQ, RPC, topology, and
+operations is stable, and the project ships an extensive test suite (unit,
+live RabbitMQ integration, and packed-package ESM/CJS/TypeScript smoke
+tests) running on Node.js 18, 20, 22, and 24 in CI.
+
+See [`CHANGELOG.md`](CHANGELOG.md) for release history.
+
+If something is unclear or missing, please open an issue (or start a
+discussion) with:
+
 - what you’re trying to build
 - the RabbitMQ pattern you’re using (pub/sub, work queue, RPC, etc.)
 - a small code snippet

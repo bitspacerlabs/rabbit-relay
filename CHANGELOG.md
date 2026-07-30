@@ -6,6 +6,43 @@ This project follows semantic versioning.
 
 ---
 
+## [1.2.0] - 2026-07-30
+
+### Added
+
+- Added a topology CLI with `plan`, `validate`, and `diff` commands for
+  generating, validating, and comparing topology plans without running a
+  consumer.
+- Added DLQ CLI commands: `dlq inspect`, `dlq peek`, and `dlq redrive` for
+  dead-letter queue inspection and message redrive with `--dry-run` support.
+- Added `handler.completed` and `message.dead-lettered` lifecycle events with
+  OpenTelemetry span and metric support.
+- Added runtime schema support to event factories via `registerEventSchema` and
+  `getEventSchema`; consumers now validate payloads against registered schemas
+  when present.
+- Added idempotent consumer example.
+- Added delivery-semantics reference document.
+- Added CLI reference documentation page.
+
+### Fixed
+
+- Improved error messages and diagnostics across consumer, publisher,
+  reconnect, and broker paths for clearer actionable failures.
+
+### Changed
+
+- Expanded test coverage to every public runtime export, including event
+  enrichment, plugin system, topology planning, OpenTelemetry, dedupe,
+  broker config validation, non-JSON message handling, unmatched event
+  acknowledgement, and reconnect callback isolation.
+
+### Backward Compatibility
+
+- All existing public APIs remain unchanged.
+- New lifecycle events, CLI commands, and schema helpers are additive.
+
+---
+
 ## [1.1.1] - 2026-07-29
 
 ### Fixed
