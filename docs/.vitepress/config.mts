@@ -98,6 +98,7 @@ export default defineConfig({
           { text: 'Topology Validation', link: '/features/topology-validation' },
           { text: 'DLQ Redrive', link: '/features/dlq-redrive' },
           { text: 'Plugin Hooks', link: '/features/plugins' },
+          { text: 'Topology Diff CLI', link: '/features/topology-diff-cli' },
         ],
       },
       {

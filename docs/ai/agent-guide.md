@@ -331,6 +331,15 @@ const sub = await broker
 console.log(sub.planTopology());
 ```
 
+The `rabbit-relay` CLI also has a `plan` command that runs a setup script and
+outputs the plan as JSON, plus `validate` and `diff` commands:
+
+```bash
+npx rabbit-relay plan ./setup.mjs > plan.json
+npx rabbit-relay validate plan.json --url "$RABBITMQ_URL"
+npx rabbit-relay diff plan.json plan.production.json
+```
+
 ---
 
 ## Topology validation
