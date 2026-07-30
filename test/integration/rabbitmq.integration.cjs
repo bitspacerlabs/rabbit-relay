@@ -657,6 +657,566 @@ test("schema validation dead-letters invalid payload", { timeout: timeoutMs }, a
   }
 });
 
+test("direct exchange type routes by exact routing key", { timeout: timeoutMs }, async () => {
+  const id = unique("direct");
+  const eventName = `${id}.direct`;
+  const makeEvent = event(eventName, "v1").of();
+  const received = deferred();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "direct",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+
+    relay.handle(eventName, async (_dt, envelope) => {
+      received.resolve(envelope.data.v);
+    });
+
+    await relay.consume({ prefetch: 1, concurrency: 1 });
+    await relay.produce(makeEvent({ v: "direct-works" }));
+
+    assert.equal(await received.promise, "direct-works");
+  } finally {
+    await broker.close();
+  }
+});
+
+test("fanout exchange delivers to all bound queues", { timeout: timeoutMs }, async () => {
+  const id = unique("fanout");
+  const eventName = `${id}.broadcast`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const receivedA = deferred();
+  const receivedB = deferred();
+
+  try {
+    const relayA = await broker
+      .queue(`${id}.a.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "fanout",
+        publisherConfirms: true,
+      });
+
+    const relayB = await broker
+      .queue(`${id}.b.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "fanout",
+      });
+
+    relayA.handle(eventName, async (_dt, ev) => receivedA.resolve(ev.data.v));
+    relayB.handle(eventName, async (_dt, ev) => receivedB.resolve(ev.data.v));
+
+    await relayA.consume({ prefetch: 1, concurrency: 1 });
+    await relayB.consume({ prefetch: 1, concurrency: 1 });
+
+    // Use first subscriber to publish
+    await relayA.produce(makeEvent({ v: "fanout-ok" }));
+
+    assert.equal(await receivedA.promise, "fanout-ok");
+    assert.equal(await receivedB.promise, "fanout-ok");
+  } finally {
+    await broker.close();
+  }
+});
+
+test("middleware can transform event data before handler", { timeout: timeoutMs }, async () => {
+  const id = unique("middleware");
+  const eventName = `${id}.transform`;
+  const makeEvent = event(eventName, "v1").of();
+  const received = deferred();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+
+    relay.use((ctx, next) => {
+      ctx.event.data = { original: ctx.event.data, doubled: ctx.event.data.v * 2 };
+      return next();
+    });
+
+    relay.handle(eventName, async (_dt, envelope) => {
+      received.resolve(envelope.data);
+    });
+
+    await relay.consume({ prefetch: 1, concurrency: 1 });
+    await relay.produce(makeEvent({ v: 7 }));
+
+    const data = await received.promise;
+    assert.equal(data.original.v, 7);
+    assert.equal(data.doubled, 14);
+  } finally {
+    await broker.close();
+  }
+});
+
+test("middleware can reject a message before handler", { timeout: timeoutMs }, async () => {
+  const id = unique("mw-reject");
+  const eventName = `${id}.reject`;
+  const makeEvent = event(eventName, "v1").of();
+  let handlerInvoked = false;
+  const broker = new RabbitMQBroker(`${id}.broker`);
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+        deadLetter: {
+          exchange: `${id}.dlx`,
+          queue: `${id}.dlq`,
+          routingKey: `${id}.dead`,
+          autoDeclare: true,
+        },
+      });
+
+    relay.use((_ctx, _next) => {
+      throw new Error("middleware rejection");
+    });
+
+    relay.handle(eventName, async () => {
+      handlerInvoked = true;
+    });
+
+    await relay.consume({
+      prefetch: 1,
+      concurrency: 1,
+      onError: "dead-letter",
+    });
+
+    await relay.produce(makeEvent({ v: 1 }));
+
+    await waitFor(
+      () => broker.withChannel(async (channel) => {
+        const info = await channel.checkQueue(`${id}.dlq`);
+        return info.messageCount === 1;
+      }),
+      "middleware-rejected message did not reach the DLQ"
+    );
+
+    assert.equal(handlerInvoked, false, "handler should not be called when middleware rejects");
+  } finally {
+    await broker.close();
+  }
+});
+
+test("wildcard handler catches events not explicitly handled", { timeout: timeoutMs }, async () => {
+  const id = unique("wildcard");
+  const eventA = `${id}.alpha`;
+  const eventB = `${id}.beta`;
+  const makeA = event(eventA, "v1").of();
+  const makeB = event(eventB, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const received = [];
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: `${id}.*`,
+      });
+
+    // Only register wildcard handler
+    relay.handle("*", async (_dt, ev) => { received.push(`${ev.name}:${ev.data.v}`); });
+    await relay.consume({ prefetch: 10, concurrency: 1 });
+
+    await relay.produce(makeA({ v: 1 }));
+    await relay.produce(makeB({ v: 2 }));
+
+    await waitFor(() => received.length === 2, "wildcard handler did not receive both events");
+    assert.deepEqual(received.sort(), [`${eventA}:1`, `${eventB}:2`].sort());
+  } finally {
+    await broker.close();
+  }
+});
+
+test("onError requeue returns message to the queue", { timeout: timeoutMs }, async () => {
+  const id = unique("requeue");
+  const eventName = `${id}.fail`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  let deliveryCount = 0;
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+
+    relay.handle(eventName, async (_dt, _ev) => {
+      deliveryCount++;
+      throw new Error(`attempt ${deliveryCount}`);
+    });
+
+    const consumer = await relay.consume({
+      prefetch: 1,
+      concurrency: 1,
+      onError: "requeue",
+    });
+
+    await relay.produce(makeEvent({ v: 1 }));
+
+    // Wait long enough for at least one requeue cycle
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await consumer.stop();
+
+    // Message was requeued so it should still be in the queue
+    const info = await broker.withChannel((ch) => ch.checkQueue(`${id}.q`));
+    assert.equal(info.messageCount, 1, "requeued message should remain in queue");
+    assert.ok(deliveryCount >= 1, "handler should have been called at least once");
+  } finally {
+    await broker.close();
+  }
+});
+
+test("immediate retry without delayMs still retries then dead-letters", { timeout: timeoutMs }, async () => {
+  const id = unique("immediate-retry");
+  const eventName = `${id}.fail`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const attempts = [];
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+        deadLetter: {
+          exchange: `${id}.dlx`,
+          queue: `${id}.dlq`,
+          routingKey: `${id}.dead`,
+          autoDeclare: true,
+        },
+      });
+
+    relay.handle(eventName, async () => {
+      attempts.push("tried");
+      throw new Error("immediate retry failure");
+    });
+
+    const consumer = await relay.consume({
+      prefetch: 1,
+      concurrency: 1,
+      onError: "retry",
+      retry: { attempts: 1, then: "dead-letter" },
+    });
+
+    await relay.produce(makeEvent({ v: 1 }));
+
+    await waitFor(
+      () => broker.withChannel(async (channel) => {
+        const info = await channel.checkQueue(`${id}.dlq`);
+        return info.messageCount === 1;
+      }),
+      "immediate-retry message did not reach the DLQ"
+    );
+
+    await consumer.stop();
+    assert.equal(attempts.length, 2, "expected 2 attempts (initial + 1 immediate retry)");
+  } finally {
+    await broker.close();
+  }
+});
+
+test("invalidMessage function callback handles schema failures", { timeout: timeoutMs }, async () => {
+  const id = unique("invalid-fn");
+  const eventName = `${id}.validated`;
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const invalidHandled = deferred();
+
+  const makeValid = event(eventName, "v1").schema({
+    parse(input) {
+      if (typeof input !== "object" || input === null) {
+        throw new Error("payload must be an object");
+      }
+      if (typeof input.value !== "number") {
+        throw new Error("value must be a number");
+      }
+      return { value: input.value };
+    },
+  });
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+
+    relay.handle(eventName, async () => {
+      throw new Error("should never be called for invalid payload");
+    });
+
+    await relay.consume({
+      prefetch: 1,
+      concurrency: 1,
+      invalidMessage: (ctx) => {
+        invalidHandled.resolve(ctx.error.message);
+      },
+      onError: "dead-letter",
+    });
+
+    // Publish an invalid payload directly (bypass produce-side schema)
+    const raw = event(eventName, "v1").of();
+    await relay.publish(raw({ value: "not-a-number" }));
+
+    const msg = await invalidHandled.promise;
+    assert.match(msg, /value must be a number/);
+  } finally {
+    await broker.close();
+  }
+});
+
+test("produceMany publishes all events", { timeout: timeoutMs }, async () => {
+  const id = unique("batch");
+  const eventName = `${id}.batch`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const received = [];
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+
+    relay.handle(eventName, async (_dt, ev) => { received.push(ev.data.v); });
+    await relay.consume({ prefetch: 10, concurrency: 1 });
+
+    await relay.produceMany(
+      makeEvent({ v: 1 }),
+      makeEvent({ v: 2 }),
+      makeEvent({ v: 3 })
+    );
+
+    await waitFor(() => received.length === 3, "produceMany did not deliver all events");
+    assert.deepEqual(received, [1, 2, 3]);
+  } finally {
+    await broker.close();
+  }
+});
+
+test("publish with per-message routingKey override", { timeout: timeoutMs }, async () => {
+  const id = unique("publish-opts");
+  const eventName = `${id}.event`;
+  const makeEvent = event(eventName, "v1").of();
+  const received = deferred();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+
+  try {
+    // Exchange has a binding key that would NOT match the event name
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: `${id}.custom`,
+        publisherConfirms: true,
+      });
+
+    relay.handle(eventName, async (_dt, ev) => { received.resolve(ev.data.v); });
+    await relay.consume({ prefetch: 1, concurrency: 1 });
+
+    // Without override this would publish to `${id}.event` which doesn't match `${id}.custom`
+    await relay.publish(makeEvent({ v: "custom-rk" }), { routingKey: `${id}.custom` });
+
+    assert.equal(await received.promise, "custom-rk");
+  } finally {
+    await broker.close();
+  }
+});
+
+test("publish with per-message maxMessageBytes override", { timeout: timeoutMs }, async () => {
+  const id = unique("msgbytes");
+  const eventName = `${id}.event`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        // No maxMessageBytes at exchange level
+      });
+
+    // Large payload succeeds with generous per-publish limit
+    await relay.publish(makeEvent({ data: "x".repeat(5000) }), { maxMessageBytes: 10_000 });
+
+    // Same payload fails with strict per-publish limit
+    await assert.rejects(
+      () => relay.publish(makeEvent({ data: "x".repeat(5000) }), { maxMessageBytes: 100 }),
+      (error) => {
+        assert.match(error.message, /max allowed is/);
+        return true;
+      }
+    );
+  } finally {
+    await broker.close();
+  }
+});
+
+test("topologyMode passive succeeds when resources already exist", { timeout: timeoutMs }, async () => {
+  const id = unique("passive-happy");
+  const eventName = `${id}.event`;
+  const makeEvent = event(eventName, "v1").of();
+  const setupBroker = new RabbitMQBroker(`${id}.setup`);
+
+  try {
+    // First create the resources normally
+    const setupRelay = await setupBroker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+    await setupRelay.consume({ prefetch: 1, concurrency: 1 });
+    await setupBroker.close();
+
+    // Now connect in passive mode — should succeed since resources exist
+    const passiveBroker = new RabbitMQBroker(`${id}.passive`, {
+      topologyMode: "passive",
+    });
+
+    try {
+      const passiveRelay = await passiveBroker
+        .queue(`${id}.q`)
+        .exchange(`${id}.ex`, {
+          exchangeType: "topic",
+          routingKey: eventName,
+          publisherConfirms: true,
+        });
+
+      const received = deferred();
+      passiveRelay.handle(eventName, async (_dt, ev) => { received.resolve(ev.data.v); });
+      await passiveRelay.consume({ prefetch: 1, concurrency: 1 });
+
+      await passiveRelay.produce(makeEvent({ v: "passive-works" }));
+      assert.equal(await received.promise, "passive-works");
+    } finally {
+      await passiveBroker.close();
+    }
+  } finally {
+    await setupBroker.close().catch(() => undefined);
+  }
+});
+
+test("consume rejects invalid concurrency", { timeout: timeoutMs }, async () => {
+  const id = unique("bad-concurrency");
+  const broker = new RabbitMQBroker(`${id}.broker`);
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, { routingKey: `${id}.#` });
+
+    await assert.rejects(
+      () => relay.consume({ concurrency: 0 }),
+      /concurrency must be greater than 0/
+    );
+  } finally {
+    await broker.close();
+  }
+});
+
+test("consume rejects invalid prefetch", { timeout: timeoutMs }, async () => {
+  const id = unique("bad-prefetch");
+  const broker = new RabbitMQBroker(`${id}.broker`);
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, { routingKey: `${id}.#` });
+
+    await assert.rejects(
+      () => relay.consume({ prefetch: 0, concurrency: 1 }),
+      /prefetch must be greater than 0/
+    );
+  } finally {
+    await broker.close();
+  }
+});
+
+test("consume rejects retry attempts <= 0 when onError is retry", { timeout: timeoutMs }, async () => {
+  const id = unique("bad-retry");
+  const broker = new RabbitMQBroker(`${id}.broker`);
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, { routingKey: `${id}.#` });
+
+    await assert.rejects(
+      () => relay.consume({ onError: "retry", retry: { attempts: 0, then: "dead-letter" } }),
+      /retry\.attempts must be greater than 0/
+    );
+  } finally {
+    await broker.close();
+  }
+});
+
+test("dedupe skips duplicate messages", { timeout: timeoutMs }, async () => {
+  const id = unique("dedupe");
+  const eventName = `${id}.event`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+  const received = [];
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: eventName,
+        publisherConfirms: true,
+      });
+
+    relay.handle(eventName, async (_dt, ev) => { received.push(ev.data.v); });
+
+    // Enable dedupe with a TTL long enough to cover both publishes
+    await relay.consume({
+      prefetch: 1,
+      concurrency: 1,
+      dedupe: { ttlMs: 30_000, enabled: true },
+    });
+
+    // Publish two messages with the same ID
+    const evt = makeEvent({ v: 42 });
+    await relay.produce(evt);
+    await relay.produce({ ...evt, id: evt.id, time: Date.now() });
+
+    await waitFor(() => received.length === 1, "duplicate was not deduplicated");
+    assert.equal(received.length, 1);
+    assert.equal(received[0], 42);
+  } finally {
+    await broker.close();
+  }
+});
+
 test("handler that throws a non-error value still retries and dead-letters", { timeout: timeoutMs }, async () => {
   const id = unique("non-error-throw");
   const eventName = `${id}.fail`;
