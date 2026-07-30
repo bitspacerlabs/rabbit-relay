@@ -120,6 +120,7 @@ export default defineConfig({
           { text: 'Topology Validation', link: '/examples/topology-validation' },
           { text: 'Topology Modes', link: '/examples/topology-modes' },
           { text: 'DLQ Redrive', link: '/examples/dlq-redrive' },
+          { text: 'Idempotent Consumer', link: '/examples/idempotent-consumer' },
         ],
       },
       {

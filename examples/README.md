@@ -41,6 +41,7 @@ npx tsx examples/<example-folder>/<file>.ts
 | `14-topology-validation` | Passive validation of existing RabbitMQ topology |
 | `15-dlq-redrive` | Moving messages from DLQ back to a target exchange |
 | `16-topology-modes` | `assert`, `passive`, and `plan-only` topology modes |
+| `17-idempotent-consumer` | Idempotent consumer using event `id` as idempotency key |
 
 ---
 
