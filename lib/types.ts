@@ -171,6 +171,36 @@ export type ConsumeDedupeOptions =
       enabled?: boolean;
     });
 
+/**
+ * A validator that accepts untrusted input and returns typed output.
+ *
+ * Compatible with Zod, Valibot, ArkType, io-ts, yup, and any library
+ * that exposes a `parse(input: unknown): TOutput` method.
+ */
+export interface EventPayloadSchema<TOutput = unknown> {
+  parse(input: unknown): TOutput;
+}
+
+/**
+ * Infer the output type from an EventPayloadSchema.
+ */
+export type SchemaOutput<S> = S extends EventPayloadSchema<infer O> ? O : unknown;
+
+export interface InvalidMessageContext {
+  id: string | number;
+  event: EventEnvelope;
+  error: Error;
+  queue: string;
+  ack(): Promise<void>;
+  nack(requeue: boolean): Promise<void>;
+}
+
+export type InvalidMessagePolicy =
+  | "dead-letter"
+  | "requeue"
+  | "ack"
+  | ((ctx: InvalidMessageContext) => Promise<void>);
+
 export interface ConsumeOptions {
   /** Max unacked messages this consumer can hold. Also default concurrency. */
   prefetch?: number;
@@ -186,6 +216,13 @@ export interface ConsumeOptions {
 
   /** Retry policy when onError is "retry". */
   retry?: RetryOptions;
+
+  /**
+   * What to do when a message fails schema validation.
+   *
+   * Default: same as `onError`, or `"dead-letter"` if neither is set.
+   */
+  invalidMessage?: InvalidMessagePolicy;
 
   /**
    * Optional consumer-side de-duplication.

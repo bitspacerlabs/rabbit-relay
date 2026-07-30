@@ -204,7 +204,56 @@ Plugins can also inject metadata automatically.
 
 ## Runtime validation (optional)
 
-TypeScript types disappear at runtime. For runtime safety, validate in plugin hooks.
+TypeScript types disappear at runtime. Without validation, a consumer
+processing a malformed message sees `any` data — and may throw halfway
+through business logic, leaving a partially processed event.
+
+### `.schema()` (recommended)
+
+Attach a runtime validator directly to the event factory. The output type
+is inferred automatically — no separate `.of<T>()` needed.
+
+Works with Zod, Valibot, ArkType, and any library that exposes a
+`parse(input: unknown): TOutput` method.
+
+```ts
+import { z } from "zod";
+import { event } from "@bitspacerlabs/rabbit-relay";
+
+export const orderCreated = event("orderCreated", "v1").schema(
+  z.object({
+    orderId: z.string().min(1),
+    total: z.number().nonnegative(),
+  })
+);
+// TypeScript infers: EnvelopeFactory<{ orderId: string; total: number }>
+```
+
+When a consumer receives a message for this event, the payload is
+validated **before** the handler runs. If validation fails, the
+`invalidMessage` policy in `consume()` decides what happens:
+
+```ts
+await sub.consume({
+  invalidMessage: "dead-letter",     // (default) nack without requeue
+  // invalidMessage: "requeue"       // nack with requeue (dangerous — loops)
+  // invalidMessage: "ack"           // discard silently
+  // invalidMessage: async (ctx) => {
+  //   // custom quarantine — ctx has id, event, error, ack(), nack()
+  //   await myQuarantine.write(ctx.event, ctx.error);
+  //   await ctx.ack();
+  // },
+});
+```
+
+The default `invalidMessage` policy is `"dead-letter"`. If the exchange
+has no dead-letter queue configured, the message is silently dropped. For
+production, always pair runtime validation with a DLQ.
+
+### Plugin hooks (advanced)
+
+For cross-cutting validation (e.g., validating every event regardless of
+type), use a plugin's `beforeProcess` hook:
 
 ```ts
 import { z } from "zod";

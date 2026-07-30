@@ -47,6 +47,25 @@ Use named imports from the package root.
 
 Always prefer event factories.
 
+For runtime validation (recommended for production), attach a schema:
+
+```ts
+import { z } from "zod";
+
+const orderCreated = event("orders.created", "v1").schema(
+  z.object({
+    orderId: z.string().min(1),
+    amount: z.number().nonnegative(),
+  })
+);
+```
+
+The output type is inferred from the schema — no separate `.of<T>()` is
+needed. Compatible with Zod, Valibot, ArkType, and any library with a
+`parse(input: unknown): TOutput` method.
+
+For compile-time-only typing (no runtime validation):
+
 ```ts
 const orderCreated = event("orders.created", "v1").of<{
   orderId: string;
@@ -421,6 +440,7 @@ Avoid these patterns unless the user explicitly asks:
 ## Standard production template
 
 ```ts
+import { z } from "zod";
 import {
   RabbitMQBroker,
   event,
@@ -433,13 +453,19 @@ type OrderCreated = {
   amount: number;
 };
 
-type PaymentRequested = {
-  orderId: string;
-  amount: number;
-};
+const orderCreated = event("orders.created", "v1").schema(
+  z.object({
+    orderId: z.string().min(1),
+    amount: z.number().nonnegative(),
+  })
+);
 
-const paymentRequested = event("payments.requested", "v1")
-  .of<PaymentRequested>();
+const paymentRequested = event("payments.requested", "v1").schema(
+  z.object({
+    orderId: z.string().min(1),
+    amount: z.number().nonnegative(),
+  })
+);
 
 const broker = new RabbitMQBroker("payments-service", {
   topologyMode: "assert",

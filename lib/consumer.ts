@@ -1,10 +1,13 @@
 import { Channel, ConsumeMessage, Options } from "amqplib";
 import { pluginManager } from "./pluginManager.js";
-import { EventEnvelope } from "./eventFactories.js";
+import { EventEnvelope, getEventSchema } from "./eventFactories.js";
+import { SchemaValidationError } from "./errors.js";
 import {
   ConsumeMiddleware,
   ConsumeMiddlewareContext,
   ConsumeOptions,
+  InvalidMessageContext,
+  InvalidMessagePolicy,
   TopologyMode,
 } from "./types.js";
 import { publishWithBackpressure } from "./backpressure.js";
@@ -64,6 +67,7 @@ export function createConsumer(params: {
   let retryThen: FinalRetryAction = "dead-letter";
 
   let dedupe: Dedupe | undefined;
+  let invalidMessagePolicy: InvalidMessagePolicy | undefined;
 
   const pendingMessages: ConsumeMessage[] = [];
   let activeHandlers = 0;
@@ -358,6 +362,44 @@ export function createConsumer(params: {
     ch.ack(msg);
   }
 
+  async function applyInvalidMessagePolicy(
+    ch: Channel,
+    msg: ConsumeMessage,
+    payload: EventEnvelope,
+    error: Error
+  ): Promise<void> {
+    const policy = invalidMessagePolicy ?? onError ?? "dead-letter";
+
+    if (typeof policy === "function") {
+      const ctx: InvalidMessageContext = {
+        id: msg.fields.deliveryTag,
+        event: payload,
+        error,
+        queue: queueName,
+        ack: async () => {
+          try { ch.ack(msg); } catch { /* channel may be closed */ }
+        },
+        nack: async (requeue: boolean) => {
+          try { ch.nack(msg, false, requeue); } catch { /* channel may be closed */ }
+        },
+      };
+      await policy(ctx);
+      return;
+    }
+
+    if (policy === "requeue") {
+      ch.nack(msg, false, true);
+      return;
+    }
+
+    if (policy === "dead-letter") {
+      ch.nack(msg, false, false);
+      return;
+    }
+
+    ch.ack(msg);
+  }
+
   async function handleFailure(
     ch: Channel,
     msg: ConsumeMessage,
@@ -475,6 +517,31 @@ export function createConsumer(params: {
       }
 
       return;
+    }
+
+    const schema = getEventSchema(payload.name);
+
+    if (schema) {
+      try {
+        payload.data = schema.parse(payload.data) as EventEnvelope["data"];
+      } catch (err) {
+        const validationError = new SchemaValidationError({
+          eventName: payload.name,
+          eventVersion: payload.v,
+          eventId: payload.id,
+          originalError: err,
+        });
+
+        console.error(validationError.message);
+
+        try {
+          await applyInvalidMessagePolicy(ch, msg, payload, validationError);
+        } catch (e) {
+          console.error("Invalid message policy failed:", e);
+        }
+
+        return;
+      }
     }
 
     const handler =
@@ -609,6 +676,7 @@ export function createConsumer(params: {
     }
 
     dedupe = resolveDedupe(opts);
+    invalidMessagePolicy = opts?.invalidMessage;
 
     stopping = false;
 

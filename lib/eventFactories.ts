@@ -1,4 +1,5 @@
 import { randomUUID as _randomUUID } from "crypto";
+import type { EventPayloadSchema, SchemaOutput } from "./types.js";
 
 /** Optional metadata carried alongside the event payload. */
 export interface EventMeta {
@@ -130,6 +131,32 @@ function randomId(): string {
   }
 }
 
+const schemaRegistry = new Map<string, EventPayloadSchema>();
+
+/**
+ * Register a payload schema for an event name.
+ *
+ * Called automatically by `.schema()` on an event factory.
+ * Schemas are used at consume time to validate incoming payloads.
+ */
+export function registerEventSchema(
+  eventName: string,
+  schema: EventPayloadSchema
+): void {
+  schemaRegistry.set(eventName, schema);
+}
+
+/**
+ * Look up a registered schema by event name.
+ *
+ * Returns `undefined` if no schema was registered for this event.
+ */
+export function getEventSchema(
+  eventName: string
+): EventPayloadSchema | undefined {
+  return schemaRegistry.get(eventName);
+}
+
 export function event(name: string, v: string = "1.0.0") {
   return {
     of:
@@ -142,6 +169,21 @@ export function event(name: string, v: string = "1.0.0") {
         data,
         meta,
       }),
+
+    schema: <S extends EventPayloadSchema>(
+      s: S
+    ): EnvelopeFactory<SchemaOutput<S>> => {
+      registerEventSchema(name, s);
+
+      return ((data: SchemaOutput<S>, meta?: EventMeta) => ({
+        id: randomId(),
+        name,
+        v,
+        time: Date.now(),
+        data,
+        meta,
+      })) as EnvelopeFactory<SchemaOutput<S>>;
+    },
   };
 }
 
@@ -157,6 +199,21 @@ export function eventWithReply(name: string, v: string = "1.0.0") {
         data,
         meta: { ...(meta ?? {}), expectsReply: true },
       }),
+
+    schema: <S extends EventPayloadSchema>(
+      s: S
+    ): EnvelopeFactory<SchemaOutput<S>> => {
+      registerEventSchema(name, s);
+
+      return ((data: SchemaOutput<S>, meta?: EventMeta) => ({
+        id: randomId(),
+        name,
+        v,
+        time: Date.now(),
+        data,
+        meta: { ...(meta ?? {}), expectsReply: true },
+      })) as EnvelopeFactory<SchemaOutput<S>>;
+    },
   };
 }
 
