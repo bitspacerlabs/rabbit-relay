@@ -103,25 +103,56 @@ export default defineConfig({
       },
       {
         text: 'Examples',
+        collapsed: false,
         items: [
           { text: 'Basics', link: '/examples/basics' },
-          { text: 'Confirms', link: '/examples/confirms' },
-          { text: 'RPC', link: '/examples/rpc' },
-          { text: 'DLQ', link: '/examples/dlq' },
-          { text: 'Plugins', link: '/examples/plugins' },
-          { text: 'Backpressure', link: '/examples/backpressure' },
-          { text: 'Retry + DLQ', link: '/examples/retry-dlq' },
-          { text: 'Escape Hatch', link: '/examples/escape-hatch' },
-          { text: 'Health + Shutdown', link: '/examples/health-shutdown' },
-          { text: 'Developer Experience', link: '/examples/developer-experience' },
-          { text: 'Delayed Retry', link: '/examples/delayed-retry' },
-          { text: 'Lifecycle Hooks', link: '/examples/lifecycle-hooks' },
-          { text: 'OpenTelemetry', link: '/examples/opentelemetry' },
-          { text: 'Topology Planner', link: '/examples/topology-planner' },
-          { text: 'Topology Validation', link: '/examples/topology-validation' },
-          { text: 'Topology Modes', link: '/examples/topology-modes' },
-          { text: 'DLQ Redrive', link: '/examples/dlq-redrive' },
-          { text: 'Idempotent Consumer', link: '/examples/idempotent-consumer' },
+          {
+            text: 'Publishing',
+            collapsed: true,
+            items: [
+              { text: 'Publisher Confirms', link: '/examples/confirms' },
+              { text: 'RPC', link: '/examples/rpc' },
+            ],
+          },
+          {
+            text: 'Consuming & Reliability',
+            collapsed: true,
+            items: [
+              { text: 'Backpressure', link: '/examples/backpressure' },
+              { text: 'Retry + DLQ', link: '/examples/retry-dlq' },
+              { text: 'Delayed Retry', link: '/examples/delayed-retry' },
+              { text: 'DLQ', link: '/examples/dlq' },
+              { text: 'Idempotent Consumer', link: '/examples/idempotent-consumer' },
+            ],
+          },
+          {
+            text: 'Operations',
+            collapsed: true,
+            items: [
+              { text: 'Health + Shutdown', link: '/examples/health-shutdown' },
+              { text: 'Lifecycle Hooks', link: '/examples/lifecycle-hooks' },
+              { text: 'DLQ Redrive', link: '/examples/dlq-redrive' },
+            ],
+          },
+          {
+            text: 'Topology',
+            collapsed: true,
+            items: [
+              { text: 'Topology Planner', link: '/examples/topology-planner' },
+              { text: 'Topology Validation', link: '/examples/topology-validation' },
+              { text: 'Topology Modes', link: '/examples/topology-modes' },
+            ],
+          },
+          {
+            text: 'Advanced',
+            collapsed: true,
+            items: [
+              { text: 'Escape Hatch', link: '/examples/escape-hatch' },
+              { text: 'Plugins', link: '/examples/plugins' },
+              { text: 'Developer Experience', link: '/examples/developer-experience' },
+              { text: 'OpenTelemetry', link: '/examples/opentelemetry' },
+            ],
+          },
         ],
       },
       {
