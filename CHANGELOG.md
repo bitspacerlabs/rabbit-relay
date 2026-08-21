@@ -6,6 +6,53 @@ This project follows semantic versioning.
 
 ---
 
+## [1.2.1] - 2026-08-21
+
+### Added
+
+- Added `@deprecated` JSDoc tags on `passiveQueue`, `produceMany`,
+  `eventWithReply`, and `expectReply`, pointing to their modern replacements
+  (`topologyMode`, `produce`, `request`).
+- Added VitePress polish: editLink, lastUpdated, cleanUrls, sitemap,
+  lineNumbers, OG/Twitter cards, npm social link, and feature-card hover.
+- Added graceful shutdown (`SIGTERM`/`SIGINT` + `broker.close()`) to 25
+  long-running examples.
+- Added `scripts/run-examples.sh`: runs all 57 examples one by one and
+  reports PASS/FAIL per file.
+
+### Fixed
+
+- Removed dead `maybeWaitForConfirms` export (was unused, never publicly
+  exported).
+- Unified UUID generation into `lib/uuid.ts` (was duplicated in
+  `eventFactories.ts`).
+- Fixed broken `topology-diff-cli` example (chained `.consume()` on a
+  `Promise`).
+- Completed lifecycle-hooks event table (was missing `handler.completed`
+  and `message.dead-lettered`).
+- Aligned `EventEnvelope` type snippets across docs pages.
+- Fixed top-level `await` in `17-idempotent-consumer` examples (was
+  unrunnable with `tsx` in CJS mode).
+- Stripped stale `.html` suffixes from README and `llms.txt` URLs.
+
+### Changed
+
+- Consolidated documentation: merged `delayed-retry` into `retry-policy`,
+  `dlq-redrive` into `dead-letter-queues`, and `topology-diff-cli` into
+  `cli-reference` (3 fewer pages, less duplication).
+- Trimmed `learn/retry-dlq-redrive.md` to a conceptual overview with
+  cross-links instead of duplicating feature-page detail.
+- Updated `AGENTS.md` and `llms.txt`: added CLI, test scripts, and
+  examples runner to repo map; added CLI reference link.
+
+### Backward Compatibility
+
+- All public APIs remain unchanged.
+- `@deprecated` tags are additive (JSDoc only, no behavior change).
+- `maybeWaitForConfirms` was internal (not re-exported from `index.ts`).
+
+---
+
 ## [1.2.0] - 2026-07-30
 
 ### Added
