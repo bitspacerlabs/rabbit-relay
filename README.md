@@ -79,7 +79,7 @@ await api.consume({ prefetch: 20, concurrency: 5 });
 await api.orderCreated({ orderId: "O-42", total: 99.5 });
 ```
 
-> Rabbit Relay uses **at-least-once delivery semantics**. Consumers must be idempotent because duplicates remain possible during retries, reconnects, and network failures. Read the [delivery-semantics guide](https://bitspacerlabs.github.io/rabbit-relay/docs/guide/delivery-semantics.html).
+> Rabbit Relay uses **at-least-once delivery semantics**. Consumers must be idempotent because duplicates remain possible during retries, reconnects, and network failures. Read the [delivery-semantics guide](https://bitspacerlabs.github.io/rabbit-relay/docs/guide/delivery-semantics).
 
 ## Why Rabbit Relay?
 
@@ -233,6 +233,12 @@ await pub.publish(
 See runnable examples in:  
 - `examples/` → https://github.com/bitspacerlabs/rabbit-relay/tree/main/examples
 
+Run all examples at once (requires Docker for RabbitMQ):
+
+```bash
+bash scripts/run-examples.sh
+```
+
 ---
 
 ## When to use Rabbit Relay
@@ -252,7 +258,7 @@ application behavior and you want:
 
 If you only publish a few fire-and-forget messages, raw `amqplib` may be
 enough. For a feature-by-feature decision, see the
-[decision guide](https://bitspacerlabs.github.io/rabbit-relay/docs/ai/decision-guide.html).
+[decision guide](https://bitspacerlabs.github.io/rabbit-relay/docs/ai/decision-guide).
 
 ---
 
