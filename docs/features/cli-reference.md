@@ -59,10 +59,23 @@ npx rabbit-relay validate plan.json --url amqp://user:pass@localhost:5672
 Compare two topology plans and show added/removed exchanges, queues, and
 bindings.
 
-**Details:** [Topology Diff CLI](/features/topology-diff-cli)
-
 ```bash
 npx rabbit-relay diff plan.json plan.production.json
+```
+
+Output:
+
+```
+# Exchanges only in first plan (new):
++ orders.ex (topic, durable)
+
+# Queues only in second plan (missing):
+- orders.q
+
+# Bindings only in first plan (new):
++ orders.q → orders.ex [routingKey: "orders.*"]
+
+Plans are identical.
 ```
 
 ---
@@ -113,12 +126,12 @@ Redrive messages from a dead-letter queue to a target exchange.
 |------|---------|-------------|
 | `--routing-key <key>` | Original message routing key | Target routing key |
 | `--limit <N>` | `100` | Max messages to redrive |
-| `--dry-run` | — | Validate without consuming |
+| `--dry-run` | - | Validate without consuming |
 | `--url <url>` | `RABBITMQ_URL` or `amqp://localhost` | RabbitMQ connection URL |
 
 Exit code: `0` on success, `1` if any messages failed.
 
-**Details:** [DLQ Redrive](/features/dlq-redrive)
+**Details:** [Dead-Letter Queues](/features/dead-letter-queues)
 
 ```bash
 npx rabbit-relay dlq redrive orders.dlq orders.ex
@@ -151,11 +164,74 @@ The `dlq redrive` command exits with `1` when one or more messages fail.
 
 ---
 
+## CI usage
+
+A typical CI pipeline generates a plan from application code, validates it
+against a staging broker, and compares it with a known production plan:
+
+```bash
+# 1. Generate the topology plan from the application code
+npx rabbit-relay plan ./ci/topology.mjs > plan.json
+
+# 2. Validate against a staging RabbitMQ
+npx rabbit-relay validate plan.json --url "$RABBITMQ_URL"
+
+# 3. Compare against the production plan (generated earlier)
+npx rabbit-relay diff plan.json plan.production.json
+```
+
+The `plan` command runs a setup script in plan-only mode. The script must
+export a default function (or named export `setup`) that receives a
+`RabbitMQBroker` instance:
+
+```js
+// ci/topology.mjs
+import { RabbitMQBroker } from "@bitspacerlabs/rabbit-relay";
+
+export default function (broker) {
+  broker
+    .queue("orders.q")
+    .exchange("orders.ex", {
+      exchangeType: "topic",
+      routingKey: "orders.*",
+      deadLetter: {
+        exchange: "orders.dlx",
+        queue: "orders.dlq",
+        autoDeclare: true,
+      },
+    });
+}
+```
+
+---
+
+## Generating plans programmatically
+
+You can also build the plan in code and write it to JSON yourself:
+
+```ts
+import { RabbitMQBroker } from "@bitspacerlabs/rabbit-relay";
+
+const broker = new RabbitMQBroker("ci", {
+  topologyMode: "plan-only",
+});
+
+await broker
+  .queue("orders.q")
+  .exchange("orders.ex", {
+    exchangeType: "topic",
+    routingKey: "orders.*",
+  });
+
+console.log(JSON.stringify(broker.planTopology(), null, 2));
+```
+
+---
+
 ## Related
 
 | Page | Description |
 |------|-------------|
 | [Topology Planner](/features/topology-planner) | Generating topology plans |
 | [Topology Validation](/features/topology-validation) | Validating plans against RabbitMQ |
-| [Topology Diff CLI](/features/topology-diff-cli) | Comparing topology plans |
-| [DLQ Redrive](/features/dlq-redrive) | Redriving messages from DLQs |
+| [Dead-Letter Queues](/features/dead-letter-queues) | DLQ config and redrive |

@@ -27,10 +27,10 @@ If the event has a registered schema and `payload.data` fails validation,
 the handler is **never called**. The `invalidMessage` policy determines
 what happens:
 
-- `"dead-letter"` (default) — nack without requeue → DLQ or discard
-- `"requeue"` — nack with requeue (dangerous: loops forever)
-- `"ack"` — discard silently
-- custom async function — you own the decision
+- `"dead-letter"` (default) - nack without requeue → DLQ or discard
+- `"requeue"` - nack with requeue (dangerous: loops forever)
+- `"ack"` - discard silently
+- custom async function - you own the decision
 
 The default assumes validation failures are bugs that should be quarantined,
 not retried.
@@ -38,7 +38,7 @@ not retried.
 ### Parse failure
 
 If the raw AMQP content is not valid JSON, the `onError` policy decides
-the outcome — same as handler errors, but the message is never hydrated
+the outcome - same as handler errors, but the message is never hydrated
 into an `EventEnvelope`.
 
 ### Duplicate suppression
@@ -160,7 +160,7 @@ Rabbit Relay includes a lightweight in-memory dedupe utility:
 
 ```ts
 await sub.consume({
-  dedupe: { ttlMs: 60000 },
+  dedupe: { enabled: true, ttlMs: 60_000 },
 });
 ```
 
@@ -174,7 +174,7 @@ deduplication, use a database unique constraint or an idempotency key.
 ## Publisher confirms
 
 Publisher confirms tell you that RabbitMQ's broker has **accepted
-responsibility** for the message — not that a consumer has processed it.
+responsibility** for the message - not that a consumer has processed it.
 
 ```ts
 await pub.produce(event(data));
@@ -194,7 +194,7 @@ When `publisherConfirms: true`:
 | Message was routed to a queue | Only if `mandatory` is used |
 | Consumer processed the message | No |
 | Message will not be lost after broker restart | Only if queue + message are durable |
-| Publish succeeded despite timeout | No — timeout may mask a successful confirm |
+| Publish succeeded despite timeout | No - timeout may mask a successful confirm |
 
 ### Without confirms
 
@@ -207,7 +207,7 @@ unroutable mandatory messages is still handled.
 
 When confirms are enabled and the broker is slow, the Node.js socket
 buffer fills. Rabbit Relay waits for the `'drain'` event before publishing
-more. This provides **bounded backpressure** — the `produce()` promise
+more. This provides **bounded backpressure** - the `produce()` promise
 does not resolve until the buffer drains and the broker confirms.
 
 ---
@@ -264,13 +264,13 @@ await broker.redriveDlq({
 
 1. The DLQ message is republished to the target exchange/routing key.
 2. Only after the republish succeeds is the DLQ message ACKed.
-3. The republished message is a **new AMQP delivery** — it gets a new
+3. The republished message is a **new AMQP delivery** - it gets a new
    delivery tag, new message ID (AMQP-level), and is marked as not
    redelivered.
 4. The application-level `event.id`, headers, and correlation/causation
    IDs are **preserved**.
 
-Redrived messages are **not duplicates** of the original — they are the
+Redrived messages are **not duplicates** of the original - they are the
 same application-level event sent again. If the original handler was not
 idempotent, the redrived message will cause duplicate side effects.
 

@@ -5,7 +5,7 @@ const EXCHANGE = "idempotent.demo.ex";
 const QUEUE = "idempotent.demo.q";
 
 // ---------------------------------------------------------------------------
-// In-memory processed-IDs set — for demo only.
+// In-memory processed-IDs set - for demo only.
 //
 // Production: use a database table with a UNIQUE constraint on event_id:
 //
@@ -15,7 +15,7 @@ const QUEUE = "idempotent.demo.q";
 //     processed_at TIMESTAMP DEFAULT now()
 //   );
 //
-// The UNIQUE constraint is the correctness mechanism — the in-memory set
+// The UNIQUE constraint is the correctness mechanism - the in-memory set
 // below is just an optimisation to avoid unnecessary DB round-trips.
 // ---------------------------------------------------------------------------
 const processedIds = new Set<string>();
@@ -59,7 +59,7 @@ const sub = await broker.queue(QUEUE).exchange<EventMap>(EXCHANGE, {
 // Handler
 // ---------------------------------------------------------------------------
 sub.handle("order.created", async (_deliveryTag, event) => {
-  // 1. Idempotency check — skip if already processed
+  // 1. Idempotency check - skip if already processed
   if (alreadyProcessed(event.id)) {
     console.log(`  ↳ SKIP ${event.id} (already processed)`);
     return;
@@ -113,4 +113,4 @@ await sub.consume({
   onError: "dead-letter",
 });
 
-console.log(`Listening on queue '${QUEUE}' — publishing duplicates shows SKIP`);
+console.log(`Listening on queue '${QUEUE}' - publishing duplicates shows SKIP`);

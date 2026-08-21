@@ -1,4 +1,4 @@
-import { randomUUID as _randomUUID } from "crypto";
+import { generateUuid } from "./uuid.js";
 import type { EventPayloadSchema, SchemaOutput } from "./types.js";
 
 /** Optional metadata carried alongside the event payload. */
@@ -27,6 +27,9 @@ export type EnvelopeFactory<T> = (
   meta?: EventMeta
 ) => EventEnvelope<T>;
 
+/**
+ * @deprecated Use `request()` on the broker interface for RPC instead of manually setting `meta.expectsReply`.
+ */
 export function expectReply(meta?: EventMeta, timeoutMs?: number): EventMeta {
   return {
     ...(meta ?? {}),
@@ -120,17 +123,6 @@ export function traceFrom(
   };
 }
 
-function randomId(): string {
-  try {
-    return (
-      (_randomUUID as any)?.() ??
-      `evt_${Date.now()}_${Math.random().toString(36).slice(2)}`
-    );
-  } catch {
-    return `evt_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-  }
-}
-
 const schemaRegistry = new Map<string, EventPayloadSchema>();
 
 /**
@@ -162,7 +154,7 @@ export function event(name: string, v: string = "1.0.0") {
     of:
       <T = unknown>(): EnvelopeFactory<T> =>
       (data: T, meta?: EventMeta): EventEnvelope<T> => ({
-        id: randomId(),
+        id: generateUuid(),
         name,
         v,
         time: Date.now(),
@@ -176,7 +168,7 @@ export function event(name: string, v: string = "1.0.0") {
       registerEventSchema(name, s);
 
       return ((data: SchemaOutput<S>, meta?: EventMeta) => ({
-        id: randomId(),
+        id: generateUuid(),
         name,
         v,
         time: Date.now(),
@@ -187,12 +179,15 @@ export function event(name: string, v: string = "1.0.0") {
   };
 }
 
+/**
+ * @deprecated Use `event(name, v)` and call `request()` on the broker interface for RPC.
+ */
 export function eventWithReply(name: string, v: string = "1.0.0") {
   return {
     of:
       <T = unknown>(): EnvelopeFactory<T> =>
       (data: T, meta?: EventMeta): EventEnvelope<T> => ({
-        id: randomId(),
+        id: generateUuid(),
         name,
         v,
         time: Date.now(),
@@ -206,7 +201,7 @@ export function eventWithReply(name: string, v: string = "1.0.0") {
       registerEventSchema(name, s);
 
       return ((data: SchemaOutput<S>, meta?: EventMeta) => ({
-        id: randomId(),
+        id: generateUuid(),
         name,
         v,
         time: Date.now(),

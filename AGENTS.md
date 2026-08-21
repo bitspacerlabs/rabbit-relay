@@ -13,11 +13,11 @@ explicit.
 
 ## Repository map
 
-- `lib/` — TypeScript package source and public runtime behavior
-- `lib/index.ts` — public exports
-- `docs/` — VitePress documentation; `docs/ai/` is optimized for code generation
-- `examples/` — runnable patterns that should agree with the documentation
-- `scripts/test-package-usage.sh` — packed ESM/CommonJS consumer smoke test
+- `lib/` - TypeScript package source and public runtime behavior
+- `lib/index.ts` - public exports
+- `docs/` - VitePress documentation; `docs/ai/` is optimized for code generation
+- `examples/` - runnable patterns that should agree with the documentation
+- `scripts/test-package-usage.sh` - packed ESM/CommonJS consumer smoke test
 
 ## Change rules
 

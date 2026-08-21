@@ -167,6 +167,8 @@ type EventEnvelope<T> = {
     corrId?: string;
     causationId?: string;
     headers?: Record<string, string>;
+    expectsReply?: boolean;
+    timeoutMs?: number;
   };
 };
 ```

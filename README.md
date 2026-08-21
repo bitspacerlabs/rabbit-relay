@@ -11,8 +11,11 @@ NOTE:
 <h1 align="center">Rabbit Relay</h1>
 
 <p align="center">
-  A <b>type-safe</b> RabbitMQ framework for Node.js (TypeScript), built on top of <b>amqplib</b> to simplify
-  event-driven messaging, publishing, and consumption.
+  A <strong>TypeScript-first RabbitMQ framework</strong> for building reliable publishers and consumers without hiding RabbitMQ.
+</p>
+
+<p align="center">
+  Typed events · Publisher confirms · Retries and DLQs · RPC · Recovery · Graceful shutdown · OpenTelemetry
 </p>
 
 <p align="center">
@@ -31,13 +34,10 @@ NOTE:
   <a href="LICENSE">
     <img alt="license" src="https://img.shields.io/github/license/bitspacerlabs/rabbit-relay">
   </a>
-  <a href="https://github.com/bitspacerlabs/rabbit-relay/blob/main/CHANGELOG.md">
-    <img alt="changelog" src="https://img.shields.io/badge/changelog-kept-blue">
-  </a>
 </p>
 
 <p align="center">
-  <a href="https://bitspacerlabs.github.io/rabbit-relay/docs/">Docs</a>
+  <a href="https://bitspacerlabs.github.io/rabbit-relay/docs/">Documentation</a>
   ·
   <a href="https://github.com/bitspacerlabs/rabbit-relay/tree/main/examples">Examples</a>
   ·
@@ -46,39 +46,87 @@ NOTE:
   <a href="https://github.com/bitspacerlabs/rabbit-relay/discussions">Discussions</a>
 </p>
 
-> **Using an AI coding agent?** Give it [`llms.txt`](llms.txt) for a curated
-> documentation map. Repository agents should start with
-> [`AGENTS.md`](AGENTS.md).
+```bash
+npm install @bitspacerlabs/rabbit-relay
+```
 
----
+```ts
+import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
+
+const broker = new RabbitMQBroker("orders-service", {
+  publisherConfirms: true,
+});
+
+const orderCreated = event("orderCreated", "v1").of<{
+  orderId: string;
+  total: number;
+}>();
+
+const orders = await broker
+  .queue("orders.created.q")
+  .exchange("orders.events", {
+    exchangeType: "topic",
+    routingKey: "order.created",
+  });
+
+const api = orders.with({ orderCreated });
+
+api.handle("orderCreated", async (_messageId, message) => {
+  console.log("Processing order", message.data.orderId);
+});
+
+await api.consume({ prefetch: 20, concurrency: 5 });
+await api.orderCreated({ orderId: "O-42", total: 99.5 });
+```
+
+> Rabbit Relay uses **at-least-once delivery semantics**. Consumers must be idempotent because duplicates remain possible during retries, reconnects, and network failures. Read the [delivery-semantics guide](https://bitspacerlabs.github.io/rabbit-relay/docs/guide/delivery-semantics.html).
 
 ## Why Rabbit Relay?
 
-**amqplib is powerful, but it’s low-level.** Rabbit Relay keeps “real RabbitMQ concepts” (exchanges, queues, routing keys),
-and adds:
+[`amqplib`](https://github.com/amqp-node/amqplib) provides the essential AMQP primitives for Node.js. Production services commonly need an application layer around those primitives for recovery, typed contracts, retry policies, shutdown coordination, topology ownership, and observability.
 
-- **Type-safe events** (typed payloads + versioning)
-- **Cleaner publish / consume APIs** (less boilerplate)
-- **Explicit topology & ownership** (no hidden abstractions)
-- **Reliable defaults** (so every service doesn’t reinvent the same setup)
-- **Isolated broker lifecycles** (each broker owns its connection and shutdown)
+Rabbit Relay provides that layer while keeping RabbitMQ concepts explicit:
 
-If you already use RabbitMQ and you want a better TypeScript developer experience, Rabbit Relay is for you.
+- **Typed and versioned events** with optional runtime validation
+- **Reliable publishing** with publisher confirms, mandatory returns, backpressure, and message-size limits
+- **Predictable consumers** with prefetch, concurrency, middleware, and deterministic acknowledgements
+- **Retries and dead-letter queues** with immediate or delayed retry strategies and DLQ redrive
+- **Connection recovery** that restores channels, topology, and consumers
+- **Graceful shutdown** that drains active handlers before closing resources
+- **RPC** with correlation IDs, reply queues, and timeouts
+- **Topology ownership modes** for application-owned, infrastructure-owned, or plan-only workflows
+- **Operational visibility** through health state, lifecycle events, and OpenTelemetry
+- **Native AMQP escape hatches** when direct `amqplib` access is needed
 
-### What you get out of the box
+## Choose the right level
+
+| Need | Recommended approach |
+|---|---|
+| A few simple publishes or consumers with full low-level control | Use `amqplib` directly |
+| TypeScript-first messaging with reusable reliability conventions | Use Rabbit Relay |
+| RabbitMQ Streams workloads | Use the RabbitMQ Streams client |
+| A heavily configuration-driven enterprise messaging framework | Evaluate Rascal |
+
+Rabbit Relay is designed for teams that want production-oriented conventions without replacing RabbitMQ with a proprietary abstraction.
+
+## What is included
 
 | Area | Capabilities |
 |---|---|
-| **Events** | Typed event factories, versioning, headers, correlation/causation IDs, `traceFrom()`, `augmentEvents()`, runtime schema validation |
-| **Publishing** | `produce()` / `publish()` / `with()` typed API, publisher confirms, message-size guard, native AMQP escape hatch |
-| **Consuming** | Prefetch + concurrency, middleware, `\*` wildcard handlers, deterministic acks |
-| **Reliability** | Bounded and delayed retries, dead-letter queues, `redriveDlq` (dry-run safe), in-memory TTL dedupe |
-| **RPC** | Request/reply with correlation IDs, reply queues, timeouts |
-| **Operations** | Auto-reconnect, health checks, graceful shutdown, lifecycle hooks, topology planner/validation/diff CLI |
-| **Observability** | OpenTelemetry adapter, lifecycle events (`handler.completed`, `message.dead-lettered`, …) |
+| Events | Typed factories, versions, metadata, headers, correlation and causation IDs, tracing, runtime schemas |
+| Publishing | Typed APIs, publisher confirms, mandatory returns, backpressure, size guards |
+| Consuming | Prefetch, concurrency, middleware, wildcard handlers, explicit acknowledgement behavior |
+| Reliability | Immediate and delayed retries, DLQs, redrive, in-memory TTL deduplication |
+| RPC | Request/reply, correlation IDs, exclusive reply queues, timeouts |
+| Recovery | Automatic reconnect, topology restoration, consumer restoration |
+| Operations | Health checks, graceful shutdown, lifecycle hooks, topology planning, validation, and diff CLI |
+| Observability | OpenTelemetry adapter and lifecycle events such as `handler.completed` and `message.dead-lettered` |
 
-Rabbit Relay treats delivery as **at-least-once** and makes idempotency requirements explicit — see
-[Delivery Semantics](https://bitspacerlabs.github.io/rabbit-relay/docs/guide/delivery-semantics.html).
+## Project status
+
+Rabbit Relay is stable on the **1.x** line and follows semantic versioning. The repository includes unit tests, live RabbitMQ integration tests, and packed-package ESM, CommonJS, and TypeScript smoke tests.
+
+> Using an AI coding agent? Give it [`llms.txt`](llms.txt) for a curated documentation map. Repository agents should begin with [`AGENTS.md`](AGENTS.md).
 
 ---
 
@@ -199,7 +247,7 @@ application behavior and you want:
 - **RPC over RabbitMQ** without hand-rolling correlation IDs
 - **reconnect recovery** that restores channels, topology, and consumers
 - **production observability** via lifecycle hooks and OpenTelemetry
-- **explicit topology ownership** — app-asserted, infra-owned (passive), or
+- **explicit topology ownership** - app-asserted, infra-owned (passive), or
   plan-only for CI/review, with a topology diff CLI
 
 If you only publish a few fire-and-forget messages, raw `amqplib` may be
@@ -208,7 +256,7 @@ enough. For a feature-by-feature decision, see the
 
 ---
 
-## Project status
+## Stability and testing
 
 Rabbit Relay is **stable** on the 1.x line and follows semantic versioning.
 The public API for publishing, consuming, retry, DLQ, RPC, topology, and

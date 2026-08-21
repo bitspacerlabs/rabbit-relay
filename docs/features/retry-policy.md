@@ -102,7 +102,7 @@ Immediate retry is useful for quick transient failures.
 
 ## Delayed retry
 
-Add `delayMs` when you want RabbitMQ to wait before retrying.
+Add `delayMs` when you want RabbitMQ to wait before retrying a failed message. This avoids hammering a dependency that is temporarily unavailable.
 
 ```ts
 await sub.consume({
@@ -117,7 +117,69 @@ await sub.consume({
 
 Delayed retry uses RabbitMQ TTL + DLX retry queues. Rabbit Relay does not hold delayed messages in Node.js memory.
 
-See [Delayed Retry](/features/delayed-retry) for details.
+### Behavior
+
+When a handler fails:
+
+1. Rabbit Relay publishes a retry copy to a retry exchange
+2. RabbitMQ holds it in a retry queue for `delayMs`
+3. The retry queue expires the message
+4. RabbitMQ dead-letters it back to the original exchange
+5. The original queue receives it again
+6. After max retry attempts, the final behavior is applied
+
+### Attempts meaning
+
+`attempts` means retry copies, not total handler executions.
+
+```text
+initial attempt + 3 retries = 4 total handler executions
+```
+
+### Retry queue naming
+
+Rabbit Relay creates retry topology based on the consuming queue.
+
+For queue `orders.q`, Rabbit Relay creates:
+
+```text
+orders.q.retry.exchange
+orders.q.retry.<delayMs>.queue
+```
+
+For example, with `delayMs: 5000`:
+
+```text
+orders.q.retry.exchange
+orders.q.retry.5000.queue
+```
+
+### Inspecting retry state
+
+Handlers can read the retry count from headers:
+
+```ts
+sub.handle("jobs.process", async (_id, ev) => {
+  const retryCount = Number(
+    ev.meta?.headers?.["x-rabbit-relay-retry-count"] ?? 0
+  );
+
+  if (retryCount < 2) {
+    throw new Error("temporary failure");
+  }
+});
+```
+
+RabbitMQ also adds `x-death` headers when messages expire from retry queues. These are copied into `event.meta.headers`.
+
+### Changing `delayMs`
+
+RabbitMQ queue arguments are immutable. Because the delay is part of the retry queue name, changing `delayMs` creates a different retry queue. To reset during development:
+
+```bash
+docker compose -f examples/docker-compose.yml down -v
+docker compose -f examples/docker-compose.yml up -d
+```
 
 ---
 

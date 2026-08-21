@@ -28,13 +28,13 @@ Start RabbitMQ first:
 docker compose -f examples/docker-compose.yml up -d
 ```
 
-**Terminal 1 — start the consumer:**
+**Terminal 1 - start the consumer:**
 
 ```bash
 npx tsx examples/17-idempotent-consumer/consumer.idempotent.ts
 ```
 
-**Terminal 2 — publish events:**
+**Terminal 2 - publish events:**
 
 ```bash
 npx tsx examples/17-idempotent-consumer/publisher.ts
@@ -53,7 +53,7 @@ Listening on queue 'idempotent.demo.q'
   ✓ PROCESS <event-id-1> ...
   ✓ PROCESS <event-id-2> ...
   ✓ PROCESS <event-id-3> ... (original)
-  ↳ SKIP  <event-id-3> ... (duplicate — same id!)
+  ↳ SKIP  <event-id-3> ... (duplicate - same id!)
   ✓ PROCESS <event-id-4> ...
 ```
 
@@ -67,7 +67,7 @@ The duplicate is acknowledged without running business logic a second time.
   example does not survive restarts or scale across instances.
 
 - **Use a UNIQUE constraint** on the event ID column. This is the
-  correctness mechanism — not the application-level check.
+  correctness mechanism - not the application-level check.
 
 - **Wrap business logic and the processed-IDs insert in the same
   transaction.** If you insert before the business logic and crash after,
@@ -77,7 +77,7 @@ The duplicate is acknowledged without running business logic a second time.
 
 - **Publisher confirms** are recommended for important messages. They
   guarantee the broker accepted the message, not that a consumer
-  processed it — but they reduce the window for false-positive
+  processed it - but they reduce the window for false-positive
   duplicates caused by producer-side retries.
 
 - **Combine with DLQ + retry.** If processing fails, the event is

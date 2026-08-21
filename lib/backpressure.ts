@@ -79,11 +79,3 @@ export const publishWithBackpressure = async (
     }
   }
 };
-
-export const maybeWaitForConfirms = async (ch: PublishChannel) => {
-  const anyCh = ch as any;
-
-  if (typeof anyCh.waitForConfirms === "function") {
-    await anyCh.waitForConfirms();
-  }
-};

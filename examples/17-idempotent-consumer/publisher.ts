@@ -37,7 +37,7 @@ async function publishDupe() {
 
   // Simulate a redelivery: same event ID, same payload
   await pub.produce(ev);
-  console.log(`[publisher] published ${ev.id} (duplicate — same id!)`);
+  console.log(`[publisher] published ${ev.id} (duplicate - same id!)`);
 }
 
 console.log(`Publishing to exchange '${EXCHANGE}'`);

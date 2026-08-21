@@ -87,7 +87,7 @@ For deeper operations visibility, use:
 - [OpenTelemetry Adapter](/features/opentelemetry)
 - [Topology Planner](/features/topology-planner)
 - [Topology Validation](/features/topology-validation)
-- [DLQ Redrive](/features/dlq-redrive)
+- [Dead-Letter Queues](/features/dead-letter-queues)
 
 ---
 

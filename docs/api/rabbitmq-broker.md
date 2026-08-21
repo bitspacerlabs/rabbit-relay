@@ -109,7 +109,7 @@ const sub = await broker
 | `durable` | Whether declared exchange/queue should be durable. Defaults to `true` |
 | `publisherConfirms` | Use a confirm channel for publishing |
 | `topologyMode` | Controls topology behavior: `assert`, `passive`, or `plan-only` |
-| `passiveQueue` | Backward-compatible queue-only passive check |
+| `passiveQueue` | Backward-compatible queue-only passive check. **Deprecated:** use `topologyMode: "passive"` |
 | `maxMessageBytes` | Maximum serialized event size |
 | `queueArgs` | Queue arguments passed to RabbitMQ |
 | `deadLetter` | Built-in dead-letter topology helper |
@@ -183,10 +183,10 @@ This makes ownership clearer because it applies to topology behavior as a whole.
 await sub.produce(orderCreated({ id: "o-1" }));
 ```
 
-You can publish multiple events sequentially:
+You can publish multiple events sequentially. `produceMany()` is deprecated; use the variadic `produce(...events)` instead:
 
 ```ts
-await sub.produceMany(
+await sub.produce(
   orderCreated({ id: "o-1" }),
   orderCreated({ id: "o-2" })
 );

@@ -136,7 +136,7 @@ is marked as error with the error message.
 
 ## Metrics from lifecycle events
 
-Every lifecycle event is available as a hook — you can build counters,
+Every lifecycle event is available as a hook - you can build counters,
 histograms, and gauges from them:
 
 ```ts

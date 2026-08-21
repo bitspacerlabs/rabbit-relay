@@ -60,7 +60,7 @@ const orderCreated = event("orders.created", "v1").schema(
 );
 ```
 
-The output type is inferred from the schema — no separate `.of<T>()` is
+The output type is inferred from the schema - no separate `.of<T>()` is
 needed. Compatible with Zod, Valibot, ArkType, and any library with a
 `parse(input: unknown): TOutput` method.
 

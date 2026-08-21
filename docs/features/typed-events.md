@@ -55,11 +55,12 @@ export interface EventEnvelope<T = unknown> {
   id: string;          // globally unique (idempotency key)
   name: string;        // event name / routing key
   v: string;           // e.g. "v1"
-  time?: number;       // epoch ms
+  time: number;        // epoch ms
   data: T;             // your typed payload
   meta?: {
-    headers?: Record<string, string>;
     corrId?: string;
+    causationId?: string;
+    headers?: Record<string, string>;
     expectsReply?: boolean;
     timeoutMs?: number;
   };
@@ -205,13 +206,13 @@ Plugins can also inject metadata automatically.
 ## Runtime validation (optional)
 
 TypeScript types disappear at runtime. Without validation, a consumer
-processing a malformed message sees `any` data — and may throw halfway
+processing a malformed message sees `any` data - and may throw halfway
 through business logic, leaving a partially processed event.
 
 ### `.schema()` (recommended)
 
 Attach a runtime validator directly to the event factory. The output type
-is inferred automatically — no separate `.of<T>()` needed.
+is inferred automatically - no separate `.of<T>()` needed.
 
 Works with Zod, Valibot, ArkType, and any library that exposes a
 `parse(input: unknown): TOutput` method.
@@ -236,10 +237,10 @@ validated **before** the handler runs. If validation fails, the
 ```ts
 await sub.consume({
   invalidMessage: "dead-letter",     // (default) nack without requeue
-  // invalidMessage: "requeue"       // nack with requeue (dangerous — loops)
+  // invalidMessage: "requeue"       // nack with requeue (dangerous - loops)
   // invalidMessage: "ack"           // discard silently
   // invalidMessage: async (ctx) => {
-  //   // custom quarantine — ctx has id, event, error, ack(), nack()
+  //   // custom quarantine - ctx has id, event, error, ack(), nack()
   //   await myQuarantine.write(ctx.event, ctx.error);
   //   await ctx.ack();
   // },

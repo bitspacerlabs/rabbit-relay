@@ -97,6 +97,7 @@ export interface ExchangeConfig {
    *
    * This is kept for backward compatibility.
    * Prefer topologyMode: "passive" when the whole topology is managed outside the app.
+   * @deprecated Use `topologyMode: "passive"` instead.
    */
   passiveQueue?: boolean;
 
@@ -307,6 +308,9 @@ export interface BrokerInterface<TEvents extends Record<string, EventEnvelope>> 
 
   produce<K extends keyof TEvents>(...events: TEvents[K][]): Promise<void | unknown>;
 
+  /**
+   * @deprecated Use `produce(...events)` instead. `produce` is variadic and handles multiple events.
+   */
   produceMany<K extends keyof TEvents>(...events: TEvents[K][]): Promise<void>;
 
   /**

@@ -132,3 +132,45 @@
 .DocSearch {
   --docsearch-primary-color: var(--vp-c-brand-1) !important;
 }
+
+/**
+ * Extra polish
+ * -------------------------------------------------------------------------- */
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Feature card hover lift */
+.VPFeature {
+  transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.VPFeature:hover {
+  border-color: var(--vp-c-brand-1);
+  transform: translateY(-4px);
+  box-shadow: 0 14px 34px -14px rgba(249, 115, 22, 0.40);
+}
+
+/* Code blocks: rounded with a subtle border */
+div[class*='language-'] {
+  border-radius: 10px;
+  border: 1px solid var(--vp-c-divider);
+}
+
+/* Tip block: brand left accent */
+.custom-block.tip {
+  border-left: 3px solid var(--vp-c-brand-1);
+}
+
+/* Brand-colored active sidebar link */
+.VPSidebarItem.active .text,
+.VPSidebarItem.active > .VPLink .text {
+  color: var(--vp-c-brand-1);
+}
+
+/* Hero feature title gradient on hover */
+.VPFeature:hover h2 {
+  color: var(--vp-c-brand-1);
+  transition: color 0.25s ease;
+}

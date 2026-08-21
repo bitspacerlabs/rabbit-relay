@@ -637,13 +637,13 @@ test("schema validation dead-letters invalid payload", { timeout: timeoutMs }, a
       onError: "dead-letter",
     });
 
-    // Publish a valid message — handler should process it (but it throws, hence DLQ)
+    // Publish a valid message - handler should process it (but it throws, hence DLQ)
     await relay.produce(makeValid({ value: 42 }));
 
-    // Publish an INVALID message — schema validation should send it to DLQ
+    // Publish an INVALID message - schema validation should send it to DLQ
     // We need to publish raw because the factory types it correctly
     const EnvelopeFactory = event(eventName, "v1").of();
-    const rawEvent = EnvelopeFactory({ value: "not-a-number" }); // invalid — value must be number
+    const rawEvent = EnvelopeFactory({ value: "not-a-number" }); // invalid - value must be number
     // Use publish() to avoid schema check on produce side (schemas are consume-side only)
     await relay.publish(rawEvent);
 
@@ -1100,7 +1100,7 @@ test("topologyMode passive succeeds when resources already exist", { timeout: ti
     await setupRelay.consume({ prefetch: 1, concurrency: 1 });
     await setupBroker.close();
 
-    // Now connect in passive mode — should succeed since resources exist
+    // Now connect in passive mode - should succeed since resources exist
     const passiveBroker = new RabbitMQBroker(`${id}.passive`, {
       topologyMode: "passive",
     });
@@ -1428,7 +1428,7 @@ test("onError ack silently consumes on handler error", { timeout: timeoutMs }, a
     // Give it time to be consumed and acked
     await new Promise((resolve) => setTimeout(resolve, 300));
 
-    // Queue should be empty — message was acked despite the error
+    // Queue should be empty - message was acked despite the error
     const info = await broker.withChannel((ch) => ch.checkQueue(`${id}.q`));
     assert.equal(info.messageCount, 0);
   } finally {
@@ -1463,7 +1463,7 @@ test("requeueOnError legacy option requeues on handler error", { timeout: timeou
     await new Promise((resolve) => setTimeout(resolve, 300));
     await consumer.stop();
 
-    // Message requeued — still in queue
+    // Message requeued - still in queue
     const info = await broker.withChannel((ch) => ch.checkQueue(`${id}.q`));
     assert.equal(info.messageCount, 1);
   } finally {
@@ -1605,7 +1605,7 @@ test("invalidMessage requeue returns invalid messages to queue", { timeout: time
     await new Promise((resolve) => setTimeout(resolve, 300));
     await consumer.stop();
 
-    // Message was requeued — still in queue
+    // Message was requeued - still in queue
     const info = await broker.withChannel((ch) => ch.checkQueue(`${id}.q`));
     assert.equal(info.messageCount, 1);
   } finally {
@@ -1647,7 +1647,7 @@ test("invalidMessage ack silently discards invalid messages", { timeout: timeout
 
     await new Promise((resolve) => setTimeout(resolve, 300));
 
-    // Message was acked — queue is empty
+    // Message was acked - queue is empty
     const info = await broker.withChannel((ch) => ch.checkQueue(`${id}.q`));
     assert.equal(info.messageCount, 0);
   } finally {
@@ -2106,7 +2106,7 @@ test("consumer acks message when no handler matches event name", { timeout: time
     relay.handle(eventName, async (_dt, ev) => { received.push(ev.data.v); });
     await relay.consume({ prefetch: 1, concurrency: 1, onError: "dead-letter" });
 
-    // Publish an event with no registered handler — should be acked
+    // Publish an event with no registered handler - should be acked
     await relay.produce(makeOther({ v: 99 }));
 
     // Give it time to be consumed and acked

@@ -106,9 +106,25 @@ After retries are exhausted, the message is dead-lettered.
 
 ## DLQ redrive
 
-After a problem is fixed, operators may need to replay DLQ messages.
+After the root cause of failures is fixed, you can replay DLQ messages back to a target exchange.
 
-Rabbit Relay provides `redriveDlq()`:
+### CLI
+
+```bash
+# Inspect queue depth
+rabbit-relay dlq inspect orders.dlq --url amqp://localhost
+
+# Peek at messages without consuming them
+rabbit-relay dlq peek orders.dlq --limit 5 --url amqp://localhost
+
+# Dry-run redrive (safety check)
+rabbit-relay dlq redrive orders.dlq orders.ex --dry-run --url amqp://localhost
+
+# Redrive with a limit
+rabbit-relay dlq redrive orders.dlq orders.ex --limit 50 --url amqp://localhost
+```
+
+### Programmatic
 
 ```ts
 const result = await broker.redriveDlq({
@@ -119,7 +135,20 @@ const result = await broker.redriveDlq({
 });
 ```
 
-Dry-run first:
+You can also call it from a broker interface:
+
+```ts
+await sub.redriveDlq({
+  fromQueue: "orders.dlq",
+  toExchange: "orders.ex",
+  routingKey: "orders.created",
+  limit: 50,
+});
+```
+
+### Dry-run first
+
+Always dry-run before redriving in production.
 
 ```ts
 const result = await broker.redriveDlq({
@@ -131,7 +160,59 @@ const result = await broker.redriveDlq({
 });
 ```
 
-See [DLQ Redrive](/features/dlq-redrive) for details.
+Dry-run checks queue depth without consuming, publishing, or ACKing messages.
+
+### Result shape
+
+```ts
+type DlqRedriveResult = {
+  fromQueue: string;
+  toExchange: string;
+  routingKey?: string;
+  dryRun: boolean;
+  available: number;
+  attempted: number;
+  republished: number;
+  acked: number;
+  failed: number;
+  empty: boolean;
+  errors: Array<{ message: string; error?: unknown }>;
+};
+```
+
+### Safety behavior
+
+Rabbit Relay redrive is intentionally conservative:
+
+- bounded by `limit`
+- supports `dryRun`
+- preserves message body and AMQP properties
+- adds redrive headers
+- ACKs the original DLQ message only after successful republish
+- requeues the original DLQ message if republish fails
+
+### Redrive headers
+
+```text
+x-rabbit-relay-redrive-count
+x-rabbit-relay-redriven-at
+x-rabbit-relay-redriven-from-queue
+x-rabbit-relay-redriven-to-exchange
+x-rabbit-relay-redriven-routing-key
+```
+
+These are visible in `event.meta.headers` when the redriven message is consumed.
+
+### Recommended operation flow
+
+1. Find and fix the root cause
+2. Start the normal consumer
+3. Dry-run redrive
+4. Redrive a small limit
+5. Watch logs and metrics
+6. Increase limit gradually if needed
+
+Consumers must still be idempotent - redrive does not guarantee the message will succeed after replay.
 
 ---
 

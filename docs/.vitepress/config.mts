@@ -7,16 +7,50 @@ export default defineConfig({
   base,
   title: 'Rabbit Relay',
   description: 'Reliable, type-safe RabbitMQ event framework for Node.js',
+  lastUpdated: true,
+  cleanUrls: true,
+  sitemap: {
+    hostname: 'https://bitspacerlabs.github.io',
+  },
+  markdown: {
+    lineNumbers: true,
+  },
 
   head: [
     // Favicons
     ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}rabbit-relay-mini.svg` }],
     ['link', { rel: 'icon', type: 'image/png', href: `${base}favicon.png` }],
+    ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { property: 'og:title', content: 'Rabbit Relay' }],
+    ['meta', { property: 'og:description', content: 'Reliable, type-safe RabbitMQ event framework for Node.js' }],
+    ['meta', { property: 'og:image', content: 'https://bitspacerlabs.github.io/rabbit-relay/docs/rabbit-relay.svg' }],
+    ['meta', { property: 'og:url', content: 'https://bitspacerlabs.github.io/rabbit-relay/docs/' }],
+    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+    ['meta', { name: 'twitter:title', content: 'Rabbit Relay' }],
+    ['meta', { name: 'twitter:description', content: 'Reliable, type-safe RabbitMQ event framework for Node.js' }],
+    ['meta', { name: 'twitter:image', content: 'https://bitspacerlabs.github.io/rabbit-relay/docs/rabbit-relay.svg' }],
+    ['meta', { name: 'theme-color', content: '#f97316' }],
   ],
 
   themeConfig: {
     search: {
       provider: 'local',
+    },
+
+    outline: {
+      label: 'On this page',
+    },
+
+    editLink: {
+      pattern: 'https://github.com/bitspacerlabs/rabbit-relay/edit/main/docs/:path',
+      text: 'Edit this page on GitHub',
+    },
+
+    lastUpdatedText: 'Last updated',
+
+    docFooter: {
+      prev: 'Previous page',
+      next: 'Next page',
     },
 
     logo: {
@@ -80,7 +114,6 @@ export default defineConfig({
           { text: 'Consumer Concurrency', link: '/features/consumer-concurrency' },
           { text: 'Error Handling', link: '/features/error-handling' },
           { text: 'Retry Policy', link: '/features/retry-policy' },
-          { text: 'Delayed Retry', link: '/features/delayed-retry' },
           { text: 'Dead-Letter Queues', link: '/features/dead-letter-queues' },
           { text: 'TTL De-dupe', link: '/features/ttl-dedupe' },
         ],
@@ -96,9 +129,7 @@ export default defineConfig({
           { text: 'Topology Modes', link: '/features/topology-modes' },
           { text: 'Topology Planner', link: '/features/topology-planner' },
           { text: 'Topology Validation', link: '/features/topology-validation' },
-          { text: 'DLQ Redrive & CLI', link: '/features/dlq-redrive' },
           { text: 'Plugin Hooks', link: '/features/plugins' },
-          { text: 'Topology Diff CLI', link: '/features/topology-diff-cli' },
         ],
       },
       {
@@ -159,7 +190,6 @@ export default defineConfig({
         text: 'CLI Reference',
         items: [
           { text: 'CLI Reference', link: '/features/cli-reference' },
-          { text: 'Topology Diff CLI', link: '/features/topology-diff-cli' },
         ],
       },
       {
@@ -182,6 +212,7 @@ export default defineConfig({
 
     socialLinks: [
       { icon: 'github', link: 'https://github.com/bitspacerlabs/rabbit-relay' },
+      { icon: 'npm', link: 'https://www.npmjs.com/package/@bitspacerlabs/rabbit-relay' },
     ],
 
     footer: {

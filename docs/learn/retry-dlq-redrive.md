@@ -108,33 +108,7 @@ It does not use `setTimeout()` to hold messages in Node.js memory.
 
 ## Retry headers
 
-Rabbit Relay adds retry metadata to headers:
-
-```text
-x-rabbit-relay-retry-count
-x-rabbit-relay-retry-delay-ms
-x-rabbit-relay-first-failed-at
-x-rabbit-relay-last-failed-at
-x-rabbit-relay-last-error
-```
-
-Handlers can read these headers through:
-
-```ts
-ev.meta?.headers
-```
-
-Example:
-
-```ts
-sub.handle("jobs.process", async (_id, ev) => {
-  const retryCount = Number(
-    ev.meta?.headers?.["x-rabbit-relay-retry-count"] ?? 0
-  );
-
-  console.log("retry count", retryCount);
-});
-```
+Rabbit Relay tracks retry metadata in `x-rabbit-relay-*` headers (count, delay, first/last failed-at, last error). Handlers read them via `ev.meta?.headers`. See [Retry Policy](/features/retry-policy) for the full list and examples.
 
 ---
 
@@ -219,33 +193,9 @@ const result = await broker.redriveDlq({
 
 ---
 
-## Redrive safety
+## Redrive safety and headers
 
-Rabbit Relay redrive is conservative:
-
-- bounded by `limit`
-- supports `dryRun`
-- preserves message body
-- preserves AMQP properties
-- adds redrive headers
-- ACKs the original DLQ message only after successful republish
-- requeues the original DLQ message if republish fails
-
----
-
-## Redrive headers
-
-Rabbit Relay adds:
-
-```text
-x-rabbit-relay-redrive-count
-x-rabbit-relay-redriven-at
-x-rabbit-relay-redriven-from-queue
-x-rabbit-relay-redriven-to-exchange
-x-rabbit-relay-redriven-routing-key
-```
-
-These help operators understand replay history.
+Redrive is bounded by `limit`, supports `dryRun`, preserves message body and AMQP properties, and ACKs the original DLQ message only after a successful republish. It stamps `x-rabbit-relay-redrive-*` headers for replay history. See [Dead-Letter Queues](/features/dead-letter-queues) for the full details.
 
 ---
 
