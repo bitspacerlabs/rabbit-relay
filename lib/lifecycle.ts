@@ -16,6 +16,12 @@ export type LifecycleEventMap = {
     error: unknown;
   };
 
+  "topology.restored": {
+    peerName: string;
+    exchange: string;
+    queue: string;
+  };
+
   "consumer.started": {
     peerName: string;
     queue: string;
