@@ -15,9 +15,12 @@ explicit.
 
 - `lib/` - TypeScript package source and public runtime behavior
 - `lib/index.ts` - public exports
+- `bin/rabbit-relay.mjs` - topology and DLQ CLI (plan, validate, diff, dlq)
 - `docs/` - VitePress documentation; `docs/ai/` is optimized for code generation
 - `examples/` - runnable patterns that should agree with the documentation
 - `scripts/test-package-usage.sh` - packed ESM/CommonJS consumer smoke test
+- `scripts/test-real-usage.sh` - end-to-end live RabbitMQ test
+- `scripts/run-examples.sh` - runs all examples one by one and reports pass/fail
 
 ## Change rules
 
@@ -41,6 +44,7 @@ npm run test:unit
 npm run test:integration
 npm run test:real-usage
 npm run docs:build
+bash scripts/run-examples.sh
 ```
 
 For release-sensitive package changes, also run:

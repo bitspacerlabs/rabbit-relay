@@ -8,28 +8,29 @@ Package: `@bitspacerlabs/rabbit-relay`
 
 ## Start here
 
-- [Quickstart](https://bitspacerlabs.github.io/rabbit-relay/docs/guide/quickstart.html): Install, publish, consume, retry, and shut down safely
-- [AI agent guide](https://bitspacerlabs.github.io/rabbit-relay/docs/ai/agent-guide.html): Rules for generating correct Rabbit Relay code
-- [Common recipes](https://bitspacerlabs.github.io/rabbit-relay/docs/ai/common-recipes.html): Copy-paste production patterns
-- [Decision guide](https://bitspacerlabs.github.io/rabbit-relay/docs/ai/decision-guide.html): Select confirms, retry, DLQ, RPC, dedupe, topology mode, and escape hatches
+- [Quickstart](https://bitspacerlabs.github.io/rabbit-relay/docs/guide/quickstart): Install, publish, consume, retry, and shut down safely
+- [AI agent guide](https://bitspacerlabs.github.io/rabbit-relay/docs/ai/agent-guide): Rules for generating correct Rabbit Relay code
+- [Common recipes](https://bitspacerlabs.github.io/rabbit-relay/docs/ai/common-recipes): Copy-paste production patterns
+- [Decision guide](https://bitspacerlabs.github.io/rabbit-relay/docs/ai/decision-guide): Select confirms, retry, DLQ, RPC, dedupe, topology mode, and escape hatches
 
 ## Core reference
 
-- [Configuration](https://bitspacerlabs.github.io/rabbit-relay/docs/guide/configuration.html): Broker and exchange options
-- [RabbitMQBroker API](https://bitspacerlabs.github.io/rabbit-relay/docs/api/rabbitmq-broker.html): Main API surface
-- [EventEnvelope API](https://bitspacerlabs.github.io/rabbit-relay/docs/api/event-envelope.html): Message contract and metadata
-- [Typed events](https://bitspacerlabs.github.io/rabbit-relay/docs/features/typed-events.html): Event factories and type-safe consumers
-- [Error handling](https://bitspacerlabs.github.io/rabbit-relay/docs/features/error-handling.html): ACK, NACK, requeue, retry, and dead-letter behavior
-- [Topology ownership](https://bitspacerlabs.github.io/rabbit-relay/docs/learn/topology-ownership.html): Assert, passive, and plan-only modes
+- [Configuration](https://bitspacerlabs.github.io/rabbit-relay/docs/guide/configuration): Broker and exchange options
+- [RabbitMQBroker API](https://bitspacerlabs.github.io/rabbit-relay/docs/api/rabbitmq-broker): Main API surface
+- [EventEnvelope API](https://bitspacerlabs.github.io/rabbit-relay/docs/api/event-envelope): Message contract and metadata
+- [Typed events](https://bitspacerlabs.github.io/rabbit-relay/docs/features/typed-events): Event factories and type-safe consumers
+- [Error handling](https://bitspacerlabs.github.io/rabbit-relay/docs/features/error-handling): ACK, NACK, requeue, retry, and dead-letter behavior
+- [Topology ownership](https://bitspacerlabs.github.io/rabbit-relay/docs/learn/topology-ownership): Assert, passive, and plan-only modes
 
 ## Reliability and operations
 
-- [Publisher confirms](https://bitspacerlabs.github.io/rabbit-relay/docs/features/publisher-confirms.html)
-- [Retry policy](https://bitspacerlabs.github.io/rabbit-relay/docs/features/retry-policy.html)
-- [Dead-letter queues](https://bitspacerlabs.github.io/rabbit-relay/docs/features/dead-letter-queues.html)
-- [Auto reconnect](https://bitspacerlabs.github.io/rabbit-relay/docs/features/reconnect.html)
-- [Graceful shutdown](https://bitspacerlabs.github.io/rabbit-relay/docs/features/graceful-shutdown.html)
-- [OpenTelemetry](https://bitspacerlabs.github.io/rabbit-relay/docs/features/opentelemetry.html)
+- [Publisher confirms](https://bitspacerlabs.github.io/rabbit-relay/docs/features/publisher-confirms)
+- [Retry policy](https://bitspacerlabs.github.io/rabbit-relay/docs/features/retry-policy)
+- [Dead-letter queues](https://bitspacerlabs.github.io/rabbit-relay/docs/features/dead-letter-queues)
+- [Auto reconnect](https://bitspacerlabs.github.io/rabbit-relay/docs/features/reconnect)
+- [Graceful shutdown](https://bitspacerlabs.github.io/rabbit-relay/docs/features/graceful-shutdown)
+- [OpenTelemetry](https://bitspacerlabs.github.io/rabbit-relay/docs/features/opentelemetry)
+- [CLI reference](https://bitspacerlabs.github.io/rabbit-relay/docs/features/cli-reference): Topology plan, validate, diff, and DLQ redrive commands
 
 ## Critical generation rules
 
