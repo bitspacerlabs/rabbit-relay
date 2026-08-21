@@ -9,6 +9,13 @@ export type LifecycleEventMap = {
     queue: string;
   };
 
+  "topology.failed": {
+    peerName: string;
+    exchange: string;
+    queue: string;
+    error: unknown;
+  };
+
   "consumer.started": {
     peerName: string;
     queue: string;

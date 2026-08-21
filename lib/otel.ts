@@ -176,6 +176,17 @@ function attributesForEvent<K extends LifecycleEventName>(
       };
     }
 
+    case "topology.failed": {
+      const ev = event as LifecycleEventMap["topology.failed"];
+
+      return {
+        ...base,
+        "rabbit-relay.peer": ev.peerName,
+        "messaging.destination.name": ev.exchange,
+        "messaging.rabbitmq.queue": ev.queue,
+      };
+    }
+
     case "consumer.started": {
       const ev = event as LifecycleEventMap["consumer.started"];
 
@@ -313,6 +324,12 @@ export function attachOpenTelemetry(
         return;
       }
 
+      if (eventName === "topology.failed") {
+        const ev = event as LifecycleEventMap["topology.failed"];
+        finishError(span, ev.error, errorCode);
+        return;
+      }
+
       if (eventName === "retry.scheduled") {
         const ev = event as LifecycleEventMap["retry.scheduled"];
 
@@ -335,6 +352,7 @@ export function attachOpenTelemetry(
 
   attach("reconnect");
   attach("topology.asserted");
+  attach("topology.failed");
   attach("consumer.started");
   attach("consumer.stopped");
   attach("publish.failed");

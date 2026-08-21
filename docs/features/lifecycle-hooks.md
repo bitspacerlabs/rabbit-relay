@@ -38,6 +38,7 @@ sub.on("consumer.started", (event) => {
 |---|---|
 | `reconnect` | Broker reconnected |
 | `topology.asserted` | Exchange/queue/binding topology was asserted |
+| `topology.failed` | Topology assert or passive check failed |
 | `consumer.started` | Consumer started |
 | `consumer.stopped` | Consumer stopped |
 | `publish.failed` | Publish failed after retry attempt |
