@@ -187,6 +187,17 @@ function attributesForEvent<K extends LifecycleEventName>(
       };
     }
 
+    case "topology.restored": {
+      const ev = event as LifecycleEventMap["topology.restored"];
+
+      return {
+        ...base,
+        "rabbit-relay.peer": ev.peerName,
+        "messaging.destination.name": ev.exchange,
+        "messaging.rabbitmq.queue": ev.queue,
+      };
+    }
+
     case "consumer.started": {
       const ev = event as LifecycleEventMap["consumer.started"];
 
@@ -353,6 +364,7 @@ export function attachOpenTelemetry(
   attach("reconnect");
   attach("topology.asserted");
   attach("topology.failed");
+  attach("topology.restored");
   attach("consumer.started");
   attach("consumer.stopped");
   attach("publish.failed");

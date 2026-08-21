@@ -401,6 +401,12 @@ export class RabbitMQBroker {
       await applyTopology(ch);
 
       await consumer.resumeOnReconnect(ch);
+
+      await this.lifecycle.emit("topology.restored", {
+        peerName: this.peerName,
+        exchange: exchangeName,
+        queue: queueName,
+      });
     });
 
     const use = (middleware: ConsumeMiddleware): BrokerInterface<TEvents> => {
