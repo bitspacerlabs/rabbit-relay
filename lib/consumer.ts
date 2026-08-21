@@ -353,6 +353,14 @@ export function createConsumer(params: {
       return;
     }
 
+    emitLifecycle("message.dropped", {
+      peerName,
+      queue: queueName,
+      exchange: msg.fields.exchange,
+      routingKey: msg.fields.routingKey,
+      eventName: payload?.name ?? "unknown",
+      reason: "retry attempts exhausted, retry.then=ack",
+    }).catch(() => {});
     ch.ack(msg);
   }
 
@@ -482,6 +490,14 @@ export function createConsumer(params: {
       return;
     }
 
+    await emitLifecycle("message.dropped", {
+      peerName,
+      queue: queueName,
+      exchange: msg.fields.exchange,
+      routingKey: msg.fields.routingKey,
+      eventName: payload?.name ?? "unknown",
+      reason: err,
+    });
     ch.ack(msg);
   }
 

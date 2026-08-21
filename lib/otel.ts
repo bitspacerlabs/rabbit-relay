@@ -259,6 +259,19 @@ function attributesForEvent<K extends LifecycleEventName>(
       };
     }
 
+    case "message.dropped": {
+      const ev = event as LifecycleEventMap["message.dropped"];
+
+      return {
+        ...base,
+        "rabbit-relay.peer": ev.peerName,
+        "messaging.rabbitmq.queue": ev.queue,
+        "messaging.destination.name": ev.exchange,
+        "messaging.rabbitmq.routing_key": ev.routingKey,
+        "messaging.message.type": ev.eventName,
+      };
+    }
+
     default:
       return base;
   }
@@ -329,6 +342,7 @@ export function attachOpenTelemetry(
   attach("broker.closed");
   attach("handler.completed");
   attach("message.dead-lettered");
+  attach("message.dropped");
 
   return {
     detach(): void {
