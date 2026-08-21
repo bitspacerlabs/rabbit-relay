@@ -86,17 +86,7 @@ Crash scenarios and their effects:
 If the process terminates **after** commiting side effects but **before**
 RabbitMQ receives the ACK:
 
-```
-┌──────────┐     ┌──────────┐     ┌────────────┐
-│ Deliver  │────>│ Handler  │────>│ Write DB   │
-└──────────┘     └──────────┘     └──────┬─────┘
-                                         │
-                                   process crashes
-                                         │
-                                    ACK never sent
-                                         ▼
-                              Message redelivered
-```
+![Alt text](../public/Crash-before-ACK.png)
 
 The message is redelivered to another consumer (or the same one after
 reconnect). This is the core at-least-once property: **you will see the
@@ -107,19 +97,7 @@ message again**.
 If the process crashes after the retry copy is published but before the
 ACK of the original message:
 
-```
-┌────────────┐     ┌────────────────┐     ┌──────────┐
-│ Handler    │────>│ Publish retry  │────>│ ACK      │
-│ throws     │     │ copy           │     │ original │
-└────────────┘     └───────┬────────┘     └────▲─────┘
-                           │                   │
-                     process crashes      retry is lost
-                           │                   │
-                           ▼                   ▼
-                  Original remains      Duplicate possible
-                  unacked →             when consumer
-                  redelivered           reconnects
-```
+![Alt text](../public/Crash-during-retry.png)
 
 Two messages now exist: the **original** (redelivered) and the **retry
 copy** (already published). The handler must be idempotent.
