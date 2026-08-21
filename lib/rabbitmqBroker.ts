@@ -314,26 +314,46 @@ export class RabbitMQBroker {
       }
 
       if (cfg.topologyMode === "passive") {
-        const result = await this.validatePlan(topologyPlan);
-        const blockingIssues = blockingTopologyIssues(result);
+        try {
+          const result = await this.validatePlan(topologyPlan);
+          const blockingIssues = blockingTopologyIssues(result);
 
-        if (blockingIssues.length > 0) {
-          throw new Error(
-            `[broker] topologyMode='passive' validation failed for exchange '${exchangeName}' and queue '${queueName}': ` +
-              formatTopologyValidationIssues(blockingIssues)
-          );
+          if (blockingIssues.length > 0) {
+            throw new Error(
+              `[broker] topologyMode='passive' validation failed for exchange '${exchangeName}' and queue '${queueName}': ` +
+                formatTopologyValidationIssues(blockingIssues)
+            );
+          }
+        } catch (err) {
+          await this.lifecycle.emit("topology.failed", {
+            peerName: this.peerName,
+            exchange: exchangeName,
+            queue: queueName,
+            error: err,
+          });
+          throw err;
         }
 
         return;
       }
 
-      await assertTopology(channel);
+      try {
+        await assertTopology(channel);
 
-      await this.lifecycle.emit("topology.asserted", {
-        peerName: this.peerName,
-        exchange: exchangeName,
-        queue: queueName,
-      });
+        await this.lifecycle.emit("topology.asserted", {
+          peerName: this.peerName,
+          exchange: exchangeName,
+          queue: queueName,
+        });
+      } catch (err) {
+        await this.lifecycle.emit("topology.failed", {
+          peerName: this.peerName,
+          exchange: exchangeName,
+          queue: queueName,
+          error: err,
+        });
+        throw err;
+      }
     };
 
     if (cfg.topologyMode !== "plan-only") {

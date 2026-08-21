@@ -46,6 +46,7 @@ The adapter listens to:
 |---|---|
 | `reconnect` | Broker re-established connection |
 | `topology.asserted` | Exchange, queue, and bindings declared |
+| `topology.failed` | Topology assert or passive check failed |
 | `consumer.started` | Consumer registered on a queue |
 | `consumer.stopped` | Consumer cancelled |
 | `publish.failed` | Publish rejected or errored |
