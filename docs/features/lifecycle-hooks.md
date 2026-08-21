@@ -45,6 +45,7 @@ sub.on("consumer.started", (event) => {
 | `broker.closed` | Broker was closed |
 | `handler.completed` | A handler finished (success or error), with duration |
 | `message.dead-lettered` | A message was sent to the dead-letter queue |
+| `message.dropped` | A message was dropped (acked) after retry exhaustion or `onError: "ack"` |
 
 ---
 

@@ -53,6 +53,7 @@ The adapter listens to:
 | `broker.closed` | Broker shut down |
 | `handler.completed` | Handler finished (success or error) |
 | `message.dead-lettered` | Message sent to dead-letter queue |
+| `message.dropped` | Message dropped (acked) after retry exhaustion or `onError: "ack"` |
 
 ---
 

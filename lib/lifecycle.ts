@@ -60,6 +60,15 @@ export type LifecycleEventMap = {
     eventName: string;
     reason: unknown;
   };
+
+  "message.dropped": {
+    peerName: string;
+    queue: string;
+    exchange: string;
+    routingKey: string;
+    eventName: string;
+    reason: unknown;
+  };
 };
 
 export type LifecycleEventName = keyof LifecycleEventMap;
