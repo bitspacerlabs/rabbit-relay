@@ -41,4 +41,13 @@ type DemoEvent = EventEnvelope<Payload>;
   console.log(
     `[consumer] dedupe running (ttl=${process.env.DEDUPE_TTL_MS ?? "60s"}, maxKeys=${process.env.DEDUPE_MAX_KEYS ?? "100k"})`
   );
+  process.on("SIGTERM", async () => {
+    await broker.close();
+    process.exit(0);
+  });
+
+  process.on("SIGINT", async () => {
+    await broker.close();
+    process.exit(0);
+  });
 })();

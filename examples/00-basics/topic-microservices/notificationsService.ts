@@ -27,4 +27,13 @@ type AnyEv = EventEnvelope<any>;
   await ship.consume({ prefetch: 50, concurrency: 10 });
 
   console.log("[notifications] listening on payments + shipping");
+  process.on("SIGTERM", async () => {
+    await broker.close();
+    process.exit(0);
+  });
+
+  process.on("SIGINT", async () => {
+    await broker.close();
+    process.exit(0);
+  });
 })();

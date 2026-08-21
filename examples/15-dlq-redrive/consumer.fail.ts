@@ -46,4 +46,13 @@ type JobEvent = EventEnvelope<Job>;
 
   console.log("[fail-consumer] listening");
   console.log("[fail-consumer] run publisher, then stop this process before redrive");
+  process.on("SIGTERM", async () => {
+    await broker.close();
+    process.exit(0);
+  });
+
+  process.on("SIGINT", async () => {
+    await broker.close();
+    process.exit(0);
+  });
 })();

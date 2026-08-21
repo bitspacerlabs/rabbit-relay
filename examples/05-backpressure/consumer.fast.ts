@@ -27,4 +27,13 @@ type BpEvent = EventEnvelope<Payload>;
 
   await sub.consume({ prefetch: PREFETCH, concurrency: PREFETCH });
   console.log(`[consumer.fast] running with prefetch=${PREFETCH}`);
+  process.on("SIGTERM", async () => {
+    await broker.close();
+    process.exit(0);
+  });
+
+  process.on("SIGINT", async () => {
+    await broker.close();
+    process.exit(0);
+  });
 })();

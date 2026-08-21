@@ -47,4 +47,13 @@ type JobEvent = EventEnvelope<Job>;
 
   console.log("[normal-consumer] listening");
   console.log("[normal-consumer] run redrive.ts to move DLQ messages back here");
+  process.on("SIGTERM", async () => {
+    await broker.close();
+    process.exit(0);
+  });
+
+  process.on("SIGINT", async () => {
+    await broker.close();
+    process.exit(0);
+  });
 })();

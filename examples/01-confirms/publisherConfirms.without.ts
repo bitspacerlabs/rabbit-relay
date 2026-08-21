@@ -29,4 +29,13 @@ type DemoEvent = EventEnvelope<Payload>;
     console.log(`[NO-CONFIRM] SENT seq=${seq}`);
     seq++;
   }, 1000);
+  process.on("SIGTERM", async () => {
+    await broker.close();
+    process.exit(0);
+  });
+
+  process.on("SIGINT", async () => {
+    await broker.close();
+    process.exit(0);
+  });
 })();

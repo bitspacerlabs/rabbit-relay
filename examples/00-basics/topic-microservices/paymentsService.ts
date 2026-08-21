@@ -35,4 +35,13 @@ type PaymentEv = EventEnvelope<Payment>;
 
   await sub.consume({ prefetch: 50, concurrency: 10 });
   console.log("[payments] listening");
+  process.on("SIGTERM", async () => {
+    await broker.close();
+    process.exit(0);
+  });
+
+  process.on("SIGINT", async () => {
+    await broker.close();
+    process.exit(0);
+  });
 })();

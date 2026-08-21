@@ -31,4 +31,13 @@ type Ev = EventEnvelope<Order>;
 
     setTimeout(tick, 1000);
   })();
+  process.on("SIGTERM", async () => {
+    await broker.close();
+    process.exit(0);
+  });
+
+  process.on("SIGINT", async () => {
+    await broker.close();
+    process.exit(0);
+  });
 })();

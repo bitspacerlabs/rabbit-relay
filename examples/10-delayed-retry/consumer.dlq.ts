@@ -37,4 +37,13 @@ type JobEvent = EventEnvelope<Job>;
   });
 
   console.log("[dlq] delayed retry DLQ listening");
+  process.on("SIGTERM", async () => {
+    await broker.close();
+    process.exit(0);
+  });
+
+  process.on("SIGINT", async () => {
+    await broker.close();
+    process.exit(0);
+  });
 })();

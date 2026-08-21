@@ -19,4 +19,13 @@ type Ev = EventEnvelope<Payload>;
 
   await sub.consume({ prefetch: 50, concurrency: 10 });
   console.log("[direct/consumer.beta] listening");
+  process.on("SIGTERM", async () => {
+    await broker.close();
+    process.exit(0);
+  });
+
+  process.on("SIGINT", async () => {
+    await broker.close();
+    process.exit(0);
+  });
 })();

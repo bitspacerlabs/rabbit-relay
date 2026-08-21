@@ -35,4 +35,13 @@ type ShipEv    = EventEnvelope<Ship>;
 
   await sub.consume({ prefetch: 50, concurrency: 10 });
   console.log("[shipping] listening");
+  process.on("SIGTERM", async () => {
+    await broker.close();
+    process.exit(0);
+  });
+
+  process.on("SIGINT", async () => {
+    await broker.close();
+    process.exit(0);
+  });
 })();

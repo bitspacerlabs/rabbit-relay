@@ -29,4 +29,13 @@ type Ev = EventEnvelope<Payload>;
 
   console.log("[plugins/publisher] started");
   tick();
+  process.on("SIGTERM", async () => {
+    await broker.close();
+    process.exit(0);
+  });
+
+  process.on("SIGINT", async () => {
+    await broker.close();
+    process.exit(0);
+  });
 })();

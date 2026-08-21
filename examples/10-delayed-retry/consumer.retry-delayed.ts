@@ -91,4 +91,13 @@ function getRetryCountFromEvent(ev: EventEnvelope): number {
   console.log(
     `[consumer] delayed retry consumer listening (delay=${process.env.RETRY_DELAY_MS ?? 3000}ms)`
   );
+  process.on("SIGTERM", async () => {
+    await broker.close();
+    process.exit(0);
+  });
+
+  process.on("SIGINT", async () => {
+    await broker.close();
+    process.exit(0);
+  });
 })();

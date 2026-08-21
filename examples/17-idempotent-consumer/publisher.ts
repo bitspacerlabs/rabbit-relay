@@ -9,48 +9,51 @@ const orderCreated = event("order.created", "v1").schema(
   { parse: (input: unknown) => input as { orderId: string; amount: number } }
 );
 
-const broker = new RabbitMQBroker("idempotent.publisher");
+(async () => {
+  const broker = new RabbitMQBroker("idempotent.publisher");
 
-const pub = await broker.queue("idempotent.publisher.q").exchange(EXCHANGE, {
-  exchangeType: "topic",
-  publisherConfirms: true,
-});
-
-async function publishUnique() {
-  const ev = orderCreated({
-    orderId: `order_${Date.now()}`,
-    amount: Math.round(Math.random() * 10000) / 100,
+  const pub = await broker.queue("idempotent.publisher.q").exchange(EXCHANGE, {
+    exchangeType: "topic",
+    publisherConfirms: true,
   });
 
-  await pub.produce(ev);
-  console.log(`[publisher] published ${ev.id} (orderId=${ev.data.orderId})`);
-}
+  async function publishUnique() {
+    const ev = orderCreated({
+      orderId: `order_${Date.now()}`,
+      amount: Math.round(Math.random() * 10000) / 100,
+    });
 
-async function publishDupe() {
-  const ev = orderCreated({
-    orderId: `order_${Date.now()}`,
-    amount: Math.round(Math.random() * 10000) / 100,
-  });
+    await pub.produce(ev);
+    console.log(`[publisher] published ${ev.id} (orderId=${ev.data.orderId})`);
+  }
 
-  await pub.produce(ev);
-  console.log(`[publisher] published ${ev.id} (original)`);
+  async function publishDupe() {
+    const ev = orderCreated({
+      orderId: `order_${Date.now()}`,
+      amount: Math.round(Math.random() * 10000) / 100,
+    });
 
-  // Simulate a redelivery: same event ID, same payload
-  await pub.produce(ev);
-  console.log(`[publisher] published ${ev.id} (duplicate - same id!)`);
-}
+    await pub.produce(ev);
+    console.log(`[publisher] published ${ev.id} (original)`);
 
-console.log(`Publishing to exchange '${EXCHANGE}'`);
+    // Simulate a redelivery: same event ID, same payload
+    await pub.produce(ev);
+    console.log(`[publisher] published ${ev.id} (duplicate - same id!)`);
+  }
 
-// Publish a few unique events
-await publishUnique();
-await new Promise((r) => setTimeout(r, 300));
+  console.log(`Publishing to exchange '${EXCHANGE}'`);
 
-// Publish one with an intentional duplicate
-await publishDupe();
-await new Promise((r) => setTimeout(r, 300));
+  // Publish a few unique events
+  await publishUnique();
+  await new Promise((r) => setTimeout(r, 300));
 
-await publishUnique();
+  // Publish one with an intentional duplicate
+  await publishDupe();
+  await new Promise((r) => setTimeout(r, 300));
 
-await broker.close();
-console.log("[publisher] done");
+  await publishUnique();
+
+  await broker.close();
+  console.log("[publisher] done");
+
+})();

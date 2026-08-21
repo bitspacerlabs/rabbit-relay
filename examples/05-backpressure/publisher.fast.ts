@@ -48,4 +48,13 @@ type BpEvent = EventEnvelope<Payload>;
 
   console.log(`[publisher] blasting… size=${BYTES} bytes, total=${TOTAL}`);
   loop();
+  process.on("SIGTERM", async () => {
+    await broker.close();
+    process.exit(0);
+  });
+
+  process.on("SIGINT", async () => {
+    await broker.close();
+    process.exit(0);
+  });
 })();
