@@ -62,7 +62,7 @@ export default defineConfig({
     },
 
     nav: [
-      { text: 'Home', link: '/rabbit-relay/' },
+      { text: 'Home', link: '/' },
       { text: 'Guide', link: '/guide/quickstart' },
       { text: 'Learn RabbitMQ', link: '/learn/rabbitmq-basics' },
       { text: 'Features', link: '/features/typed-events' },
