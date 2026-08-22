@@ -19,6 +19,12 @@ NOTE:
 </p>
 
 <p align="center">
+  <a href="https://www.rabbitmq.com/client-libraries/devtools">
+    <strong>Listed in the official RabbitMQ JavaScript and Node ecosystem</strong>
+  </a>
+</p>
+
+<p align="center">
   <a href="https://github.com/bitspacerlabs/rabbit-relay/actions/workflows/ci.yml">
     <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/bitspacerlabs/rabbit-relay/ci.yml?branch=main&label=CI">
   </a>
