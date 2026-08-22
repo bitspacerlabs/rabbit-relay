@@ -92,6 +92,7 @@ Exchange-level options override broker-level defaults.
 | `routingKey` | Binding routing key | `"#"` |
 | `durable` | Durable exchange/queue declaration | `true` |
 | `publisherConfirms` | Use confirm channel for publishing | `false` |
+| `binding` | Whether to bind queue to exchange during assertion | `true` |
 | `topologyMode` | Assert, passively check, or only plan topology | `"assert"` |
 | `passiveQueue` | Backward-compatible queue-only passive check | `false` |
 | `queueArgs` | RabbitMQ queue arguments | `undefined` |

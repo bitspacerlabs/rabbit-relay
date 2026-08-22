@@ -74,6 +74,17 @@ export interface ExchangeConfig {
 
   publisherConfirms?: boolean;
 
+  /**
+   * Whether to bind the queue to the exchange during topology assertion.
+   *
+   * Set to `false` to assert the exchange and queue without creating an
+   * initial binding. Useful for apps that manage bindings dynamically at
+   * runtime via `withChannel()`.
+   *
+   * Default: `true`
+   */
+  binding?: boolean;
+
   queueArgs?: Options.AssertQueue["arguments"];
 
   /**
@@ -351,6 +362,7 @@ export type InternalCfg = {
   routingKey: string;
   durable: boolean;
   publisherConfirms: boolean;
+  binding: boolean;
   queueArgs?: Options.AssertQueue["arguments"];
   topologyMode: TopologyMode;
   maxMessageBytes?: number;

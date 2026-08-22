@@ -146,6 +146,28 @@ These options are passed to `channel.consume()`.
 
 ---
 
+## Skipping the initial binding
+
+Set `binding: false` to assert the exchange and queue without creating an
+initial binding. This is useful for apps that manage bindings dynamically at
+runtime via `withChannel()`.
+
+```ts
+const sub = await broker
+  .queue("rooms.q")
+  .exchange("rooms.ex", {
+    exchangeType: "topic",
+    binding: false,
+  });
+
+// Later, bind/unbind dynamically:
+await sub.withChannel(async (ch) => {
+  await ch.bindQueue("rooms.q", "rooms.ex", "room.42");
+});
+```
+
+---
+
 ## Raw channel access
 
 For advanced cases, use `withChannel()`.
