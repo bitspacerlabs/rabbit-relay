@@ -133,6 +133,7 @@ export function mergeInternalCfg(
     durable: exchangeConfig.durable ?? defaultCfg.durable,
     publisherConfirms:
       exchangeConfig.publisherConfirms ?? defaultCfg.publisherConfirms,
+    binding: exchangeConfig.binding ?? defaultCfg.binding,
     queueArgs: exchangeConfig.queueArgs ?? defaultCfg.queueArgs,
     topologyMode: resolveTopologyMode(
       exchangeConfig.topologyMode ?? defaultCfg.topologyMode
@@ -250,12 +251,14 @@ export function createTopologyPlan(params: {
 
   const bindArgs = mergeBindArguments(cfg.amqp?.bind);
 
-  bindings.push({
-    queue: queueName,
-    exchange: exchangeName,
-    routingKey: cfg.routingKey,
-    arguments: toRecord(bindArgs),
-  });
+  if (cfg.binding !== false) {
+    bindings.push({
+      queue: queueName,
+      exchange: exchangeName,
+      routingKey: cfg.routingKey,
+      arguments: toRecord(bindArgs),
+    });
+  }
 
   return {
     exchanges,
@@ -348,9 +351,11 @@ export function createAssertTopology(params: {
       }
     }
 
-    const bindArgs = mergeBindArguments(cfg.amqp?.bind);
+    if (cfg.binding !== false) {
+      const bindArgs = mergeBindArguments(cfg.amqp?.bind);
 
-    // (Re)bind is idempotent - safe to call even if binding already exists
-    await channel.bindQueue(queueName, exchangeName, cfg.routingKey, bindArgs);
+      // (Re)bind is idempotent - safe to call even if binding already exists
+      await channel.bindQueue(queueName, exchangeName, cfg.routingKey, bindArgs);
+    }
   };
 }

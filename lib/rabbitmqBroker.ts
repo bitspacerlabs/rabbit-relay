@@ -100,6 +100,7 @@ export class RabbitMQBroker {
       routingKey: config.routingKey ?? "#",
       durable: config.durable ?? true,
       publisherConfirms: config.publisherConfirms ?? false,
+      binding: config.binding ?? true,
       queueArgs: config.queueArgs,
       topologyMode: resolveTopologyMode(config.topologyMode),
       maxMessageBytes: config.maxMessageBytes,
