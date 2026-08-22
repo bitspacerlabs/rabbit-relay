@@ -189,8 +189,8 @@ export function createTopologyPlan(params: {
     ),
   });
 
-  if (cfg.deadLetter?.autoDeclare) {
-    if (!cfg.deadLetter.queue) {
+  if (cfg.deadLetter) {
+    if (cfg.deadLetter.autoDeclare && !cfg.deadLetter.queue) {
       throw new Error(
         "[broker] deadLetter.queue is required when deadLetter.autoDeclare=true"
       );
@@ -206,22 +206,24 @@ export function createTopologyPlan(params: {
       options: toRecord(cfg.deadLetter.exchangeOptions),
     });
 
-    queues.push({
-      name: cfg.deadLetter.queue,
-      durable: cfg.durable,
-      arguments: toRecord(cfg.deadLetter.queueOptions?.arguments),
-      options: omitKeys(
-        cfg.deadLetter.queueOptions as Record<string, unknown> | undefined,
-        ["durable", "arguments"]
-      ),
-    });
+    if (cfg.deadLetter.queue) {
+      queues.push({
+        name: cfg.deadLetter.queue,
+        durable: cfg.durable,
+        arguments: toRecord(cfg.deadLetter.queueOptions?.arguments),
+        options: omitKeys(
+          cfg.deadLetter.queueOptions as Record<string, unknown> | undefined,
+          ["durable", "arguments"]
+        ),
+      });
 
-    bindings.push({
-      queue: cfg.deadLetter.queue,
-      exchange: cfg.deadLetter.exchange,
-      routingKey: dlqRoutingKey,
-      arguments: toRecord(cfg.deadLetter.bindArguments),
-    });
+      bindings.push({
+        queue: cfg.deadLetter.queue,
+        exchange: cfg.deadLetter.exchange,
+        routingKey: dlqRoutingKey,
+        arguments: toRecord(cfg.deadLetter.bindArguments),
+      });
+    }
   }
 
   const queueAmqpOptions = {
