@@ -6,6 +6,44 @@ This project follows semantic versioning.
 
 ---
 
+## [1.3.0] - 2026-08-22
+
+### Added
+
+- New lifecycle event `message.dropped` — emitted before silent ack when
+  `retry.then = "ack"` exhausts attempts or when `onError = "ack"` fires
+  directly. Previously these messages vanished with no signal for ops teams.
+  (#28)
+- New lifecycle event `topology.failed` — emitted when `assertQueue` /
+  `assertExchange` / `assertBinding` fails during setup or reconnect, or
+  when passive validation finds blocking issues. Errors still propagate
+  after the event. (#27)
+- New lifecycle event `topology.restored` — emitted after topology and
+  consumers are fully restored on reconnect. Users should listen to this
+  instead of `reconnect` for post-reconnection `withChannel` operations.
+  (#25)
+- New `binding` option on `ExchangeConfig` (default: `true`). Set to
+  `false` to assert the exchange and queue without creating an initial
+  binding — useful for apps that manage bindings dynamically at runtime
+  via `withChannel()`. (#24)
+- All three new lifecycle events are mapped in the OpenTelemetry adapter.
+
+### Fixed
+
+- `topology.failed` spans are recorded as errors in OpenTelemetry (with
+  exception recording), matching the existing `publish.failed` behavior.
+- `message.dropped` spans record the drop reason as an exception event.
+
+### Backward Compatibility
+
+- All public APIs remain unchanged.
+- `binding` defaults to `true` — existing behavior is preserved.
+- New lifecycle events are additive.
+- `message.dropped` only fires on paths that previously acked silently —
+  no change for `dead-letter` or `requeue` paths.
+
+---
+
 ## [1.2.1] - 2026-08-21
 
 ### Added
