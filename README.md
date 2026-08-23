@@ -40,9 +40,6 @@ NOTE:
   <a href="LICENSE">
     <img alt="license" src="https://img.shields.io/github/license/bitspacerlabs/rabbit-relay">
   </a>
-  <a href="https://www.npmjs.com/package/@bitspacerlabs/rabbit-relay">
-    <img alt="TypeScript" src="https://img.shields.io/npm/types/@bitspacerlabs/rabbit-relay">
-  </a>
   <a href="https://github.com/bitspacerlabs/rabbit-relay/blob/main/package.json">
     <img alt="Node.js" src="https://img.shields.io/node/v/@bitspacerlabs/rabbit-relay">
   </a>
