@@ -18,6 +18,10 @@ This project follows semantic versioning.
   hand-copying union members. (#36)
 - Documented the plain JS / JSON config pattern with JSDoc aliases in the
   README and the configuration guide.
+- `handle("*", ...)` wildcard handlers now receive a discriminated union
+  (`WildcardEvent<TEvents>`), so `switch (event.name)` narrows the payload
+  per event without casts. Exact-name handler typing is unchanged.
+  (#26)
 
 ---
 

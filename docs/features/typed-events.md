@@ -161,7 +161,27 @@ sub.handle("orderCreated", async (_id, ev) => {
 await sub.consume({ prefetch: 50, concurrency: 10 });
 ```
 
-> Tip: Use `sub.handle("*", ...)` for a catch-all handler.
+> Tip: Use `sub.handle("*", ...)` for a catch-all handler. The wildcard
+> handler receives a discriminated union, so `switch (event.name)` narrows
+> the payload per event without casts:
+
+```ts
+sub.handle("*", async (_id, ev) => {
+  switch (ev.name) {
+    case "orderCreated":
+      console.log("Order total =", ev.data.total); // number
+      break;
+    case "orderCancelled": {
+      console.log("Reason =", ev.data.reason); // string
+      break;
+    }
+  }
+});
+```
+
+> Note: narrowing keys off the `with()` / exchange map keys, which must match
+> the runtime envelope `name` — the same requirement exact-name handlers
+> already have.
 
 ---
 
