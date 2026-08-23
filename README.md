@@ -234,6 +234,32 @@ await pub.publish(
 
 ---
 
+## Using config from plain JavaScript or JSON
+
+If your topology config lives in a plain `.mjs`/`.cjs` module (or JSON),
+TypeScript widens literal values to `string` and option fields like
+`exchangeType` stop typechecking. Rabbit Relay exports reusable aliases so
+you can keep the unions without hand-copying them:
+
+```js
+// platform.mjs
+/** @typedef {import("@bitspacerlabs/rabbit-relay").ExchangeType} ExchangeType */
+
+/** @type {{ name: string, type: ExchangeType }[]} */
+export const EXCHANGES = [{ name: "orders.events", type: "topic" }];
+```
+
+```ts
+import type { ExchangeType, TopologyMode } from "@bitspacerlabs/rabbit-relay";
+```
+
+Available aliases: `ExchangeType`, `TopologyMode`, `ErrorAction`
+(`onError`), `RetryThenAction` (`retry.then`).
+
+See [Configuration](https://bitspacerlabs.github.io/rabbit-relay/guide/configuration) for details.
+
+---
+
 ## Examples
 
 See runnable examples in:  

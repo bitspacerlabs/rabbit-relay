@@ -6,6 +6,21 @@ This project follows semantic versioning.
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- Exported reusable type aliases `ExchangeType`, `RetryThenAction`, and
+  `ErrorAction` from the package root. These match the option unions
+  (`exchangeType`, `retry.then`, `onError`) so consumers whose config lives
+  in plain `.js`/`.mjs` or JSON can reference them via JSDoc import types
+  (`import("@bitspacerlabs/rabbit-relay").ExchangeType`) instead of
+  hand-copying union members. (#36)
+- Documented the plain JS / JSON config pattern with JSDoc aliases in the
+  README and the configuration guide.
+
+---
+
 ## [1.3.0] - 2026-08-22
 
 ### Added

@@ -11,6 +11,8 @@ import {
   RequestOptions,
   BrokerHealth,
   ConsumeMiddleware,
+  ErrorAction,
+  RetryThenAction,
 } from "./types.js";
 import { ReconnectController } from "./reconnect.js";
 import {
@@ -51,10 +53,10 @@ type RegisteredConsumer = {
     concurrency: number;
     activeHandlers: number;
     pendingMessages: number;
-    onError: "ack" | "requeue" | "dead-letter" | "retry";
+    onError: ErrorAction;
     retry?: {
       attempts: number;
-      then: "ack" | "requeue" | "dead-letter";
+      then: RetryThenAction;
       delayMs?: number;
     };
   };
