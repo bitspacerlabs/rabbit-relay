@@ -6,7 +6,7 @@ This project follows semantic versioning.
 
 ---
 
-## [Unreleased]
+## [1.4.0] - 2026-08-23
 
 ### Added
 
@@ -22,6 +22,13 @@ This project follows semantic versioning.
   (`WildcardEvent<TEvents>`), so `switch (event.name)` narrows the payload
   per event without casts. Exact-name handler typing is unchanged.
   (#26)
+
+### Fixed
+
+- `planTopology()` and `rabbit-relay plan` now include dead-letter exchange,
+  queue, and binding entries whenever a `deadLetter` config exists, instead
+  of omitting them unless `deadLetter.autoDeclare` was true. The DLQ and its
+  binding are included only when `deadLetter.queue` is set. (#33)
 
 ---
 
