@@ -119,6 +119,26 @@ sub.handle("orders.created", async (_id, ev) => {
 });
 ```
 
+Wildcard handlers receive a discriminated union keyed by the map keys, so
+`switch (ev.name)` narrows without casts:
+
+```ts
+sub.handle("*", async (_id, ev) => {
+  switch (ev.name) {
+    case "orders.created":
+      console.log(ev.data.orderId); // string
+      break;
+    default: {
+      const _unhandled: never = ev;
+      break;
+    }
+  }
+});
+```
+
+Map keys must match the runtime envelope `name` — exact-name dispatch
+already requires this.
+
 Avoid `any` unless the example is intentionally catch-all.
 
 ---

@@ -289,6 +289,20 @@ export type ConsumeMiddleware = (
 ) => Promise<void>;
 
 /**
+ * Union of every event envelope in `TEvents`, each intersected with its
+ * map key as a literal `name`. This makes wildcard handlers
+ * (`handle("*", ...)`) narrow per event via `switch (event.name)`.
+ *
+ * Assumes `with()` map keys match the runtime envelope `name` — the same
+ * invariant exact-name handler dispatch already requires.
+ */
+export type WildcardEvent<
+  TEvents extends Record<string, EventEnvelope>
+> = {
+  [K in keyof TEvents]: TEvents[K] & { name: K };
+}[keyof TEvents];
+
+/**
  * Generic Broker Interface:
  * TEvents maps event name keys -> EventEnvelope types.
  */
@@ -331,9 +345,29 @@ export interface BrokerInterface<TEvents extends Record<string, EventEnvelope>> 
    */
   redriveDlq(options: DlqRedriveOptions): Promise<DlqRedriveResult>;
 
+  /**
+   * Register a handler for one event name.
+   *
+   * The handler receives the envelope type registered under that key.
+   */
   handle<K extends keyof TEvents>(
-    eventName: K | "*",
+    eventName: K,
     handler: (id: string | number, event: TEvents[K]) => Promise<unknown>
+  ): BrokerInterface<TEvents>;
+
+  /**
+   * Register a wildcard handler for any event without an exact-name
+   * handler.
+   *
+   * The event parameter is a discriminated union, so
+   * `switch (event.name)` narrows the payload per event.
+   */
+  handle(
+    eventName: "*",
+    handler: (
+      id: string | number,
+      event: WildcardEvent<TEvents>
+    ) => Promise<unknown>
   ): BrokerInterface<TEvents>;
 
   consume(opts?: ConsumeOptions): Promise<{ stop(): Promise<void> }>;
