@@ -296,6 +296,57 @@ See [amqplib Escape Hatch](/features/amqplib-escape-hatch).
 
 ---
 
+## Using config from plain JavaScript or JSON
+
+A common setup keeps topology config outside TypeScript (a shared `.mjs`
+module or JSON file). TypeScript widens literal values there, so they stop
+matching relay's option unions:
+
+```js
+// platform.mjs
+export const EXCHANGES = [{ name: "orders.events", type: "topic" }];
+// inferred inside TS as: { name: string, type: string }[]
+```
+
+Passing `EXCHANGES[0].type` to `exchangeType` then fails typecheck, because
+the option expects `"topic" | "direct" | "fanout" | "headers"` and receives
+`string`.
+
+Rabbit Relay exports reusable aliases so you never have to hand-copy union
+members out of `.d.ts` files. Annotate the config at its source using a
+JSDoc import type:
+
+```js
+// platform.mjs
+/** @typedef {import("@bitspacerlabs/rabbit-relay").ExchangeType} ExchangeType */
+
+/** @type {{ name: string, type: ExchangeType }[]} */
+export const EXCHANGES = [{ name: "orders.events", type: "topic" }];
+```
+
+In TypeScript files, import the alias directly:
+
+```ts
+import type { ExchangeType } from "@bitspacerlabs/rabbit-relay";
+
+const type: ExchangeType = EXCHANGES[0].type;
+
+await broker.queue("orders.q").exchange("orders.events", {
+  exchangeType: type,
+});
+```
+
+Available aliases:
+
+| Alias | Values | Used by |
+|---|---|---|
+| `ExchangeType` | `"topic" \| "direct" \| "fanout" \| "headers"` | `exchangeType`, `deadLetter.exchangeType` |
+| `TopologyMode` | `"assert" \| "passive" \| "plan-only"` | `topologyMode` |
+| `ErrorAction` | `"ack" \| "requeue" \| "dead-letter" \| "retry"` | `onError` |
+| `RetryThenAction` | `"ack" \| "requeue" \| "dead-letter"` | `retry.then` |
+
+---
+
 ## Recommended environment setup
 
 | Environment | Recommended mode |

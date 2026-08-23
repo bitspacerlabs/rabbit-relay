@@ -104,7 +104,7 @@ const sub = await broker
 
 | Option | Description |
 |---|---|
-| `exchangeType` | RabbitMQ exchange type: `topic`, `direct`, `fanout`, or `headers` |
+| `exchangeType` | RabbitMQ exchange type: `topic`, `direct`, `fanout`, or `headers`. Alias: `ExchangeType` |
 | `routingKey` | Binding routing key. Defaults to `#` |
 | `durable` | Whether declared exchange/queue should be durable. Defaults to `true` |
 | `publisherConfirms` | Use a confirm channel for publishing |

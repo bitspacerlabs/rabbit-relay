@@ -6,8 +6,10 @@ import {
   ConsumeMiddleware,
   ConsumeMiddlewareContext,
   ConsumeOptions,
+  ErrorAction,
   InvalidMessageContext,
   InvalidMessagePolicy,
+  RetryThenAction,
   TopologyMode,
 } from "./types.js";
 import { publishWithBackpressure } from "./backpressure.js";
@@ -25,8 +27,7 @@ const FIRST_FAILED_AT_HEADER = "x-rabbit-relay-first-failed-at";
 const LAST_FAILED_AT_HEADER = "x-rabbit-relay-last-failed-at";
 const LAST_ERROR_HEADER = "x-rabbit-relay-last-error";
 
-type ErrorAction = "ack" | "requeue" | "dead-letter" | "retry";
-type FinalRetryAction = "ack" | "requeue" | "dead-letter";
+type FinalRetryAction = RetryThenAction;
 
 type BuiltInDedupeConfig = DedupeOpts & {
   enabled?: boolean;

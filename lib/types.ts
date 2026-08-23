@@ -2,11 +2,32 @@ import { Channel, Options } from "amqplib";
 import { EventEnvelope } from "./eventFactories.js";
 import { Dedupe, DedupeOpts } from "./utils/dedupe.js";
 import { LifecycleEventName, LifecycleHandler } from "./lifecycle.js";
-import { TopologyPlan } from "./topologyPlan.js";
+import { TopologyPlan, TopologyExchangeType } from "./topologyPlan.js";
 import { TopologyValidationResult } from "./topologyValidation.js";
 import { DlqRedriveOptions, DlqRedriveResult } from "./dlqRedrive.js";
 
 export type TopologyMode = "assert" | "passive" | "plan-only";
+
+/**
+ * Exchange types supported by RabbitMQ: `"topic" | "direct" | "fanout" | "headers"`.
+ *
+ * Handy when config lives outside TypeScript (plain `.js`/`.mjs` or JSON),
+ * where literal values widen to `string` and fail typecheck. Reference it
+ * from JSDoc as:
+ *
+ * `@type {import("@bitspacerlabs/rabbit-relay").ExchangeType}`
+ */
+export type ExchangeType = TopologyExchangeType;
+
+/**
+ * Final action after retry attempts are exhausted (`retry.then`).
+ */
+export type RetryThenAction = "ack" | "requeue" | "dead-letter";
+
+/**
+ * Consumer failure policy (`onError`).
+ */
+export type ErrorAction = "ack" | "requeue" | "dead-letter" | "retry";
 
 export interface AmqpPassthroughOptions {
   queue?: Options.AssertQueue;
@@ -43,7 +64,7 @@ export interface DeadLetterConfig {
    * Exchange type for the DLX.
    * Default: "topic"
    */
-  exchangeType?: "topic" | "direct" | "fanout" | "headers";
+  exchangeType?: ExchangeType;
 
   /**
    * If true, Rabbit Relay declares the DLX, DLQ, and DLQ binding.
@@ -68,7 +89,7 @@ export interface DeadLetterConfig {
 }
 
 export interface ExchangeConfig {
-  exchangeType?: "topic" | "direct" | "fanout" | "headers";
+  exchangeType?: ExchangeType;
   routingKey?: string;
   durable?: boolean;
 
@@ -170,7 +191,7 @@ export interface RetryOptions {
    * What to do after retry attempts are exhausted.
    * Default: "dead-letter"
    */
-  then?: "ack" | "requeue" | "dead-letter";
+  then?: RetryThenAction;
 }
 
 export type ConsumeDedupeOptions =
@@ -358,7 +379,7 @@ export interface BrokerInterface<TEvents extends Record<string, EventEnvelope>> 
 
 // Internal normalized cfg after merging defaults + per-exchange overrides
 export type InternalCfg = {
-  exchangeType: "topic" | "direct" | "fanout" | "headers";
+  exchangeType: ExchangeType;
   routingKey: string;
   durable: boolean;
   publisherConfirms: boolean;
@@ -378,10 +399,10 @@ export interface ConsumerHealth {
   concurrency: number;
   activeHandlers: number;
   pendingMessages: number;
-  onError: "ack" | "requeue" | "dead-letter" | "retry";
+  onError: ErrorAction;
   retry?: {
     attempts: number;
-    then: "ack" | "requeue" | "dead-letter";
+    then: RetryThenAction;
     delayMs?: number;
   };
 }
