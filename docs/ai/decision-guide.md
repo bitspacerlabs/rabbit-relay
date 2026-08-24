@@ -14,7 +14,7 @@ It is optimized for developers and AI coding agents.
 | Need broker acknowledgement | `publisherConfirms: true` |
 | Need request/reply | `request<TReply>()` |
 | Handler can fail temporarily | `onError: "retry"` |
-| Dependency outage | delayed retry with `delayMs` |
+| Dependency outage | delayed retry with `delayMs` (add `backoff: "exponential"` for outages that need growing waits) |
 | Poison messages | DLQ |
 | Replay DLQ messages | `redriveDlq()` |
 | Avoid duplicate local processing | `consume({ dedupe })` |

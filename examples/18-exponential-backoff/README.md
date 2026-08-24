@@ -94,7 +94,10 @@ backoff.jobs.q.retry.a3.exchange / backoff.jobs.q.retry.a3.2000.queue  (TTL 2000
 
 Each retry queue dead-letters back to the original exchange when its TTL
 expires. Topology grows with `retry.attempts`, which keeps every delay
-broker-native and visible in `planTopology()` output and the CLI diff.
+broker-native and visible in RabbitMQ management UI.
+
+Note: delayed retry topology is asserted when the consumer starts, not
+part of `topologyMode: "plan-only"` planning output.
 
 ---
 
