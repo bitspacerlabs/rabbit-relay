@@ -9,6 +9,7 @@ import {
   ErrorAction,
   InvalidMessageContext,
   InvalidMessagePolicy,
+  RetryBackoff,
   RetryThenAction,
   TopologyMode,
 } from "./types.js";
@@ -65,6 +66,7 @@ export function createConsumer(params: {
 
   let retryAttempts = 0;
   let retryDelayMs: number | undefined;
+  let retryBackoff: RetryBackoff | undefined;
   let retryThen: FinalRetryAction = "dead-letter";
 
   let dedupe: Dedupe | undefined;
@@ -148,11 +150,26 @@ export function createConsumer(params: {
     await dispatch(0);
   }
 
-  function getRetryExchangeName(): string {
+  function getRetryExchangeName(attempt = 1): string {
+    if (retryBackoff === "exponential") {
+      return `${queueName}.retry.a${attempt}.exchange`;
+    }
     return `${queueName}.retry.exchange`;
   }
 
-  function getRetryQueueName(): string {
+  function retryDelayForAttempt(attempt: number): number {
+    const base = retryDelayMs ?? 0;
+
+    if (retryBackoff !== "exponential") return base;
+
+    // RabbitMQ TTL arguments are 32-bit signed integers.
+    return Math.min(base * 2 ** (attempt - 1), 2 ** 31 - 1);
+  }
+
+  function getRetryQueueName(attempt = 1): string {
+    if (retryBackoff === "exponential") {
+      return `${queueName}.retry.a${attempt}.${retryDelayForAttempt(attempt)}.queue`;
+    }
     return `${queueName}.retry.${retryDelayMs}.queue`;
   }
 
@@ -187,11 +204,14 @@ export function createConsumer(params: {
     const now = new Date().toISOString();
     const retryCount = getRetryCount(msg);
     const errorMessage = getErrorMessage(err);
+    const nextAttempt = retryCount + 1;
 
     return {
       ...(msg.properties.headers ?? {}),
-      [RETRY_COUNT_HEADER]: retryCount + 1,
-      ...(retryDelayMs != null ? { [RETRY_DELAY_HEADER]: retryDelayMs } : {}),
+      [RETRY_COUNT_HEADER]: nextAttempt,
+      ...(retryDelayMs != null
+        ? { [RETRY_DELAY_HEADER]: retryDelayForAttempt(nextAttempt) }
+        : {}),
       [FIRST_FAILED_AT_HEADER]:
         msg.properties.headers?.[FIRST_FAILED_AT_HEADER] ?? now,
       [LAST_FAILED_AT_HEADER]: now,
@@ -243,12 +263,24 @@ export function createConsumer(params: {
   async function assertDelayedRetryTopology(ch: Channel): Promise<void> {
     if (retryDelayMs == null) return;
 
-    const retryExchange = getRetryExchangeName();
-    const retryQueue = getRetryQueueName();
-
     if (topologyMode === "plan-only") {
       return;
     }
+
+    const attemptCount =
+      retryBackoff === "exponential" ? Math.max(retryAttempts, 1) : 1;
+
+    for (let attempt = 1; attempt <= attemptCount; attempt++) {
+      await assertRetryParkingTopology(ch, attempt);
+    }
+  }
+
+  async function assertRetryParkingTopology(
+    ch: Channel,
+    attempt: number
+  ): Promise<void> {
+    const retryExchange = getRetryExchangeName(attempt);
+    const retryQueue = getRetryQueueName(attempt);
 
     if (topologyMode === "passive") {
       try {
@@ -271,7 +303,7 @@ export function createConsumer(params: {
     await ch.assertQueue(retryQueue, {
       durable: true,
       arguments: {
-        "x-message-ttl": retryDelayMs,
+        "x-message-ttl": retryDelayForAttempt(attempt),
         "x-dead-letter-exchange": exchangeName,
       },
     });
@@ -312,11 +344,14 @@ export function createConsumer(params: {
       );
     }
 
-    await assertDelayedRetryTopology(ch);
+    const nextAttempt = getRetryCount(msg) + 1;
+    const retryExchange = getRetryExchangeName(nextAttempt);
+
+    await assertRetryParkingTopology(ch, nextAttempt);
 
     await publishWithBackpressure(
       ch,
-      getRetryExchangeName(),
+      retryExchange,
       msg.fields.routingKey,
       msg.content,
       buildRetryPublishOptions(msg, err, { preserveExpiration: false })
@@ -439,7 +474,10 @@ export function createConsumer(params: {
             routingKey: msg.fields.routingKey,
             retryCount: nextRetryCount,
             attempts: retryAttempts,
-            ...(retryDelayMs != null ? { delayMs: retryDelayMs } : {}),
+            ...(retryDelayMs != null
+              ? { delayMs: retryDelayForAttempt(nextRetryCount) }
+              : {}),
+            ...(retryBackoff != null ? { backoff: retryBackoff } : {}),
             error: err,
           });
 
@@ -714,6 +752,7 @@ export function createConsumer(params: {
 
     retryAttempts = opts?.retry?.attempts ?? 0;
     retryDelayMs = opts?.retry?.delayMs;
+    retryBackoff = opts?.retry?.backoff;
     retryThen = opts?.retry?.then ?? "dead-letter";
 
     if (onError === "retry" && retryAttempts <= 0) {
@@ -728,6 +767,23 @@ export function createConsumer(params: {
           "[broker] consume retry.delayMs must be a positive number when provided"
         );
       }
+    }
+
+    if (
+      onError === "retry" &&
+      retryBackoff != null &&
+      retryBackoff !== "fixed" &&
+      retryBackoff !== "exponential"
+    ) {
+      throw new Error(
+        "[broker] consume retry.backoff must be 'fixed' or 'exponential'"
+      );
+    }
+
+    if (onError === "retry" && retryBackoff != null && retryDelayMs == null) {
+      throw new Error(
+        "[broker] consume retry.backoff requires retry.delayMs to be set"
+      );
     }
 
     dedupe = resolveDedupe(opts);
@@ -827,6 +883,7 @@ export function createConsumer(params: {
               attempts: retryAttempts,
               then: retryThen,
               ...(retryDelayMs != null ? { delayMs: retryDelayMs } : {}),
+              ...(retryBackoff != null ? { backoff: retryBackoff } : {}),
             }
           : undefined,
     };

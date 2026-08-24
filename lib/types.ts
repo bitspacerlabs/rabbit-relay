@@ -25,6 +25,18 @@ export type ExchangeType = TopologyExchangeType;
 export type RetryThenAction = "ack" | "requeue" | "dead-letter";
 
 /**
+ * Delay strategy between retry attempts when `retry.delayMs` is set.
+ *
+ * - `"fixed"`: every attempt waits the same `delayMs` (default).
+ * - `"exponential"`: attempt n waits `delayMs * 2^(n-1)` — attempt 1 waits
+ *   `delayMs`, attempt 2 waits twice that, attempt 3 four times, and so on.
+ *
+ * Exponential backoff auto-declares one TTL parking exchange/queue pair per
+ * attempt, so the declared topology grows with `retry.attempts`.
+ */
+export type RetryBackoff = "fixed" | "exponential";
+
+/**
  * Consumer failure policy (`onError`).
  */
 export type ErrorAction = "ack" | "requeue" | "dead-letter" | "retry";
@@ -192,6 +204,14 @@ export interface RetryOptions {
    * If provided, Rabbit Relay uses RabbitMQ TTL + DLX delayed retry queues.
    */
   delayMs?: number;
+
+  /**
+   * Delay strategy between attempts. Default: "fixed".
+   *
+   * Requires `delayMs`. With "exponential", attempt n waits
+   * `delayMs * 2^(n-1)`.
+   */
+  backoff?: RetryBackoff;
 
   /**
    * What to do after retry attempts are exhausted.

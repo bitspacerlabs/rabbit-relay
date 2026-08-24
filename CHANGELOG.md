@@ -17,6 +17,12 @@ This project follows semantic versioning.
   Plain `await` on the exchange result is unchanged; all existing code
   keeps working. (#45)
 
+- `retry.backoff: "exponential"` for consumers: attempt n waits
+  `delayMs * 2^(n-1)` between retries, using one broker-native TTL
+  parking exchange/queue pair per attempt. `retry.delayMs` alone keeps
+  the existing single fixed-delay queue; immediate retry is unchanged.
+  `backoff` requires `delayMs`. (#46)
+
 ### Documentation
 
 - Documented that `deadLetter.routingKey` drives two things when
