@@ -1,0 +1,41 @@
+---
+title: Request / Reply
+description: Typed RPC over RabbitMQ with request<TReply>()
+icon: ArrowLeftRight
+---
+
+Use `request<TReply>()` for request/reply flows when an event is not enough
+and you need the answer now.
+
+```ts
+type ChargeReply = {
+  ok: boolean;
+  transactionId?: string;
+};
+
+const reply = await pub.request<ChargeReply>(
+  chargeCard({ orderId: "O-42", amountCents: 9900 }),
+  { timeoutMs: 5000 }
+);
+
+if (reply.ok) {
+  console.log("charged:", reply.transactionId);
+}
+```
+
+The reply type is checked at compile time; the timeout protects you from a
+dead responder. Under the hood this uses RabbitMQ's `replyTo` property and
+a dedicated callback queue — no polling, no extra services.
+
+<Callout title="Use RPC deliberately" type="warn">
+  RPC creates tighter service coupling than events. Prefer events whenever
+  the workflow does not need an immediate reply — see the Quickstart for the
+  publish/subscribe style.
+</Callout>
+
+## Next steps
+
+<Cards>
+  <Card title="Quickstart" description="Events first: the publish/subscribe model." href="/docs/quickstart" />
+  <Card title="Delivery Semantics" description="What RPC inherits from at-least-once delivery." href="/docs/delivery-semantics" />
+</Cards>

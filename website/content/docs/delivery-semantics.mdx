@@ -1,0 +1,77 @@
+---
+title: Delivery Semantics
+description: ACKs, crashes, duplicates, and how to build safe handlers
+icon: PackageCheck
+---
+
+RabbitMQ delivers messages with **at-least-once** guarantees. This page
+explains exactly what that means in Rabbit Relay — and how to build handlers
+that survive it.
+
+## When a message is acknowledged
+
+A message is ACKed only after the **handler and all middleware complete
+without throwing**:
+
+```ts
+sub.handle("orders.created", async (_id, event) => {
+  await processOrder(event.data); // if this throws → not ACKed
+});
+```
+
+If the handler throws, the `onError` policy fires — `"ack"`, `"requeue"`,
+`"dead-letter"`, or `"retry"`. A message is never silently dropped unless you
+opt into `onError: "ack"`.
+
+<Accordions type="multiple">
+  <Accordion title="Schema validation failure">
+    If the event has a registered schema and the payload fails validation,
+    **the handler is never called**. The `invalidMessage` policy decides:
+
+    - `"dead-letter"` (default) — quarantine, assume it's a bug
+    - `"requeue"` — dangerous, loops forever
+    - `"ack"` — discard silently
+    - custom async function — you own the decision
+  </Accordion>
+  <Accordion title="Parse failure (invalid JSON)">
+    The `onError` policy decides, same as handler errors — but the message is
+    never hydrated into an `EventEnvelope`.
+  </Accordion>
+  <Accordion title="Duplicate suppression">
+    With consumer dedupe enabled, already-seen messages are ACKed and skipped
+    within the TTL window. Best-effort optimization, not a correctness
+    mechanism.
+  </Accordion>
+  <Accordion title="Crash before ACK">
+    The channel dies un-ACKed → RabbitMQ requeues automatically. Your handler
+    runs again on redelivery. This is why handlers must be idempotent.
+  </Accordion>
+  <Accordion title="Crash during retry / shutdown">
+    Retry copies are published on the same channel as the original ACK; a crash
+    between publish and ACK re-delivers the original. Graceful shutdown waits
+    for in-flight handlers up to `shutdownTimeoutMs`, then closes cleanly.
+  </Accordion>
+</Accordions>
+
+## Design rule: idempotency
+
+<Callout title="At-least-once means duplicates will happen" type="warn">
+  Any handler that mutates state must tolerate being run twice for the same
+  event. Use the built-in consumer dedupe, an idempotency key store, or
+  naturally idempotent operations (upserts).
+</Callout>
+
+```ts
+await sub.consume({
+  prefetch: 20,
+  concurrency: 5,
+  dedupe: { ttlMs: 60_000 }, // memory dedupe keyed by event id
+});
+```
+
+## Next steps
+
+<Cards>
+  <Card title="Retry & DLQ" description="What happens when handlers fail." href="/docs/retry-dlq" />
+  <Card title="Configuration" description="Dedupe, prefetch, and topology options." href="/docs/configuration" />
+</Cards>

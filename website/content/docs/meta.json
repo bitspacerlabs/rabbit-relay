@@ -2,5 +2,17 @@
   "title": "Guide",
   "icon": "BookOpen",
   "defaultOpen": true,
-  "pages": ["index", "quickstart", "retry-dlq", "exponential-backoff"]
+  "pages": [
+    "index",
+    "---Start here---",
+    "quickstart",
+    "configuration",
+    "---Reliability---",
+    "delivery-semantics",
+    "retry-dlq",
+    "exponential-backoff",
+    "---Advanced---",
+    "rpc",
+    "topology-cli"
+  ]
 }

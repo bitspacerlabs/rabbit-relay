@@ -1,0 +1,175 @@
+---
+title: Configuration
+description: Broker defaults, exchange options, and topology ownership
+icon: Settings2
+---
+
+Rabbit Relay keeps configuration explicit and close to RabbitMQ concepts.
+You configure defaults on the broker, then override them per queue/exchange
+interface when needed.
+
+## RabbitMQ connection URL
+
+Rabbit Relay reads the connection URL from the `RABBITMQ_URL` environment
+variable:
+
+```bash
+RABBITMQ_URL=amqp://user:password@localhost:5672
+```
+
+Or override it per broker:
+
+```ts
+const broker = new RabbitMQBroker("orders-service", {
+  connectionUrl: "amqp://user:password@rabbitmq.internal:5672",
+  connectionName: "orders-service-primary",
+  shutdownTimeoutMs: 30_000,
+});
+```
+
+<TypeTable
+  type={{
+    connectionUrl: {
+      type: 'string',
+      default: '$RABBITMQ_URL',
+      description: 'RabbitMQ URL used by this broker.',
+    },
+    connectionName: {
+      type: 'string',
+      default: 'peer name',
+      description: 'Name visible in RabbitMQ connection tooling.',
+    },
+    shutdownTimeoutMs: {
+      type: 'number',
+      default: '30000',
+      description: 'Maximum time close() waits for active handlers.',
+    },
+    maxMessageBytes: {
+      type: 'number',
+      description: 'Fail fast when a serialized event exceeds this size.',
+    },
+    topologyMode: {
+      type: '"assert" | "passive" | "plan-only"',
+      default: '"assert"',
+      description: 'Who owns RabbitMQ topology declarations.',
+    },
+  }}
+/>
+
+Each broker owns its own connection; closing one broker never closes another
+broker's resources.
+
+## Common topology options
+
+Every `.exchange()` call accepts these overrides on top of broker defaults:
+
+<TypeTable
+  type={{
+    exchangeType: {
+      type: '"direct" | "fanout" | "topic" | "headers"',
+      default: '"topic"',
+      description: 'RabbitMQ exchange type.',
+    },
+    routingKey: {
+      type: 'string',
+      default: '"#"',
+      description: 'Binding routing key between queue and exchange.',
+    },
+    durable: {
+      type: 'boolean',
+      default: 'true',
+      description: 'Durable exchange/queue declaration.',
+    },
+    publisherConfirms: {
+      type: 'boolean',
+      default: 'false',
+      description: 'Publish on a confirm channel; produce() resolves only after broker ack.',
+    },
+    binding: {
+      type: 'boolean',
+      default: 'true',
+      description: 'Whether to bind the queue to the exchange during assertion.',
+    },
+    topologyMode: {
+      type: '"assert" | "passive" | "plan-only"',
+      default: 'broker default',
+      description: 'Per-interface override of topology ownership.',
+    },
+    queueArgs: {
+      type: 'Record<string, unknown>',
+      description: 'Raw RabbitMQ queue arguments (x-arguments).',
+    },
+    deadLetter: {
+      type: 'DeadLetterConfig',
+      description: 'Built-in DLQ helper — see Retry & DLQ guide.',
+    },
+    amqp: {
+      type: 'object',
+      description: 'Native amqplib escape hatch (assert options passthrough).',
+    },
+  }}
+/>
+
+## Topology ownership mode
+
+Decide **who owns RabbitMQ topology**:
+
+<Tabs items={['assert', 'passive', 'plan-only']}>
+  <Tab>
+
+```ts
+// App declares everything (default)
+const broker = new RabbitMQBroker("orders-service", {
+  topologyMode: "assert",
+});
+```
+
+  </Tab>
+  <Tab>
+
+```ts
+// Terraform/Helm/definitions own it — relay only checks existence
+const broker = new RabbitMQBroker("orders-service", {
+  topologyMode: "passive",
+});
+```
+
+  </Tab>
+  <Tab>
+
+```ts
+// CI/docs inspect the plan without touching the broker
+const broker = new RabbitMQBroker("orders-service", {
+  topologyMode: "plan-only",
+});
+```
+
+  </Tab>
+</Tabs>
+
+<Callout title="Infrastructure-managed deployments">
+  Prefer `topologyMode: "passive"` over the legacy `passiveQueue` flag.
+  `passiveQueue` remains supported but only controls main-queue declaration.
+</Callout>
+
+## Publisher confirms
+
+Disabled by default. Enable when the publisher must know that RabbitMQ
+accepted the message:
+
+```ts
+const pub = await broker
+  .queue("orders.q")
+  .exchange("orders.ex", { publisherConfirms: true });
+```
+
+## Message size guard
+
+```ts
+const broker = new RabbitMQBroker("orders-service", {
+  maxMessageBytes: 256 * 1024,
+});
+
+// override per publish
+await sub.publish(envelope, { maxMessageBytes: 64 * 1024 });
+```
