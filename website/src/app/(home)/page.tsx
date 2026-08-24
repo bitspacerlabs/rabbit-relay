@@ -140,7 +140,11 @@ export default function HomePage() {
           </div>
           <pre className="p-5 text-[13px] leading-relaxed overflow-x-auto">
             {codeLines.map((line, i) => (
-              <div key={i} className="whitespace-pre">
+              <div
+                key={i}
+                className="code-line whitespace-pre"
+                style={{ animationDelay: `${0.3 + i * 0.22}s` }}
+              >
                 {line.map((seg, j) => (
                   <span key={j} className={seg.c}>
                     {seg.t}
@@ -148,6 +152,12 @@ export default function HomePage() {
                 ))}
               </div>
             ))}
+            <div
+              className="code-line whitespace-pre"
+              style={{ animationDelay: `${0.3 + codeLines.length * 0.22}s` }}
+            >
+              <span className="code-cursor inline-block h-[14px] w-[7px] translate-y-[2px] bg-fd-primary" />
+            </div>
           </pre>
         </div>
       </section>
@@ -169,12 +179,28 @@ export default function HomePage() {
           ))}
         </div>
 
-        <div className="max-w-5xl mx-auto mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-fd-muted-foreground">
+        <div className="max-w-5xl mx-auto mt-12 grid grid-cols-2 sm:grid-cols-4 divide-x divide-fd-border rounded-xl border bg-fd-card overflow-hidden text-center">
+          {[
+            { k: 'v1.5.0', v: 'current release' },
+            { k: '1', v: 'runtime dependency' },
+            { k: 'MIT', v: 'license' },
+            { k: 'Node ≥ 18', v: 'supported' },
+          ].map((s) => (
+            <div key={s.k} className="px-4 py-4">
+              <div className="text-lg font-bold">{s.k}</div>
+              <div className="text-xs text-fd-muted-foreground mt-0.5">
+                {s.v}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="max-w-5xl mx-auto mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-fd-muted-foreground">
           <span className="inline-flex items-center gap-2">
             <ShieldCheck className="size-4 text-emerald-500" /> At-least-once delivery
           </span>
           <span className="inline-flex items-center gap-2">
-            <BookOpen className="size-4 text-fd-primary" /> One dependency: amqplib
+            <BookOpen className="size-4 text-fd-primary" /> Explicit topology, always
           </span>
           <a
             href="https://github.com/bitspacerlabs/rabbit-relay"
