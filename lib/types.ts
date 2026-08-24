@@ -289,6 +289,46 @@ export type ConsumeMiddleware = (
 ) => Promise<void>;
 
 /**
+ * A Promise of BrokerInterface that also forwards the common registration
+ * methods, so fluent chains need only one final `await`:
+ *
+ * ```ts
+ * const api = await broker.queue("jobs.q").exchange("jobs.x", cfg).with({ myEvent });
+ * api.handle("myEvent", async (_id, evt) => { ... });
+ * ```
+ *
+ * Plain `await` on the exchange result is unchanged and fully supported.
+ */
+export type AwaitableBrokerInterface<
+  TEvents extends Record<string, EventEnvelope>
+> = Promise<BrokerInterface<TEvents>> & {
+  with<U extends Record<string, (...args: any[]) => EventEnvelope>>(
+    events: U
+  ): Promise<
+    BrokerInterface<{ [K in keyof U]: ReturnType<U[K]> }> & {
+      [K in keyof U]: (...args: Parameters<U[K]>) => Promise<void | unknown>;
+    }
+  >;
+  handle<K extends keyof TEvents>(
+    eventName: K,
+    handler: (id: string | number, event: TEvents[K]) => Promise<unknown>
+  ): Promise<BrokerInterface<TEvents>>;
+  handle(
+    eventName: "*",
+    handler: (
+      id: string | number,
+      event: WildcardEvent<TEvents>
+    ) => Promise<unknown>
+  ): Promise<BrokerInterface<TEvents>>;
+  use(middleware: ConsumeMiddleware): Promise<BrokerInterface<TEvents>>;
+  on<K extends LifecycleEventName>(
+    eventName: K,
+    handler: LifecycleHandler<K>
+  ): Promise<BrokerInterface<TEvents>>;
+  consume(opts?: ConsumeOptions): Promise<{ stop(): Promise<void> }>;
+};
+
+/**
  * Union of every event envelope in `TEvents`, each intersected with its
  * map key as a literal `name`. This makes wildcard handlers
  * (`handle("*", ...)`) narrow per event via `switch (event.name)`.

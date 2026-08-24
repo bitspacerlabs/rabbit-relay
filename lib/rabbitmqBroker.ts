@@ -13,6 +13,7 @@ import {
   ConsumeMiddleware,
   ErrorAction,
   RetryThenAction,
+  AwaitableBrokerInterface,
 } from "./types.js";
 import { ReconnectController } from "./reconnect.js";
 import {
@@ -44,6 +45,27 @@ import {
   DlqRedriveResult,
   redriveDlq,
 } from "./dlqRedrive.js";
+
+function asAwaitableBroker<TEvents extends Record<string, EventEnvelope>>(
+  promise: Promise<BrokerInterface<TEvents>>
+): AwaitableBrokerInterface<TEvents> {
+  const forwarded = {
+    with: (events: Parameters<BrokerInterface<TEvents>["with"]>[0]) =>
+      promise.then((api) => api.with(events as never)),
+    handle: (eventName: never, handler: never) =>
+      promise.then((api) => (api.handle as any)(eventName, handler)),
+    use: (middleware: ConsumeMiddleware) => promise.then((api) => api.use(middleware)),
+    on: (eventName: never, handler: never) =>
+      promise.then((api) => (api.on as any)(eventName, handler)),
+    consume: (opts?: ConsumeOptions) => promise.then((api) => api.consume(opts)),
+  };
+  return Object.assign(forwarded, {
+    then: promise.then.bind(promise),
+    catch: promise.catch.bind(promise),
+    finally: promise.finally.bind(promise),
+    [Symbol.toStringTag]: "Promise",
+  }) as AwaitableBrokerInterface<TEvents>;
+}
 
 type RegisteredConsumer = {
   queueName: string;
@@ -276,11 +298,17 @@ export class RabbitMQBroker {
 
   public queue(queueName: string, queueConfig: QueueConfig = {}) {
     return {
-      exchange: async <TEvents extends Record<string, EventEnvelope>>(
+      exchange: <TEvents extends Record<string, EventEnvelope>>(
         exchangeName: string,
         exchangeConfig: ExchangeConfig = {}
-      ): Promise<BrokerInterface<TEvents>> => {
-        return this.exchange<TEvents>(exchangeName, queueName, queueConfig, exchangeConfig);
+      ): AwaitableBrokerInterface<TEvents> => {
+        const promise = this.exchange<TEvents>(
+          exchangeName,
+          queueName,
+          queueConfig,
+          exchangeConfig
+        );
+        return asAwaitableBroker(promise);
       },
     };
   }

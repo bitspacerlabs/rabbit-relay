@@ -119,6 +119,27 @@ sub.handle("orders.created", async (_id, ev) => {
 });
 ```
 
+`.queue().exchange()` returns a thenable that also forwards `with`,
+`handle`, `use`, `on`, and `consume`, so a fluent chain needs one final
+`await`:
+
+```ts
+const api = await broker
+  .queue("orders.q")
+  .exchange<{ "orders.created": EventEnvelope<OrderCreated> }>("orders.ex", {
+    exchangeType: "topic",
+    routingKey: "orders.*",
+  })
+  .with({ orderCreated });
+
+api.handle("orderCreated", async (_id, ev) => {
+  console.log(ev.data.orderId);
+});
+await api.consume({ prefetch: 20 });
+```
+
+Plain `await` on the exchange result is unchanged and fully supported.
+
 Wildcard handlers receive a discriminated union keyed by the map keys, so
 `switch (ev.name)` narrows without casts:
 
