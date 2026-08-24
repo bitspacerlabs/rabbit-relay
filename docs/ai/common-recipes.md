@@ -189,13 +189,14 @@ await sub.consume({
   retry: {
     attempts: 3,
     delayMs: 5000, // [!code focus]
+    backoff: "exponential", // optional: attempt n waits delayMs * 2^(n-1)
     then: "dead-letter",
   },
 });
 ```
 
 ::: warning Retry topology
-Delayed retry uses RabbitMQ TTL + DLX retry queues. In `topologyMode: "passive"`, infrastructure must create those retry resources ahead of time.
+Delayed retry uses RabbitMQ TTL + DLX retry queues. In `topologyMode: "passive"`, infrastructure must create those retry resources ahead of time. With `backoff: "exponential"`, one parking exchange/queue pair per attempt must exist.
 :::
 
 ---
