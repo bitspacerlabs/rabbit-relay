@@ -89,6 +89,25 @@ function argValue(args, name) {
   return idx !== -1 ? args[idx + 1] : undefined;
 }
 
+const DLQ_FLAGS_WITH_VALUE = new Set(["--url", "--limit", "--routing-key"]);
+const DLQ_FLAGS = new Set([...DLQ_FLAGS_WITH_VALUE, "--dry-run"]);
+
+function dlqPositionals(args) {
+  const out = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (!a.startsWith("--")) {
+      out.push(a);
+      continue;
+    }
+    if (!DLQ_FLAGS.has(a)) error(`Unknown option: '${a}'`);
+    if (DLQ_FLAGS_WITH_VALUE.has(a) && argValue(args, a) === undefined)
+      error(`Option '${a}' requires a value`);
+    if (DLQ_FLAGS_WITH_VALUE.has(a)) i++;
+  }
+  return out;
+}
+
 function formatHeaderValue(v) {
   if (v === null || v === undefined) return String(v);
   if (Buffer.isBuffer(v)) return v.toString("utf8");
@@ -393,7 +412,9 @@ async function cmdDlqPeek(queue, limit, amqpUrl) {
 
   if (info.messageCount === 0) {
     console.log(`Queue '${queue}' is empty.`);
-    await ch.close();
+    try {
+      await ch.close();
+    } catch {}
     await conn.close();
     return;
   }
@@ -401,32 +422,11 @@ async function cmdDlqPeek(queue, limit, amqpUrl) {
   const count = Math.min(limit, info.messageCount);
   const messages = [];
 
-  const { consumerTag } = await ch.consume(
-    queue,
-    (msg) => {
-      if (!msg || messages.length >= count) return;
-      messages.push(msg);
-      if (messages.length >= count) {
-        ch.cancel(consumerTag).catch(() => {});
-      }
-    },
-    { noAck: false }
-  );
-
-  // Wait until we have enough messages or the consumer is cancelled
-  await new Promise((resolve) => {
-    const id = setInterval(() => {
-      if (messages.length >= count) {
-        clearInterval(id);
-        resolve();
-      }
-    }, 50);
-    // safety timeout
-    setTimeout(() => {
-      clearInterval(id);
-      resolve();
-    }, 5000);
-  });
+  for (let i = 0; i < count; i++) {
+    const msg = await ch.get(queue, { noAck: false });
+    if (!msg) break;
+    messages.push(msg);
+  }
 
   console.log(
     `Queue: ${queue} (${info.messageCount} available, showing ${messages.length})`
@@ -463,7 +463,9 @@ async function cmdDlqPeek(queue, limit, amqpUrl) {
     console.log("");
   }
 
-  await ch.close();
+  try {
+    await ch.close();
+  } catch {}
   await conn.close();
 }
 
@@ -567,16 +569,17 @@ async function main() {
     }
 
     const url = argValue(args, "--url");
+    const pos = dlqPositionals(args).slice(2);
 
     if (sub === "inspect") {
-      const queue = args[2];
+      const queue = pos[0];
       if (!queue) error("dlq inspect requires a queue name");
       await cmdDlqInspect(queue, url);
       return;
     }
 
     if (sub === "peek") {
-      const queue = args[2];
+      const queue = pos[0];
       if (!queue) error("dlq peek requires a queue name");
       const limit = parseInt(argValue(args, "--limit") || "1", 10);
       if (!Number.isFinite(limit) || limit < 1)
@@ -586,8 +589,8 @@ async function main() {
     }
 
     if (sub === "redrive") {
-      const fromQueue = args[2];
-      const toExchange = args[3];
+      const fromQueue = pos[0];
+      const toExchange = pos[1];
       if (!fromQueue || !toExchange)
         error("dlq redrive requires <from-queue> <to-exchange>");
       const limit = parseInt(argValue(args, "--limit") || "100", 10);
