@@ -265,6 +265,8 @@ const sub = await broker
 
 When `autoDeclare: true`, Rabbit Relay includes DLQ topology in assertion and planning behavior.
 
+`deadLetter.routingKey` sets `x-dead-letter-routing-key` on the source queue and, when `autoDeclare` is on, is also used as the DLQ→DLX binding key. Omitting it preserves original routing keys and binds the DLQ to `"#"`.
+
 With `topologyMode: "passive"`, Rabbit Relay checks the configured DLX/DLQ exist instead of declaring them.
 
 With `topologyMode: "plan-only"`, Rabbit Relay records them in the topology plan without setup calls.

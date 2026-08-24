@@ -261,6 +261,12 @@ const sub = await broker
 
 For infrastructure-owned topology, mention `topologyMode: "passive"` and pre-created DLX/DLQ.
 
+`deadLetter.routingKey` drives two things: it sets `x-dead-letter-routing-key`
+on the source queue, and with `autoDeclare: true` it is also the DLQ→DLX
+binding key. Omitted means original routing keys are preserved and the DLQ
+binding defaults to `"#"`. Never change one side without the other —
+mismatched keys silently drop dead-lettered messages.
+
 ---
 
 ## Delayed retry

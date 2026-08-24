@@ -55,8 +55,14 @@ export interface DeadLetterConfig {
   queue?: string;
 
   /**
-   * Routing key used when RabbitMQ dead-letters the message.
-   * If omitted, RabbitMQ uses the original routing key.
+   * Routing key applied when a message is dead-lettered.
+   *
+   * Sets `x-dead-letter-routing-key` on the source queue. When
+   * `autoDeclare` is true, this same key is also used for the
+   * auto-declared DLQ→DLX binding, so both sides always agree.
+   *
+   * If omitted, RabbitMQ preserves the original message routing key and
+   * the DLQ binding defaults to `"#"`.
    */
   routingKey?: string;
 
