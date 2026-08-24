@@ -50,6 +50,7 @@ export type LifecycleEventMap = {
     retryCount: number;
     attempts: number;
     delayMs?: number;
+    backoff?: "fixed" | "exponential";
     error: unknown;
   };
 

@@ -258,6 +258,11 @@ Delayed retry follows `topologyMode`:
 | `"passive"` | Check retry exchange and retry queue exist |
 | `"plan-only"` | Skip retry topology setup |
 
+With `retry.backoff: "exponential"`, one parking exchange/queue pair is
+declared per attempt (`<queue>.retry.aN.exchange` /
+`<queue>.retry.aN.<ttl>.queue`), each with its own TTL. In `"passive"`
+mode every attempt pair must already exist.
+
 ---
 
 ## RPC request
