@@ -1,0 +1,181 @@
+---
+title: Quickstart
+description: Publish and consume your first typed event with Rabbit Relay
+---
+
+This guide walks you through publishing and consuming your first typed event
+using Rabbit Relay.
+
+<Callout title="What you will build">
+  A small publisher creates a typed event and a consumer handles it from RabbitMQ.
+</Callout>
+
+## Install
+
+```bash
+npm install @bitspacerlabs/rabbit-relay
+```
+
+## Define an event contract
+
+```ts title="events.ts"
+export const SchedulerEvents = {
+  ScheduleTask: "scheduler.scheduleTask",
+} as const;
+
+export type ScheduleTaskData = {
+  id: string;
+  when: number;
+};
+```
+
+## Publish and consume
+
+<Tabs items={["publisher.ts", "consumer.ts"]}>
+  <Tab value="publisher.ts">
+
+```ts
+import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
+import { SchedulerEvents, type ScheduleTaskData } from "./events";
+
+const broker = new RabbitMQBroker("scheduler_service");
+
+const pub = await broker
+  .queue("scheduler_publish_queue")
+  .exchange("scheduler_exchange", {
+    exchangeType: "topic",
+    publisherConfirms: true,
+  });
+
+const scheduleTask = event(
+  SchedulerEvents.ScheduleTask,
+  "v1"
+).of<ScheduleTaskData>();
+
+await pub.produce(
+  scheduleTask({
+    id: "task-1",
+    when: Date.now() + 5000,
+  })
+);
+
+await broker.close();
+```
+
+  </Tab>
+  <Tab value="consumer.ts">
+
+```ts
+import {
+  RabbitMQBroker,
+  type EventEnvelope,
+} from "@bitspacerlabs/rabbit-relay";
+import { SchedulerEvents, type ScheduleTaskData } from "./events";
+
+const broker = new RabbitMQBroker("scheduler_worker");
+
+const sub = await broker
+  .queue("scheduler_worker_queue")
+  .exchange<{
+    [SchedulerEvents.ScheduleTask]: EventEnvelope<ScheduleTaskData>;
+  }>("scheduler_exchange", {
+    exchangeType: "topic",
+    routingKey: "scheduler.*",
+  });
+
+sub.handle(SchedulerEvents.ScheduleTask, async (_id, ev) => {
+  console.log("Task received:", ev.data);
+});
+
+await sub.consume({
+  prefetch: 10,
+  concurrency: 5,
+});
+```
+
+  </Tab>
+</Tabs>
+
+## Publish with the `with()` API
+
+`with()` converts event factories into a small typed publish API. Calling a
+generated method creates the event and publishes it, so it returns a Promise
+and should be awaited.
+
+```ts
+const api = pub.with({ scheduleTask });
+
+await api.scheduleTask({
+  id: "task-2",
+  when: Date.now() + 10_000,
+});
+```
+
+<Callout title="Recommended style" type="info">
+  Use `with()` when a service owns a group of events and publishes them often.
+  Use `produce()` or `publish()` directly for one-off publishing.
+</Callout>
+
+The object returned by `.queue().exchange()` is a thenable that also forwards
+the common registration methods (`with`, `handle`, `use`, `on`, `consume`), so
+fluent chains need only one final `await`:
+
+```ts
+const api = await broker
+  .queue("scheduler_publish_queue")
+  .exchange("scheduler_exchange", {
+    exchangeType: "topic",
+    publisherConfirms: true,
+  })
+  .with({ scheduleTask });
+
+await api.scheduleTask({
+  id: "task-3",
+  when: Date.now() + 60_000,
+});
+```
+
+Plain `await` on the exchange result is unchanged and fully supported.
+
+## Add retries and DLQ
+
+For production consumers, prefer bounded retries with a dead-letter queue.
+
+```ts
+const sub = await broker
+  .queue("scheduler_worker_queue")
+  .exchange<{
+    [SchedulerEvents.ScheduleTask]: EventEnvelope<ScheduleTaskData>;
+  }>("scheduler_exchange", {
+    exchangeType: "topic",
+    routingKey: "scheduler.*",
+    deadLetter: {
+      exchange: "scheduler.dlx",
+      queue: "scheduler.dlq",
+      routingKey: "scheduler.dead",
+      autoDeclare: true,
+    },
+  });
+
+await sub.consume({
+  prefetch: 10,
+  concurrency: 5,
+  onError: "retry",
+  retry: {
+    attempts: 3,
+    delayMs: 5000,
+    backoff: "exponential",
+    then: "dead-letter",
+  },
+});
+```
+
+<Callout title="Queue arguments are immutable" type="warn">
+  RabbitMQ does not allow changing queue arguments after a queue already exists.
+  If you change DLQ settings, retry delay, or queue type in local development,
+  recreate the queue or reset the local RabbitMQ volume.
+</Callout>
+
+`delayMs` uses RabbitMQ TTL + DLX delayed retry queues. If you omit `delayMs`,
+retry remains immediate. Add `backoff: "exponential"` to double the wait on
+every attempt.

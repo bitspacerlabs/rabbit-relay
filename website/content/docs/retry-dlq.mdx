@@ -1,0 +1,102 @@
+---
+title: Retry & Dead-Letter Queues
+description: Bounded retries, delayed retry, and poison-pill handling
+---
+
+For production consumers, prefer **bounded retries with a dead-letter queue**.
+Rabbit Relay keeps every part of that pipeline explicit and broker-native.
+
+<Steps>
+  <Step title="Configure the dead-letter topology">
+    The `deadLetter` helper wires DLX, DLQ, binding, and queue arguments in one place.
+
+    ```ts
+    const sub = await broker
+      .queue("orders.q")
+      .exchange("orders.ex", {
+        exchangeType: "topic",
+        routingKey: "orders.*",
+        deadLetter: {
+          exchange: "orders.dlx",
+          queue: "orders.dlq",
+          routingKey: "orders.dead",
+          autoDeclare: true,
+        },
+      });
+    ```
+
+    <Callout title="One key, two places" type="warn">
+      `deadLetter.routingKey` sets `x-dead-letter-routing-key` on the source
+      queue **and** — with `autoDeclare: true` — is used for the auto-declared
+      DLQ→DLX binding. Omitting it preserves original routing keys and binds
+      the DLQ to `"#"`. Never change one side without the other, or
+      dead-lettered messages are silently dropped.
+    </Callout>
+  </Step>
+
+  <Step title="Enable bounded retries">
+    ```ts
+    await sub.consume({
+      prefetch: 10,
+      concurrency: 5,
+      onError: "retry",
+      retry: {
+        attempts: 3,
+        delayMs: 5000,
+        backoff: "exponential",
+        then: "dead-letter",
+      },
+    });
+    ```
+
+    - Immediate retry (no `delayMs`): re-delivers right away — good for deterministic in-process failures.
+    - Fixed delay (`delayMs`): parks the message in a broker-native TTL queue.
+    - Exponential backoff (`backoff: "exponential"`): attempt n waits `delayMs * 2^(n-1)` — good for transient outages like downstream 429/503 or DB locks.
+  </Step>
+
+  <Step title="Consume the DLQ">
+    Dead-lettered messages arrive as regular events on the DLQ consumer:
+
+    ```ts
+    const dlq = await broker
+      .queue("orders.dlq")
+      .exchange<{ orderCreated: EventEnvelope<OrderCreated> }>("orders.dlx", {
+        exchangeType: "topic",
+        routingKey: "orders.dead",
+        topologyMode: "passive",
+      });
+
+    dlq.handle("*", async (_id, ev) => {
+      // inspect ev.meta.headers for x-rabbit-relay-retry-count,
+      // x-rabbit-relay-last-error, first/last failed timestamps
+    });
+    ```
+  </Step>
+</Steps>
+
+## Retry headers
+
+Every retry copy carries observability headers:
+
+| Header | Meaning |
+|---|---|
+| `x-rabbit-relay-retry-count` | Attempt number (1-based) |
+| `x-rabbit-relay-delay-ms` | Actual wait scheduled before this attempt |
+| `x-rabbit-relay-first-failed-at` | ISO timestamp of the first failure |
+| `x-rabbit-relay-last-failed-at` | ISO timestamp of the latest failure |
+| `x-rabbit-relay-last-error` | Last error message (truncated to 500 chars) |
+
+## What happens on exhaustion
+
+After `attempts` retries, the final action runs:
+
+| `retry.then` | Behavior |
+|---|---|
+| `"dead-letter"` (default) | Message goes to the DLQ via `nack(requeue=false)` |
+| `"requeue"` | Message returns to the queue — use with care, can loop |
+| `"ack"` | Message is acknowledged and dropped, with a `message.dropped` lifecycle event |
+
+<Cards>
+  <Card title="Exponential Backoff deep dive" description="Topology, timing math, and a runnable example." href="/docs/exponential-backoff" />
+  <Card title="CLI: inspect & redrive your DLQ" description="rabbit-relay dlq peek / redrive — flags-first syntax." href="https://github.com/bitspacerlabs/rabbit-relay#cli" />
+</Cards>

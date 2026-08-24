@@ -1,0 +1,70 @@
+---
+title: Exponential Backoff
+description: Broker-native doubling waits between consumer retries
+---
+
+Immediate retries only help with deterministic in-process failures. For
+**transient failures** — a network blip, a downstream 429/503, a DB lock —
+the failure condition hasn't changed a millisecond later. Exponential backoff
+gives the dependency room to recover.
+
+## Configuration
+
+```ts
+await sub.consume({
+  onError: "retry",
+  retry: {
+    attempts: 3,
+    delayMs: 500,
+    backoff: "exponential",
+    then: "dead-letter",
+  },
+});
+```
+
+Attempt *n* waits `delayMs * 2^(n-1)`:
+
+| Attempt | Wait |
+|---|---|
+| 1 → 2 | `delayMs` (500ms) |
+| 2 → 3 | `delayMs × 2` (1000ms) |
+| 3 → 4 | `delayMs × 4` (2000ms) |
+
+Omit `backoff` (or use `"fixed"`) to keep every wait at exactly `delayMs`.
+Immediate retry stays available by omitting `delayMs` entirely.
+
+## How it works under the hood
+
+No `setTimeout`, nothing held in Node.js memory. Rabbit Relay declares **one
+TTL parking exchange/queue pair per attempt**, each with its own TTL:
+
+```text
+jobs.q.retry.a1.exchange / jobs.q.retry.a1.500.queue    (TTL 500)
+jobs.q.retry.a2.exchange / jobs.q.retry.a2.1000.queue   (TTL 1000)
+jobs.q.retry.a3.exchange / jobs.q.retry.a3.2000.queue   (TTL 2000)
+```
+
+A failed message is republished to the parking exchange for its next attempt;
+when the TTL expires, RabbitMQ dead-letters it back to the original exchange.
+The business routing key survives the whole round trip.
+
+<Callout title="Topology grows with attempts" type="info">
+  Exponential backoff declares `attempts` parking pairs instead of one, so
+  every delay is broker-native and visible in the RabbitMQ management UI.
+  In `topologyMode: "passive"`, all attempt pairs must already exist.
+</Callout>
+
+## Validation
+
+Misconfiguration fails loudly at `consume()` time:
+
+```text
+[broker] consume retry.backoff requires retry.delayMs to be set
+[broker] consume retry.backoff must be 'fixed' or 'exponential'
+```
+
+## Runnable example
+
+See [`examples/18-exponential-backoff`](https://github.com/bitspacerlabs/rabbit-relay/tree/main/examples/18-exponential-backoff)
+in the repository — a self-contained consumer that prints the observed
+delivery timings so you can watch the doubling waits happen live.

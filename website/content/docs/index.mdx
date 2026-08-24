@@ -1,0 +1,46 @@
+---
+title: Rabbit Relay
+description: A stable, type-safe RabbitMQ framework for Node.js
+---
+
+Rabbit Relay builds on `amqplib` and deliberately keeps exchanges, queues,
+bindings, routing keys, acknowledgements, retries, dead-letter queues, and
+confirms **explicit**. No implicit magic.
+
+```ts
+import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
+
+const broker = new RabbitMQBroker("orders_service");
+
+const api = await broker
+  .queue("orders.q")
+  .exchange<{ orderCreated: EventEnvelope<OrderCreated> }>("orders.ex", {
+    exchangeType: "topic",
+    routingKey: "orders.*",
+    publisherConfirms: true,
+  })
+  .with({ orderCreated });
+
+api.handle("orderCreated", async (_id, ev) => {
+  await fulfill(ev.data);
+});
+
+await api.consume({ prefetch: 20 });
+```
+
+## Why Rabbit Relay?
+
+- **Type-safe event contracts** — event factories and typed envelopes, with wildcard handlers that narrow via discriminated unions.
+- **Reliability by default** — bounded retries with fixed or exponential backoff, DLQs, publisher confirms.
+- **Explicit topology** — exchanges, queues and bindings are visible in code, plans, and the CLI diff tool.
+- **At-least-once delivery** — idempotency helpers included; delivery semantics are never hidden.
+
+<Cards>
+  <Card title="Quickstart" description="Publish your first type-safe event in minutes." href="/docs/quickstart" />
+  <Card title="Retry & Dead-Letter Queues" description="Bounded retries, backoff strategies, and poison-pill handling." href="/docs/retry-dlq" />
+  <Card title="Exponential Backoff" description="Broker-native doubling waits for transient outages." href="/docs/exponential-backoff" />
+</Cards>
+
+::: note
+Delivery is **at-least-once**: consumers should be idempotent. The framework gives you the tools; it never hides the broker.
+:::
