@@ -179,3 +179,10 @@ await sub.consume({
 `delayMs` uses RabbitMQ TTL + DLX delayed retry queues. If you omit `delayMs`,
 retry remains immediate. Add `backoff: "exponential"` to double the wait on
 every attempt.
+
+## Next steps
+
+<Cards>
+  <Card title="Retry & DLQ" description="Make your consumers production-grade." href="/docs/retry-dlq" />
+  <Card title="Exponential Backoff" description="Doubling waits for transient outages." href="/docs/exponential-backoff" />
+</Cards>
