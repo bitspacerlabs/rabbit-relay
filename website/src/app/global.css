@@ -2,6 +2,18 @@
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 
+:root {
+  --color-fd-primary: hsl(24 94% 46%);
+  --color-fd-primary-foreground: hsl(0 0% 100%);
+  --color-fd-accent: hsl(24 94% 95%);
+}
+
+.dark {
+  --color-fd-primary: hsl(27 96% 62%);
+  --color-fd-primary-foreground: hsl(24 90% 8%);
+  --color-fd-accent: hsl(24 30% 14%);
+}
+
 html {
   scrollbar-gutter: stable;
 }
@@ -9,4 +21,11 @@ html {
 html > body[data-scroll-locked] {
   margin-right: 0px !important;
   --removed-body-scroll-bar-size: 0px !important;
+}
+
+pre,
+code,
+kbd {
+  font-family: var(--font-code), ui-monospace, SFMono-Regular, Menlo,
+    monospace;
 }
