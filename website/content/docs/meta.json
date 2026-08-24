@@ -1,4 +1,6 @@
 {
   "title": "Guide",
+  "icon": "BookOpen",
+  "defaultOpen": true,
   "pages": ["index", "quickstart", "retry-dlq", "exponential-backoff"]
 }
