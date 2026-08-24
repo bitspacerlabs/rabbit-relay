@@ -89,6 +89,13 @@ function argValue(args, name) {
   return idx !== -1 ? args[idx + 1] : undefined;
 }
 
+function formatHeaderValue(v) {
+  if (v === null || v === undefined) return String(v);
+  if (Buffer.isBuffer(v)) return v.toString("utf8");
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
+}
+
 function formatMessage(msg) {
   const fields = {
     deliveryTag: msg.fields.deliveryTag,
@@ -447,7 +454,7 @@ async function cmdDlqPeek(queue, limit, amqpUrl) {
     if (formatted.headers && Object.keys(formatted.headers).length > 0) {
       console.log("Headers:");
       for (const [hk, hv] of Object.entries(formatted.headers)) {
-        console.log(`  ${hk}: ${hv}`);
+        console.log(`  ${hk}: ${formatHeaderValue(hv)}`);
       }
     }
 
