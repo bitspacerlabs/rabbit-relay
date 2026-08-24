@@ -1,6 +1,6 @@
 {
   "name": "@bitspacerlabs/rabbit-relay",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Type-safe RabbitMQ framework for Node.js with reliable publishing, retries, DLQs, RPC, and explicit topology",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",
