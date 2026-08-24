@@ -6,6 +6,19 @@ This project follows semantic versioning.
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- `broker.queue(...).exchange(...)` now returns a thenable that also
+  forwards `with()`, `handle()`, `use()`, `on()`, and `consume()`, so
+  fluent chains need only one final `await`:
+  `const api = await broker.queue("q").exchange("x", cfg).with({ myEvent });`.
+  Plain `await` on the exchange result is unchanged; all existing code
+  keeps working. (#45)
+
+---
+
 ## [1.4.0] - 2026-08-23
 
 ### Added

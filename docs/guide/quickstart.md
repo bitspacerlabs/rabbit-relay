@@ -113,6 +113,27 @@ Use `with()` when a service owns a group of events and publishes them often.
 Use `produce()` or `publish()` directly for one-off publishing.
 :::
 
+The object returned by `.queue().exchange()` is a thenable that also
+forwards the common registration methods (`with`, `handle`, `use`, `on`,
+`consume`), so fluent chains need only one final `await`:
+
+```ts
+const api = await broker
+  .queue("scheduler_publish_queue")
+  .exchange("scheduler_exchange", {
+    exchangeType: "topic",
+    publisherConfirms: true,
+  })
+  .with({ scheduleTask });
+
+await api.scheduleTask({
+  id: "task-3",
+  when: Date.now() + 60_000,
+});
+```
+
+Plain `await` on the exchange result is unchanged and fully supported.
+
 ---
 
 ## Add retries and DLQ
