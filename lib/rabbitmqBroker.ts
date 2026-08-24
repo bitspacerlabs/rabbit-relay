@@ -12,6 +12,7 @@ import {
   BrokerHealth,
   ConsumeMiddleware,
   ErrorAction,
+  RetryBackoff,
   RetryThenAction,
   AwaitableBrokerInterface,
 } from "./types.js";
@@ -80,6 +81,7 @@ type RegisteredConsumer = {
       attempts: number;
       then: RetryThenAction;
       delayMs?: number;
+      backoff?: RetryBackoff;
     };
   };
 };

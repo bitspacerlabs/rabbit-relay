@@ -286,6 +286,23 @@ await sub.consume({
 
 Explain that Rabbit Relay uses RabbitMQ TTL + DLX retry queues.
 
+For growing transient outages, add `backoff: "exponential"` so attempt n
+waits `delayMs * 2^(n-1)`. This declares one TTL parking exchange/queue
+pair per attempt (topology grows with `retry.attempts`). `backoff`
+requires `delayMs`; omitting `backoff` keeps every wait at `delayMs`.
+
+```ts
+await sub.consume({
+  onError: "retry",
+  retry: {
+    attempts: 3,
+    delayMs: 5000,
+    backoff: "exponential",
+    then: "dead-letter",
+  },
+});
+```
+
 Do not suggest `setTimeout()` for retrying messages.
 
 ---
