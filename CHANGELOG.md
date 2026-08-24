@@ -17,6 +17,14 @@ This project follows semantic versioning.
   Plain `await` on the exchange result is unchanged; all existing code
   keeps working. (#45)
 
+### Documentation
+
+- Documented that `deadLetter.routingKey` drives two things when
+  `autoDeclare: true`: the `x-dead-letter-routing-key` queue argument and
+  the auto-declared DLQ→DLX binding key. Omitting it preserves original
+  routing keys and binds the DLQ to `"#"`. Includes a warning against
+  changing one side without the other. (#47)
+
 ---
 
 ## [1.4.0] - 2026-08-23

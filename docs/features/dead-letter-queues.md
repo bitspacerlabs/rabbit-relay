@@ -43,6 +43,15 @@ When `autoDeclare: true`, Rabbit Relay declares:
 - the binding from DLQ to DLX
 - the main queue dead-letter arguments
 
+`deadLetter.routingKey` drives **two things at once**:
+
+1. It is set as `x-dead-letter-routing-key` on the source queue, so every dead-lettered message is republished to the DLX with this key.
+2. The auto-declared DLQ→DLX binding uses the same key.
+
+The two sides always agree when both come from relay. If you change one of them outside relay (for example re-binding the DLQ yourself), dead-lettered messages can be silently dropped — published to the DLX with a key nothing listens for. If you manage bindings externally, keep `autoDeclare: false` and mirror the key on your own binding.
+
+If `routingKey` is omitted, RabbitMQ preserves each message's original routing key and relay binds the DLQ to `"#"` so all keys are caught.
+
 ```ts
 deadLetter: {
   exchange: "orders.dlx",
@@ -66,6 +75,8 @@ deadLetter: {
 ```
 
 Rabbit Relay will configure the main queue with DLQ arguments, but it will not create the DLX/DLQ.
+
+Since relay also does not create the DLQ→DLX binding in this mode, your own binding must use the same key as `deadLetter.routingKey` (or `"#"` to catch all keys).
 
 ---
 
