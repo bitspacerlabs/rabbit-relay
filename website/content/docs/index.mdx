@@ -50,7 +50,20 @@ await api.consume({ prefetch: 20 });
 
 Rabbit Relay ships its documentation for machines as well as humans:
 
-<Cards>
-  <Card title="llms.txt" description="Curated index of every docs page for coding agents." href="/llms.txt" />
-  <Card title="Full markdown docs" description="Every page as clean markdown at /llms-full.txt." href="/llms-full.txt" />
-</Cards>
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <a href="/llms.txt" className="group relative flex flex-col gap-3 rounded-xl border border-fd-border bg-fd-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-fd-primary/40">
+    <span className="text-fd-primary text-lg">📄</span>
+    <h3 className="font-semibold">llms.txt</h3>
+    <p className="text-sm text-fd-muted-foreground leading-relaxed">Curated index of every docs page, optimized for LLM context windows.</p>
+  </a>
+  <a href="/llms-full.txt" className="group relative flex flex-col gap-3 rounded-xl border border-fd-border bg-fd-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-fd-primary/40">
+    <span className="text-fd-primary text-lg">📚</span>
+    <h3 className="font-semibold">llms-full.txt</h3>
+    <p className="text-sm text-fd-muted-foreground leading-relaxed">All docs as clean markdown in one file. Perfect for retrieval-augmented generation.</p>
+  </a>
+  <a href="/docs/api/rabbitmq-broker" className="group relative flex flex-col gap-3 rounded-xl border border-fd-border bg-fd-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-fd-primary/40">
+    <span className="text-fd-primary text-lg">📦</span>
+    <h3 className="font-semibold">TypeScript types</h3>
+    <p className="text-sm text-fd-muted-foreground leading-relaxed">Full type definitions shipped in the npm package. Agents can import and reason about types.</p>
+  </a>
+</div>
