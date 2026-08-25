@@ -8,15 +8,19 @@
     }
   </style>
   <g class="logo">
-    <!-- Left ear -->
-    <path d="M30 45 Q25 10 35 5 Q45 0 40 45 Z"/>
-    <!-- Right ear -->
-    <path d="M70 45 Q75 10 65 5 Q55 0 60 45 Z"/>
+    <!-- Body -->
+    <ellipse cx="55" cy="70" rx="25" ry="18"/>
     <!-- Head -->
-    <ellipse cx="50" cy="60" rx="28" ry="25"/>
-    <!-- Inner ear left -->
-    <path d="M32 43 Q28 15 35 10 Q42 5 39 43 Z" opacity="0.3"/>
-    <!-- Inner ear right -->
-    <path d="M68 43 Q72 15 65 10 Q58 5 61 43 Z" opacity="0.3"/>
+    <circle cx="35" cy="45" r="18"/>
+    <!-- Left ear -->
+    <ellipse cx="25" cy="18" rx="6" ry="18" transform="rotate(-15 25 18)"/>
+    <!-- Right ear -->
+    <ellipse cx="40" cy="15" rx="6" ry="18" transform="rotate(5 40 15)"/>
+    <!-- Eye -->
+    <circle cx="28" cy="42" r="3"/>
+    <!-- Nose -->
+    <circle cx="18" cy="48" r="2"/>
+    <!-- Tail -->
+    <circle cx="80" cy="65" r="6"/>
   </g>
 </svg>
