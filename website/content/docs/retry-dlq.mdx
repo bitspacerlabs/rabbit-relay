@@ -28,7 +28,7 @@ Rabbit Relay keeps every part of that pipeline explicit and broker-native.
 
     <Callout title="One key, two places" type="warn">
       `deadLetter.routingKey` sets `x-dead-letter-routing-key` on the source
-      queue **and** — with `autoDeclare: true` — is used for the auto-declared
+      queue **and**, with `autoDeclare: true`, is used for the auto-declared
       DLQ→DLX binding. Omitting it preserves original routing keys and binds
       the DLQ to `"#"`. Never change one side without the other, or
       dead-lettered messages are silently dropped.
@@ -50,9 +50,9 @@ Rabbit Relay keeps every part of that pipeline explicit and broker-native.
     });
     ```
 
-    - Immediate retry (no `delayMs`): re-delivers right away — good for deterministic in-process failures.
+    - Immediate retry (no `delayMs`): re-delivers right away, good for deterministic in-process failures.
     - Fixed delay (`delayMs`): parks the message in a broker-native TTL queue.
-    - Exponential backoff (`backoff: "exponential"`): attempt n waits `delayMs * 2^(n-1)` — good for transient outages like downstream 429/503 or DB locks.
+    - Exponential backoff (`backoff: "exponential"`): attempt n waits `delayMs * 2^(n-1)`, good for transient outages like downstream 429/503 or DB locks.
   </Step>
 
   <Step title="Consume the DLQ">
@@ -94,7 +94,7 @@ After `attempts` retries, the final action runs:
 | `retry.then` | Behavior |
 |---|---|
 | `"dead-letter"` (default) | Message goes to the DLQ via `nack(requeue=false)` |
-| `"requeue"` | Message returns to the queue — use with care, can loop |
+| `"requeue"` | Message returns to the queue, use with care, can loop |
 | `"ack"` | Message is acknowledged and dropped, with a `message.dropped` lifecycle event |
 
 ## Auto-declare mode
@@ -111,7 +111,7 @@ When `autoDeclare: true`, Rabbit Relay declares:
 1. It is set as `x-dead-letter-routing-key` on the source queue, so every dead-lettered message is republished to the DLX with this key.
 2. The auto-declared DLQ→DLX binding uses the same key.
 
-The two sides always agree when both come from relay. If you change one of them outside relay (for example re-binding the DLQ yourself), dead-lettered messages can be silently dropped — published to the DLX with a key nothing listens for. If you manage bindings externally, keep `autoDeclare: false` and mirror the key on your own binding.
+The two sides always agree when both come from relay. If you change one of them outside relay (for example re-binding the DLQ yourself), dead-lettered messages can be silently dropped, published to the DLX with a key nothing listens for. If you manage bindings externally, keep `autoDeclare: false` and mirror the key on your own binding.
 
 <Callout title="Silent drop warning" type="warn">
   Never change one side of the routing key without the other, or

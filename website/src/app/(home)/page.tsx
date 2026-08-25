@@ -21,7 +21,7 @@ const features = [
   {
     icon: Braces,
     title: 'Type-safe events',
-    body: 'Event factories and typed envelopes. Wildcard handlers narrow via discriminated unions — no casts.',
+    body: 'Event factories and typed envelopes. Wildcard handlers narrow via discriminated unions, no casts.',
   },
   {
     icon: Repeat,
@@ -175,7 +175,7 @@ export default function HomePage() {
         </h1>
         <p className="mt-5 text-lg text-fd-muted-foreground max-w-2xl">
           Type-safe event contracts, bounded retries with exponential backoff,
-          dead-letter pipelines, publisher confirms. Built on amqplib — every
+          dead-letter pipelines, publisher confirms. Built on amqplib, every
           broker behavior stays explicit.
         </p>
         <div className="flex gap-3 mt-8">
@@ -282,14 +282,14 @@ export default function HomePage() {
           </h2>
           <p className="text-center text-fd-muted-foreground mb-12 max-w-2xl mx-auto">
             Same amqplib under the hood. No magic, no hidden broker behavior.
-            Just the boilerplate you&apos;d write anyway — with type safety and
+            Just the boilerplate you&apos;d write anyway, with type safety and
             production patterns built in.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* before */}
             <div className="rounded-xl border bg-fd-card overflow-hidden shadow-sm">
               <div className="px-4 py-2.5 border-b bg-fd-muted/40 text-xs font-medium text-fd-muted-foreground uppercase tracking-wide">
-                Before — raw amqplib
+                Before, raw amqplib
               </div>
               <pre className="p-5 text-[13px] leading-relaxed overflow-x-auto">
                 {[
@@ -316,7 +316,7 @@ export default function HomePage() {
             {/* after */}
             <div className="rounded-xl border-2 border-fd-primary/40 bg-fd-card overflow-hidden shadow-lg shadow-fd-primary/5">
               <div className="px-4 py-2.5 border-b bg-fd-primary/5 text-xs font-medium text-fd-primary uppercase tracking-wide flex items-center gap-2">
-                <Check className="size-3.5" /> After — Rabbit Relay
+                <Check className="size-3.5" /> After, Rabbit Relay
               </div>
               <pre className="p-5 text-[13px] leading-relaxed overflow-x-auto">
                 {codeLines.map((line, i) => (
@@ -360,7 +360,7 @@ export default function HomePage() {
             Ready to build something reliable?
           </h2>
           <p className="text-fd-muted-foreground mb-8 max-w-xl mx-auto">
-            Start with the quickstart guide — your first typed producer and
+            Start with the quickstart guide, your first typed producer and
             consumer in under 2 minutes.
           </p>
           <div className="flex gap-3 justify-center">

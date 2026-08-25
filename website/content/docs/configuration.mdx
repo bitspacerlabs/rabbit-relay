@@ -101,7 +101,7 @@ Every `.exchange()` call accepts these overrides on top of broker defaults:
     },
     deadLetter: {
       type: 'DeadLetterConfig',
-      description: 'Built-in DLQ helper — see Retry & DLQ guide.',
+      description: 'Built-in DLQ helper, see Retry & DLQ guide.',
     },
     amqp: {
       type: 'object',
@@ -128,7 +128,7 @@ const broker = new RabbitMQBroker("orders-service", {
   <Tab>
 
 ```ts
-// Terraform/Helm/definitions own it — relay only checks existence
+// Terraform/Helm/definitions own it, relay only checks existence
 const broker = new RabbitMQBroker("orders-service", {
   topologyMode: "passive",
 });

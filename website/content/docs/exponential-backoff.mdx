@@ -5,7 +5,7 @@ icon: TrendingUp
 ---
 
 Immediate retries only help with deterministic in-process failures. For
-**transient failures** — a network blip, a downstream 429/503, a DB lock —
+**transient failures**, a network blip, a downstream 429/503, a DB lock,
 the failure condition hasn't changed a millisecond later. Exponential backoff
 gives the dependency room to recover.
 
@@ -259,7 +259,7 @@ After retries are exhausted, RabbitMQ routes the message to the DLQ.
 ## Runnable example
 
 See [`examples/18-exponential-backoff`](https://github.com/bitspacerlabs/rabbit-relay/tree/main/examples/18-exponential-backoff)
-in the repository — a self-contained consumer that prints the observed
+in the repository, a self-contained consumer that prints the observed
 delivery timings so you can watch the doubling waits happen live.
 
 ## Next steps
