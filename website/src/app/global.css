@@ -67,30 +67,46 @@ kbd {
 }
 
 /* ----------------------------------------
-   Rabbit Relay docs polish
+   Rabbit Relay docs — minimal / LLM Gateway style
    ---------------------------------------- */
 
 :root {
   --fd-layout-width: 96rem;
+  --fd-page-width: 47rem;
 }
 
-/* Main document headings */
+/* Content width */
+
+.prose {
+  max-width: 47rem;
+}
+
+/* Document title */
+
+[data-docs-page] h1 {
+  letter-spacing: -0.035em;
+}
+
+/* Headings — compact, dense */
 
 .prose h2 {
-  margin-top: 3rem;
-  padding-top: 0.25rem;
+  margin-top: 2.75rem;
+  margin-bottom: 1rem;
+  font-size: 1.35rem;
   letter-spacing: -0.025em;
 }
 
 .prose h3 {
   margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  font-size: 1.05rem;
   letter-spacing: -0.02em;
 }
 
-/* Slightly softer paragraphs */
+/* Paragraphs — softer line height */
 
 .prose p {
-  line-height: 1.75;
+  line-height: 1.7;
 }
 
 /* Inline code */
@@ -101,6 +117,18 @@ kbd {
   padding: 0.12rem 0.35rem;
   font-size: 0.875em;
   font-weight: 500;
+}
+
+/* Code blocks — less visual weight */
+
+.prose pre {
+  border-radius: 0.65rem;
+  border: 1px solid var(--color-fd-border);
+  box-shadow: none;
+}
+
+.prose pre code {
+  font-size: 0.82rem;
 }
 
 /* Tables */
@@ -118,38 +146,39 @@ kbd {
   );
 }
 
-/* Document title */
-
-[data-docs-page] h1 {
-  letter-spacing: -0.04em;
-}
-
 /* Links inside body */
 
 .prose a {
   text-underline-offset: 3px;
 }
 
-/* Code blocks */
-
-.prose pre {
-  border-radius: 0.9rem;
-}
-
-/* Smooth docs nav visual treatment */
+/* Sidebar — flat, no gradient */
 
 #nd-sidebar {
-  background:
-    linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--color-fd-primary) 2%, transparent),
-      transparent 10rem
-    );
+  background: var(--color-fd-background);
 }
 
-/* Fumadocs officially exposes data selectors for customization.
-   Keep selectors shallow to avoid depending on internal DOM. */
+#nd-sidebar [data-active="true"] {
+  background: var(--color-fd-accent);
+}
 
-[data-toc-popover] {
-  backdrop-filter: blur(16px);
+#nd-sidebar p {
+  letter-spacing: 0;
+}
+
+/* TOC — compact, restrained */
+
+[data-toc] {
+  font-size: 0.8rem;
+}
+
+[data-toc] a {
+  color: var(--color-fd-muted-foreground);
+  transition:
+    color 150ms ease,
+    border-color 150ms ease;
+}
+
+[data-toc] a:hover {
+  color: var(--color-fd-foreground);
 }

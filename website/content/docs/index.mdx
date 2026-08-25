@@ -5,111 +5,120 @@ icon: Rabbit
 ---
 
 import {
-  BookMarked,
   BrainCircuit,
   Braces,
   FileText,
   Files,
   Network,
-  Rocket,
   RotateCcw,
   ShieldCheck,
-  Terminal,
+  Sparkles,
 } from 'lucide-react';
 
-<div className="not-prose mb-8">
-  <p className="max-w-2xl text-lg leading-8 text-fd-muted-foreground">
-    Production-ready RabbitMQ patterns with strong TypeScript types,
-    without hiding RabbitMQ itself.
-  </p>
+Rabbit Relay is a type-safe RabbitMQ framework for Node.js built on top of
+`amqplib`.
 
-  <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-fd-muted-foreground">
-    <span>✓ Typed events</span>
-    <span>✓ Publisher confirms</span>
-    <span>✓ Retry + DLQ</span>
-    <span>✓ RPC</span>
-    <span>✓ OpenTelemetry</span>
-  </div>
-</div>
-
-```ts
-import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
-
-const broker = new RabbitMQBroker("orders_service");
-
-const api = await broker
-  .queue("orders.q")
-  .exchange<{ orderCreated: EventEnvelope<OrderCreated> }>("orders.ex", {
-    exchangeType: "topic",
-    routingKey: "orders.*",
-    publisherConfirms: true,
-  })
-  .with({ orderCreated });
-
-api.handle("orderCreated", async (_id, ev) => {
-  await fulfill(ev.data);
-});
-
-await api.consume({ prefetch: 20 });
-```
-
-<div className="not-prose my-8 flex flex-wrap gap-3">
-  <a
-    href="/docs/quickstart"
-    className="inline-flex items-center rounded-lg bg-fd-primary px-4 py-2 text-sm font-medium text-fd-primary-foreground transition-opacity hover:opacity-90"
-  >
-    Get started →
-  </a>
-  <a
-    href="https://github.com/bitspacerlabs/rabbit-relay"
-    className="inline-flex items-center rounded-lg border bg-fd-card px-4 py-2 text-sm font-medium transition-colors hover:bg-fd-accent"
-  >
-    View on GitHub
-  </a>
-</div>
+It keeps exchanges, queues, bindings, routing keys, acknowledgements,
+retries, dead-letter queues, and publisher confirms explicit while adding
+the production patterns most services otherwise build themselves.
 
 ## Why Rabbit Relay?
 
-<div className="not-prose grid grid-cols-1 gap-4 md:grid-cols-2">
-  <FeatureCard title="Type-safe events" description="Typed event factories and envelopes with runtime validation support and discriminated union handlers." href="/docs/typed-events" icon={Braces} />
-  <FeatureCard title="Bounded retries" description="Fixed or exponential backoff using RabbitMQ-native TTL queues instead of in-memory timers." href="/docs/retry-dlq" icon={RotateCcw} />
-  <FeatureCard title="Dead-letter pipelines" description="Explicit DLX and DLQ topology, retry metadata, inspection, and safe redrive support." href="/docs/retry-dlq-redrive" icon={ShieldCheck} />
-  <FeatureCard title="Explicit topology" description="Queues, exchanges, bindings, topology planning and validation remain visible and reviewable." href="/docs/topology-modes" icon={Network} />
+<div className="not-prose grid grid-cols-1 gap-2 sm:grid-cols-2">
+  <ToolCard
+    title="Type-safe events"
+    description="Typed event factories, runtime schemas, and discriminated handlers."
+    href="/docs/typed-events"
+    icon={Braces}
+  />
+
+  <ToolCard
+    title="Retry & DLQ"
+    description="Bounded retries, delayed delivery, dead-letter queues, and redrive."
+    href="/docs/retry-dlq"
+    icon={RotateCcw}
+  />
+
+  <ToolCard
+    title="Explicit topology"
+    description="Queues, exchanges, bindings, planning, validation, and ownership modes."
+    href="/docs/topology-modes"
+    icon={Network}
+  />
+
+  <ToolCard
+    title="Production observability"
+    description="Lifecycle hooks, health checks, and optional OpenTelemetry integration."
+    href="/docs/opentelemetry"
+    icon={ShieldCheck}
+  />
 </div>
 
-## Start here
+## Quick example
 
-<div className="not-prose grid grid-cols-1 gap-4 md:grid-cols-3">
-  <FeatureCard title="Quickstart" description="Publish and consume your first type-safe event." href="/docs/quickstart" icon={Rocket} />
-  <FeatureCard title="Retry & DLQ" description="Production-safe retries, delayed delivery and poison-message handling." href="/docs/retry-dlq" icon={ShieldCheck} />
-  <FeatureCard title="API Reference" description="Explore the public Rabbit Relay API and types." href="/docs/api" icon={BookMarked} />
-</div>
+```ts
+import {
+  RabbitMQBroker,
+  event,
+} from "@bitspacerlabs/rabbit-relay";
+
+const orderCreated = event("orders.created", "v1").of<{
+  orderId: string;
+}>();
+
+const broker = new RabbitMQBroker("orders-service");
+
+const sub = await broker
+  .queue("orders.q")
+  .exchange("orders.ex", {
+    exchangeType: "topic",
+    routingKey: "orders.*",
+    publisherConfirms: true,
+  });
+
+await sub.produce(
+  orderCreated({
+    orderId: "o-1",
+  })
+);
+```
 
 ## AI & Agent Tooling
 
-<div className="not-prose mb-5 max-w-2xl">
-  <p className="text-[15px] leading-6 text-fd-muted-foreground">
-    Rabbit Relay ships documentation for machines as well as humans. Give coding agents structured context, framework-specific instructions, and full TypeScript definitions.
-  </p>
+Rabbit Relay ships documentation for machines as well as humans.
+
+<div className="not-prose grid grid-cols-1 gap-2 sm:grid-cols-2">
+  <ToolCard
+    title="llms.txt"
+    description="Machine-readable index of the documentation for LLM context."
+    href="/llms.txt"
+    icon={FileText}
+  />
+
+  <ToolCard
+    title="llms-full.txt"
+    description="The complete documentation corpus as clean Markdown."
+    href="/llms-full.txt"
+    icon={Files}
+  />
+
+  <ToolCard
+    title="TypeScript types"
+    description="Full package types that coding agents can inspect and reason about."
+    href="/docs/api/rabbitmq-broker"
+    icon={Braces}
+  />
+
+  <ToolCard
+    title="AI Skills"
+    description="Installable Rabbit Relay knowledge for Claude Code, Cursor, Copilot, and more."
+    href="/docs/ai-skills"
+    icon={BrainCircuit}
+  />
 </div>
 
-<div className="not-prose grid grid-cols-1 gap-4 sm:grid-cols-2">
-  <FeatureCard title="llms.txt" description="Curated documentation index optimized for LLM context windows." href="/llms.txt" icon={FileText} />
-  <FeatureCard title="llms-full.txt" description="The complete documentation corpus as clean Markdown for RAG and agent context." href="/llms-full.txt" icon={Files} />
-  <FeatureCard title="TypeScript types" description="Full package type definitions that agents can inspect and reason about directly." href="/docs/api/rabbitmq-broker" icon={Braces} />
-  <FeatureCard title="AI Skills" description="Installable skills for Claude Code, Cursor, Copilot, Windsurf, OpenCode and more." href="/docs/ai-skills" icon={BrainCircuit} />
-</div>
+## Next Steps
 
-<div className="not-prose mt-5 rounded-2xl border bg-gradient-to-br from-fd-primary/7 via-fd-card to-fd-card p-5">
-  <div className="flex items-start gap-4">
-    <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-fd-primary text-fd-primary-foreground">
-      <Terminal className="size-5" />
-    </div>
-    <div className="min-w-0">
-      <p className="font-medium">Install the Rabbit Relay AI skills</p>
-      <code className="mt-2 block w-fit rounded-lg border bg-fd-background px-3 py-2 text-sm">
-        npx skills add bitspacerlabs/rabbit-relay-skills
-      </code>
-    </div>
-  </div>
-</div>
+- [Quickstart](/docs/quickstart) — publish and consume your first event
+- [What is Rabbit Relay?](/docs/what-is-rabbit-relay) — learn the design philosophy
+- [Retry & DLQ](/docs/retry-dlq) — configure production failure handling

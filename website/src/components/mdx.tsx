@@ -5,6 +5,7 @@ import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
 import { TypeTable } from 'fumadocs-ui/components/type-table';
 import type { MDXComponents } from 'mdx/types';
 import { FeatureCard } from './docs/feature-card';
+import { ToolCard } from './docs/tool-card';
 
 export function getMDXComponents(components?: MDXComponents) {
   return {
@@ -17,6 +18,7 @@ export function getMDXComponents(components?: MDXComponents) {
     Accordions,
     TypeTable,
     FeatureCard,
+    ToolCard,
     ...components,
   } satisfies MDXComponents;
 }

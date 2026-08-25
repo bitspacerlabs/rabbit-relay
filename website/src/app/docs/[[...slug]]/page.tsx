@@ -29,16 +29,19 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
         style: 'clerk',
       }}
     >
-      <DocsTitle>{page.data.title}</DocsTitle>
-      <DocsDescription className="mb-0">{page.data.description}</DocsDescription>
-      <div className="mt-5 flex flex-row items-center gap-2 rounded-xl border bg-fd-secondary/30 p-1.5">
+      <div className="mb-6 flex items-center gap-2">
         <MarkdownCopyButton markdownUrl={markdownUrl} />
         <ViewOptionsPopover
           markdownUrl={markdownUrl}
           githubUrl={`https://github.com/${gitConfig.user}/${gitConfig.repo}/blob/${gitConfig.branch}/content/docs/${page.path}`}
         />
       </div>
-      <DocsBody className="mt-8">
+
+      <DocsTitle>{page.data.title}</DocsTitle>
+
+      <DocsDescription>{page.data.description}</DocsDescription>
+
+      <DocsBody>
         <MDX
           components={getMDXComponents({
             // this allows you to link to other pages with relative file paths
