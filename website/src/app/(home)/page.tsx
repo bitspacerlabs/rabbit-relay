@@ -87,65 +87,87 @@ const codeLines = [
   ],
 ];
 
-const beforeAfter = {
-  before: [
+const beforeCode = [
+  [
     { t: 'const', c: 'text-fd-muted-foreground' },
-    { t: ' conn = ', c: 'text-fd-muted-foreground' },
+    { t: ' ch = ', c: '' },
     { t: 'await', c: 'text-fd-muted-foreground' },
-    { t: ' amqp.connect(url)', c: 'text-fd-muted-foreground' },
+    { t: ' conn.createChannel()', c: '' },
   ],
-  before2: [
+  [
+    { t: 'await', c: 'text-fd-muted-foreground' },
+    { t: ' ch.assertExchange(', c: '' },
+    { t: '"orders.ex"', c: 'text-fd-muted-foreground/70' },
+    { t: ', ', c: '' },
+    { t: '"topic"', c: 'text-fd-muted-foreground/70' },
+    { t: ')', c: '' },
+  ],
+  [
+    { t: 'await', c: 'text-fd-muted-foreground' },
+    { t: ' ch.assertQueue(', c: '' },
+    { t: '"orders.q"', c: 'text-fd-muted-foreground/70' },
+    { t: ')', c: '' },
+  ],
+  [
+    { t: 'await', c: 'text-fd-muted-foreground' },
+    { t: ' ch.bindQueue(', c: '' },
+    { t: '"orders.q"', c: 'text-fd-muted-foreground/70' },
+    { t: ', ', c: '' },
+    { t: '"orders.ex"', c: 'text-fd-muted-foreground/70' },
+    { t: ', ', c: '' },
+    { t: '"#"', c: 'text-fd-muted-foreground/70' },
+    { t: ')', c: '' },
+  ],
+  [
+    { t: 'ch.consume(', c: '' },
+    { t: '"orders.q"', c: 'text-fd-muted-foreground/70' },
+    { t: ', msg => {', c: '' },
+  ],
+  [
+    { t: '  ', c: '' },
     { t: 'const', c: 'text-fd-muted-foreground' },
-    { t: ' ch = ', c: 'text-fd-muted-foreground' },
-    { t: 'await', c: 'text-fd-muted-foreground' },
-    { t: ' conn.createChannel()', c: 'text-fd-muted-foreground' },
+    { t: ' data = ', c: '' },
+    { t: 'JSON.parse(', c: '' },
+    { t: 'msg.content', c: 'text-fd-muted-foreground/70' },
+    { t: ')', c: '' },
   ],
-  before3: [
-    { t: 'await', c: 'text-fd-muted-foreground' },
-    { t: ' ch.assertExchange(', c: 'text-fd-muted-foreground' },
-    { t: '"orders.ex"', c: 'text-fd-muted-foreground' },
-    { t: ', ', c: 'text-fd-muted-foreground' },
-    { t: '"topic"', c: 'text-fd-muted-foreground' },
-    { t: ')', c: 'text-fd-muted-foreground' },
+];
+
+const afterCode = [
+  [
+    { t: 'const', c: 'text-fd-primary' },
+    { t: ' api = ', c: '' },
+    { t: 'await', c: 'text-fd-primary' },
+    { t: ' broker', c: 'text-fd-foreground/80' },
+    { t: '.queue(', c: '' },
+    { t: '"orders.q"', c: 'text-emerald-400' },
+    { t: ')', c: '' },
   ],
-  before4: [
-    { t: 'await', c: 'text-fd-muted-foreground' },
-    { t: ' ch.assertQueue(', c: 'text-fd-muted-foreground' },
-    { t: '"orders.q"', c: 'text-fd-muted-foreground' },
-    { t: ')', c: 'text-fd-muted-foreground' },
+  [
+    { t: '  .exchange<{ orderCreated: ', c: '' },
+    { t: 'EventEnvelope', c: 'text-sky-400' },
+    { t: '<OrderCreated> }>(', c: '' },
+    { t: '"orders.ex"', c: 'text-emerald-400' },
+    { t: ', cfg)', c: '' },
   ],
-  before5: [
-    { t: 'await', c: 'text-fd-muted-foreground' },
-    { t: ' ch.bindQueue(', c: 'text-fd-muted-foreground' },
-    { t: '"orders.q"', c: 'text-fd-muted-foreground' },
-    { t: ', ', c: 'text-fd-muted-foreground' },
-    { t: '"orders.ex"', c: 'text-fd-muted-foreground' },
-    { t: ', ', c: 'text-fd-muted-foreground' },
-    { t: '"#"', c: 'text-fd-muted-foreground' },
-    { t: ')', c: 'text-fd-muted-foreground' },
+  [{ t: '  .with({ orderCreated });', c: '' }],
+  [{ t: '', c: '' }],
+  [
+    { t: 'api.', c: '' },
+    { t: 'handle', c: 'text-fd-primary' },
+    { t: '(', c: '' },
+    { t: '"orderCreated"', c: 'text-emerald-400' },
+    { t: ', fulfill);', c: '' },
   ],
-  before6: [
-    { t: 'ch.consume(', c: 'text-fd-muted-foreground' },
-    { t: '"orders.q"', c: 'text-fd-muted-foreground' },
-    { t: ', msg => {', c: 'text-fd-muted-foreground' },
+  [
+    { t: 'await', c: 'text-fd-primary' },
+    { t: ' api.', c: '' },
+    { t: 'consume', c: 'text-fd-primary' },
+    { t: '({ prefetch: ', c: '' },
+    { t: '20', c: 'text-orange-300' },
+    { t: ' });', c: '' },
   ],
-  before7: [
-    { t: '  ', c: 'text-fd-muted-foreground' },
-    { t: 'const', c: 'text-fd-muted-foreground' },
-    { t: ' data = ', c: 'text-fd-muted-foreground' },
-    { t: 'JSON.parse(', c: 'text-fd-muted-foreground' },
-    { t: '...', c: 'text-fd-muted-foreground' },
-    { t: ')', c: 'text-fd-muted-foreground' },
-  ],
-  before8: [
-    { t: '  ', c: 'text-fd-muted-foreground' },
-    { t: 'try', c: 'text-fd-muted-foreground' },
-    { t: ' { ... } ', c: 'text-fd-muted-foreground' },
-    { t: 'catch', c: 'text-fd-muted-foreground' },
-    { t: ' { ch.nack(msg) }', c: 'text-fd-muted-foreground' },
-  ],
-  before9: [{ t: '})', c: 'text-fd-muted-foreground' }],
-};
+];
 
 /* ─── page ────────────────────────────────────────────────────────────── */
 
@@ -292,23 +314,18 @@ export default function HomePage() {
                 Before, raw amqplib
               </div>
               <pre className="p-5 text-[13px] leading-relaxed overflow-x-auto">
-                {[
-                  beforeAfter.before,
-                  beforeAfter.before2,
-                  beforeAfter.before3,
-                  beforeAfter.before4,
-                  beforeAfter.before5,
-                  beforeAfter.before6,
-                  beforeAfter.before7,
-                  beforeAfter.before8,
-                  beforeAfter.before9,
-                ].map((line, i) => (
-                  <div key={i} className="whitespace-pre">
-                    {line.map((seg, j) => (
-                      <span key={j} className={seg.c}>
-                        {seg.t}
-                      </span>
-                    ))}
+                {beforeCode.map((line, i) => (
+                  <div key={i} className="whitespace-pre flex">
+                    <span className="select-none text-fd-muted-foreground/40 w-5 text-right mr-4 text-[11px]">
+                      {i + 1}
+                    </span>
+                    <span>
+                      {line.map((seg, j) => (
+                        <span key={j} className={seg.c}>
+                          {seg.t}
+                        </span>
+                      ))}
+                    </span>
                   </div>
                 ))}
               </pre>
@@ -319,13 +336,18 @@ export default function HomePage() {
                 <Check className="size-3.5" /> After, Rabbit Relay
               </div>
               <pre className="p-5 text-[13px] leading-relaxed overflow-x-auto">
-                {codeLines.map((line, i) => (
-                  <div key={i} className="whitespace-pre">
-                    {line.map((seg, j) => (
-                      <span key={j} className={seg.c}>
-                        {seg.t}
-                      </span>
-                    ))}
+                {afterCode.map((line, i) => (
+                  <div key={i} className="whitespace-pre flex">
+                    <span className="select-none text-fd-muted-foreground/40 w-5 text-right mr-4 text-[11px]">
+                      {i + 1}
+                    </span>
+                    <span>
+                      {line.map((seg, j) => (
+                        <span key={j} className={seg.c}>
+                          {seg.t}
+                        </span>
+                      ))}
+                    </span>
                   </div>
                 ))}
               </pre>
