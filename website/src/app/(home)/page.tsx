@@ -144,9 +144,9 @@ const afterCode = [
     { t: ')', c: '' },
   ],
   [
-    { t: '  .exchange<{ orderCreated: ', c: '' },
-    { t: 'EventEnvelope', c: 'text-sky-400' },
-    { t: '<OrderCreated> }>(', c: '' },
+    { t: '  .exchange<', c: '' },
+    { t: 'Event', c: 'text-sky-400' },
+    { t: '>(', c: '' },
     { t: '"orders.ex"', c: 'text-emerald-400' },
     { t: ', cfg)', c: '' },
   ],
@@ -313,7 +313,7 @@ export default function HomePage() {
               <div className="px-4 py-2.5 border-b bg-fd-muted/40 text-xs font-medium text-fd-muted-foreground uppercase tracking-wide">
                 Before, raw amqplib
               </div>
-              <pre className="p-5 text-[13px] leading-relaxed overflow-x-auto">
+              <pre className="p-5 text-[13px] leading-relaxed overflow-hidden">
                 {beforeCode.map((line, i) => (
                   <div key={i} className="whitespace-pre flex">
                     <span className="select-none text-fd-muted-foreground/40 w-5 text-right mr-4 text-[11px]">
@@ -335,7 +335,7 @@ export default function HomePage() {
               <div className="px-4 py-2.5 border-b bg-fd-primary/5 text-xs font-medium text-fd-primary uppercase tracking-wide flex items-center gap-2">
                 <Check className="size-3.5" /> After, Rabbit Relay
               </div>
-              <pre className="p-5 text-[13px] leading-relaxed overflow-x-auto">
+              <pre className="p-5 text-[13px] leading-relaxed overflow-hidden">
                 {afterCode.map((line, i) => (
                   <div key={i} className="whitespace-pre flex">
                     <span className="select-none text-fd-muted-foreground/40 w-5 text-right mr-4 text-[11px]">
