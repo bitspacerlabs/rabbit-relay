@@ -1,0 +1,75 @@
+---
+title: AI Skills
+description: Installable AI coding skills for Rabbit Relay that help generate correct, type-safe code
+icon: BrainCircuit
+---
+
+Rabbit Relay ships installable AI coding skills that give AI agents specialized knowledge about the framework.
+
+Once installed, your agent can help you create typed events, configure retries, set up DLQs, and more.
+
+---
+
+## Installation
+
+```bash
+npx skills add bitspacerlabs/rabbit-relay-skills
+```
+
+Or install a specific skill:
+
+```bash
+npx skills add bitspacerlabs/rabbit-relay-skills --skill rabbit-relay
+```
+
+---
+
+## Available skills
+
+| Skill | Description | When to use |
+|---|---|---|
+| `/rabbit-relay` | Core API, broker, publish/consume, `with()` | Always start here |
+| `/typed-events` | Event factories, versioning, schemas | Creating event contracts |
+| `/retries-dlq` | Retries, DLQ, redrive | Production error handling |
+| `/topology` | Topology modes, planning, validation | Infrastructure-managed RabbitMQ |
+| `/rpc` | Request/reply patterns | When you need immediate replies |
+| `/observability` | Lifecycle hooks, OpenTelemetry, health | Production visibility |
+
+---
+
+## Example prompts
+
+| You say | Skill used |
+|---|---|
+| "Create a typed event publisher for orders" | `/rabbit-relay` + `/typed-events` |
+| "Add retry with exponential backoff" | `/retries-dlq` |
+| "Configure DLQ for poison messages" | `/retries-dlq` |
+| "Set up topology validation for CI" | `/topology` |
+| "Add OpenTelemetry tracing" | `/observability` |
+| "Implement request/reply for payments" | `/rpc` |
+
+---
+
+## Supported agents
+
+- Claude Code
+- Cursor
+- Windsurf
+- GitHub Copilot
+- OpenCode
+- Gemini CLI
+
+---
+
+## Source
+
+The skills are open source: [bitspacerlabs/rabbit-relay-skills](https://github.com/bitspacerlabs/rabbit-relay-skills)
+
+---
+
+## Summary
+
+- Skills give AI agents Rabbit Relay knowledge
+- Install with `npx skills add`
+- Cover core API, events, retries, topology, RPC, and observability
+- Work with Claude Code, Cursor, Windsurf, Copilot, and more
