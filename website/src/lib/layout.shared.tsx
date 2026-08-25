@@ -6,9 +6,17 @@ function Logo() {
     <span className="inline-flex items-center gap-2 font-bold tracking-tight text-[15px]">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/rabbit-relay.svg"
+        src="/rabbit-relay-mini.svg"
         alt=""
-        className="size-6 rounded-md"
+        className="size-6 rounded-md dark:hidden"
+        width={24}
+        height={24}
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/rabbit-relay-mini-dark.svg"
+        alt=""
+        className="size-6 rounded-md hidden dark:block"
         width={24}
         height={24}
       />
