@@ -4,9 +4,33 @@ description: A stable, type-safe RabbitMQ framework for Node.js
 icon: Rabbit
 ---
 
-Rabbit Relay builds on `amqplib` and deliberately keeps exchanges, queues,
-bindings, routing keys, acknowledgements, retries, dead-letter queues, and
-confirms **explicit**. No implicit magic.
+import {
+  BookMarked,
+  BrainCircuit,
+  Braces,
+  FileText,
+  Files,
+  Network,
+  Rocket,
+  RotateCcw,
+  ShieldCheck,
+  Terminal,
+} from 'lucide-react';
+
+<div className="not-prose mb-8">
+  <p className="max-w-2xl text-lg leading-8 text-fd-muted-foreground">
+    Production-ready RabbitMQ patterns with strong TypeScript types,
+    without hiding RabbitMQ itself.
+  </p>
+
+  <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-fd-muted-foreground">
+    <span>✓ Typed events</span>
+    <span>✓ Publisher confirms</span>
+    <span>✓ Retry + DLQ</span>
+    <span>✓ RPC</span>
+    <span>✓ OpenTelemetry</span>
+  </div>
+</div>
 
 ```ts
 import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
@@ -29,40 +53,63 @@ api.handle("orderCreated", async (_id, ev) => {
 await api.consume({ prefetch: 20 });
 ```
 
-## Why Rabbit Relay?
-
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4 not-prose my-6">
-  <div className="rounded-xl border bg-fd-card p-5">
-    <h3 className="font-semibold mb-2">Type-safe events</h3>
-    <p className="text-sm text-fd-muted-foreground">Event factories and typed envelopes. Wildcard handlers narrow via discriminated unions, no casts.</p>
-  </div>
-  <div className="rounded-xl border bg-fd-card p-5">
-    <h3 className="font-semibold mb-2">Bounded retries</h3>
-    <p className="text-sm text-fd-muted-foreground">Fixed or exponential backoff. All broker-native TTL queues, never in-memory timers.</p>
-  </div>
-  <div className="rounded-xl border bg-fd-card p-5">
-    <h3 className="font-semibold mb-2">Dead-letter pipelines</h3>
-    <p className="text-sm text-fd-muted-foreground">DLX/DLQ wiring in one config block, with observability headers on every retry copy.</p>
-  </div>
-  <div className="rounded-xl border bg-fd-card p-5">
-    <h3 className="font-semibold mb-2">Explicit topology</h3>
-    <p className="text-sm text-fd-muted-foreground">Exchanges, queues and bindings visible in code, plans, and the CLI diff tool.</p>
-  </div>
+<div className="not-prose my-8 flex flex-wrap gap-3">
+  <a
+    href="/docs/quickstart"
+    className="inline-flex items-center rounded-lg bg-fd-primary px-4 py-2 text-sm font-medium text-fd-primary-foreground transition-opacity hover:opacity-90"
+  >
+    Get started →
+  </a>
+  <a
+    href="https://github.com/bitspacerlabs/rabbit-relay"
+    className="inline-flex items-center rounded-lg border bg-fd-card px-4 py-2 text-sm font-medium transition-colors hover:bg-fd-accent"
+  >
+    View on GitHub
+  </a>
 </div>
 
-<Cards>
-  <Card title="Quickstart" description="Publish your first type-safe event in minutes." href="/docs/quickstart" />
-  <Card title="Retry & Dead-Letter Queues" description="Bounded retries, backoff strategies, and poison-pill handling." href="/docs/retry-dlq" />
-  <Card title="Exponential Backoff" description="Broker-native doubling waits for transient outages." href="/docs/exponential-backoff" />
-</Cards>
+## Why Rabbit Relay?
+
+<div className="not-prose grid grid-cols-1 gap-4 md:grid-cols-2">
+  <FeatureCard title="Type-safe events" description="Typed event factories and envelopes with runtime validation support and discriminated union handlers." href="/docs/typed-events" icon={Braces} />
+  <FeatureCard title="Bounded retries" description="Fixed or exponential backoff using RabbitMQ-native TTL queues instead of in-memory timers." href="/docs/retry-dlq" icon={RotateCcw} />
+  <FeatureCard title="Dead-letter pipelines" description="Explicit DLX and DLQ topology, retry metadata, inspection, and safe redrive support." href="/docs/retry-dlq-redrive" icon={ShieldCheck} />
+  <FeatureCard title="Explicit topology" description="Queues, exchanges, bindings, topology planning and validation remain visible and reviewable." href="/docs/topology-modes" icon={Network} />
+</div>
+
+## Start here
+
+<div className="not-prose grid grid-cols-1 gap-4 md:grid-cols-3">
+  <FeatureCard title="Quickstart" description="Publish and consume your first type-safe event." href="/docs/quickstart" icon={Rocket} />
+  <FeatureCard title="Retry & DLQ" description="Production-safe retries, delayed delivery and poison-message handling." href="/docs/retry-dlq" icon={ShieldCheck} />
+  <FeatureCard title="API Reference" description="Explore the public Rabbit Relay API and types." href="/docs/api" icon={BookMarked} />
+</div>
 
 ## AI & Agent Tooling
 
-Rabbit Relay ships its documentation for machines as well as humans:
+<div className="not-prose mb-5 max-w-2xl">
+  <p className="text-[15px] leading-6 text-fd-muted-foreground">
+    Rabbit Relay ships documentation for machines as well as humans. Give coding agents structured context, framework-specific instructions, and full TypeScript definitions.
+  </p>
+</div>
 
-<Cards>
-  <Card title="llms.txt" description="Curated index of every docs page, optimized for LLM context windows." href="/llms.txt" />
-  <Card title="llms-full.txt" description="All docs as clean markdown in one file. Perfect for retrieval-augmented generation." href="/llms-full.txt" />
-  <Card title="TypeScript types" description="Full type definitions shipped in the npm package. Agents can import and reason about types." href="/docs/api/rabbitmq-broker" />
-  <Card title="AI Skills" description="Installable skills for Claude Code, Cursor, Copilot, and more. npx skills add bitspacerlabs/rabbit-relay-skills" href="/docs/ai-skills" />
-</Cards>
+<div className="not-prose grid grid-cols-1 gap-4 sm:grid-cols-2">
+  <FeatureCard title="llms.txt" description="Curated documentation index optimized for LLM context windows." href="/llms.txt" icon={FileText} />
+  <FeatureCard title="llms-full.txt" description="The complete documentation corpus as clean Markdown for RAG and agent context." href="/llms-full.txt" icon={Files} />
+  <FeatureCard title="TypeScript types" description="Full package type definitions that agents can inspect and reason about directly." href="/docs/api/rabbitmq-broker" icon={Braces} />
+  <FeatureCard title="AI Skills" description="Installable skills for Claude Code, Cursor, Copilot, Windsurf, OpenCode and more." href="/docs/ai-skills" icon={BrainCircuit} />
+</div>
+
+<div className="not-prose mt-5 rounded-2xl border bg-gradient-to-br from-fd-primary/7 via-fd-card to-fd-card p-5">
+  <div className="flex items-start gap-4">
+    <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-fd-primary text-fd-primary-foreground">
+      <Terminal className="size-5" />
+    </div>
+    <div className="min-w-0">
+      <p className="font-medium">Install the Rabbit Relay AI skills</p>
+      <code className="mt-2 block w-fit rounded-lg border bg-fd-background px-3 py-2 text-sm">
+        npx skills add bitspacerlabs/rabbit-relay-skills
+      </code>
+    </div>
+  </div>
+</div>

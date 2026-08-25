@@ -39,10 +39,11 @@
     "cli-reference",
     "message-size-guard",
     "amqp-escape-hatch",
+    "---AI & Agents---",
+    "ai",
+    "ai-skills",
     "---Reference---",
     "api",
-    "examples",
-    "ai",
-    "ai-skills"
+    "examples"
   ]
 }

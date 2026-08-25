@@ -65,3 +65,91 @@ kbd {
     animation: none;
   }
 }
+
+/* ----------------------------------------
+   Rabbit Relay docs polish
+   ---------------------------------------- */
+
+:root {
+  --fd-layout-width: 96rem;
+}
+
+/* Main document headings */
+
+.prose h2 {
+  margin-top: 3rem;
+  padding-top: 0.25rem;
+  letter-spacing: -0.025em;
+}
+
+.prose h3 {
+  margin-top: 2rem;
+  letter-spacing: -0.02em;
+}
+
+/* Slightly softer paragraphs */
+
+.prose p {
+  line-height: 1.75;
+}
+
+/* Inline code */
+
+.prose :not(pre) > code {
+  border: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+  border-radius: 0.4rem;
+  padding: 0.12rem 0.35rem;
+  font-size: 0.875em;
+  font-weight: 500;
+}
+
+/* Tables */
+
+.prose table {
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.prose thead {
+  background: color-mix(
+    in srgb,
+    var(--color-fd-secondary) 65%,
+    transparent
+  );
+}
+
+/* Document title */
+
+[data-docs-page] h1 {
+  letter-spacing: -0.04em;
+}
+
+/* Links inside body */
+
+.prose a {
+  text-underline-offset: 3px;
+}
+
+/* Code blocks */
+
+.prose pre {
+  border-radius: 0.9rem;
+}
+
+/* Smooth docs nav visual treatment */
+
+#nd-sidebar {
+  background:
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-fd-primary) 2%, transparent),
+      transparent 10rem
+    );
+}
+
+/* Fumadocs officially exposes data selectors for customization.
+   Keep selectors shallow to avoid depending on internal DOM. */
+
+[data-toc-popover] {
+  backdrop-filter: blur(16px);
+}
