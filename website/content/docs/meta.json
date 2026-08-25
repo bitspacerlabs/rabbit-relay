@@ -12,6 +12,7 @@
     "rabbitmq-basics",
     "exchanges-queues-bindings",
     "acknowledgements",
+    "topology-ownership",
     "---Reliability---",
     "delivery-semantics",
     "error-handling",

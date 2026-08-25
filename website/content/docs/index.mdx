@@ -42,9 +42,9 @@ await api.consume({ prefetch: 20 });
   <Card title="Exponential Backoff" description="Broker-native doubling waits for transient outages." href="/docs/exponential-backoff" />
 </Cards>
 
-::: note
-Delivery is **at-least-once**: consumers should be idempotent. The framework gives you the tools; it never hides the broker.
-:::
+<Callout title="At-least-once delivery" type="note">
+  Delivery is **at-least-once**: consumers should be idempotent. The framework gives you the tools; it never hides the broker.
+</Callout>
 
 ## AI & Agent Tooling
 

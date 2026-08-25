@@ -181,6 +181,175 @@ await sub.consume({
 retry remains immediate. Add `backoff: "exponential"` to double the wait on
 every attempt.
 
+## Typed RPC
+
+Use `request<TReply>()` for request/reply flows.
+
+```ts
+type Reply = {
+  ok: boolean;
+};
+
+const reply = await pub.request<Reply>(
+  scheduleTask({
+    id: "task-rpc",
+    when: Date.now(),
+  }),
+  {
+    timeoutMs: 5000,
+  }
+);
+
+console.log(reply);
+```
+
+<Callout title="Use RPC deliberately" type="warn">
+  RPC creates tighter service coupling than events. Prefer events when the
+  workflow does not need an immediate reply.
+</Callout>
+
+## Message metadata
+
+Use `withHeaders()` when you want to attach metadata to a message.
+
+```ts
+import { withHeaders } from "@bitspacerlabs/rabbit-relay";
+
+await pub.produce(
+  withHeaders(
+    scheduleTask({
+      id: "task-with-headers",
+      when: Date.now(),
+    }),
+    {
+      source: "scheduler_service",
+    }
+  )
+);
+```
+
+Use `traceFrom()` when creating a child event from an existing event. It
+preserves the correlation ID and sets the causation ID to the parent event's ID.
+
+```ts
+import { event, traceFrom } from "@bitspacerlabs/rabbit-relay";
+
+const taskCompleted = event("scheduler.taskCompleted", "v1").of<{
+  id: string;
+  result: string;
+}>();
+
+sub.handle(SchedulerEvents.ScheduleTask, async (_id, ev) => {
+  // Child event inherits corrId and gets causationId = ev.id
+  await pub.produce(
+    taskCompleted(
+      { id: ev.data.id, result: "done" },
+      traceFrom(ev)
+    )
+  );
+});
+```
+
+## Operations helpers
+
+Rabbit Relay includes operations helpers for production visibility and support workflows.
+
+<Tabs items={["lifecycle.ts", "topology.ts", "redrive.ts"]}>
+  <Tab value="lifecycle.ts">
+
+```ts
+broker.on("retry.scheduled", (event) => {
+  console.log("retry scheduled", event);
+});
+```
+
+  </Tab>
+  <Tab value="topology.ts">
+
+```ts
+const plan = broker.planTopology();
+console.log(plan);
+
+const validation = await broker.validateTopology();
+console.log(validation);
+```
+
+  </Tab>
+  <Tab value="redrive.ts">
+
+```ts
+const redrive = await broker.redriveDlq({
+  fromQueue: "scheduler.dlq",
+  toExchange: "scheduler_exchange",
+  routingKey: SchedulerEvents.ScheduleTask,
+  limit: 10,
+  dryRun: true,
+});
+
+console.log(redrive);
+```
+
+  </Tab>
+</Tabs>
+
+## OpenTelemetry
+
+Use OpenTelemetry by passing your own tracer.
+
+```ts
+import { attachOpenTelemetry } from "@bitspacerlabs/rabbit-relay";
+import { trace } from "@opentelemetry/api";
+
+attachOpenTelemetry(broker, {
+  tracer: trace.getTracer("rabbit-relay"),
+  serviceName: "scheduler-service",
+});
+```
+
+## Publish with native AMQP options
+
+Use `publish()` when you need per-message RabbitMQ options.
+
+```ts
+await pub.publish(scheduleTask({ id: "task-3", when: Date.now() }), {
+  maxMessageBytes: 64 * 1024,
+  amqp: {
+    publish: {
+      persistent: true,
+      priority: 5,
+    },
+  },
+});
+```
+
+## Health checks
+
+```ts
+const health = await broker.health();
+console.log(health);
+```
+
+## Graceful shutdown
+
+```ts
+process.on("SIGTERM", async () => {
+  await broker.close();
+  process.exit(0);
+});
+```
+
+## Summary
+
+- Publishers create typed event envelopes
+- Consumers explicitly declare what they handle
+- `produce()` is the simplest way to publish an event
+- `with()` creates a small typed publish API
+- `request<TReply>()` supports typed RPC
+- `withHeaders()`, `withCorrelation()`, and `traceFrom()` help with metadata
+- retry + delayed retry + DLQ gives safer production failure handling
+- lifecycle hooks, topology planning, validation, and DLQ redrive help operations
+- native `amqplib` options remain available when needed
+
 ## Next steps
 
 <Cards>
