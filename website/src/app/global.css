@@ -112,7 +112,6 @@ kbd {
 /* Inline code */
 
 .prose :not(pre) > code {
-  border: 1px solid var(--color-fd-border);
   border-radius: 0.4rem;
   padding: 0.12rem 0.35rem;
   font-size: 0.875em;
