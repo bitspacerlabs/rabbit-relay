@@ -202,9 +202,16 @@ kbd {
   border-radius: 0.5rem;
 }
 
-/* Accordion headings — override prose h3 spacing */
+/* Accordion trigger — compact padding */
 
-[data-accordion] h3 {
-  margin-top: 0;
-  margin-bottom: 0;
+[data-accordion] button {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+/* Accordion content — compact padding */
+
+[data-accordion] [data-accordion-content] {
+  padding-top: 0;
+  padding-bottom: 0.5rem;
 }
