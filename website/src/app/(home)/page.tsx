@@ -2,8 +2,54 @@ import Link from 'next/link';
 import {
   ArrowRight,
   ArrowUpRight,
+  Braces,
+  BookOpen,
+  Check,
+  Clock4,
+  FileCode2,
+  ListTree,
   Rabbit,
+  Repeat,
+  Rocket,
+  ShieldCheck,
+  TerminalSquare,
+  Zap,
 } from 'lucide-react';
+
+/* ─── data ────────────────────────────────────────────────────────────── */
+
+const features = [
+  {
+    icon: Braces,
+    title: 'Type-safe events',
+    body: 'Event factories and typed envelopes. Wildcard handlers narrow via discriminated unions, no casts.',
+  },
+  {
+    icon: Repeat,
+    title: 'Bounded retries',
+    body: 'Immediate, fixed-delay, or exponential backoff. All broker-native TTL queues, never in-memory timers.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Dead-letter pipelines',
+    body: 'DLX/DLQ wiring in one config block, with observability headers on every retry copy.',
+  },
+  {
+    icon: Clock4,
+    title: 'Publisher confirms',
+    body: 'One flag per exchange. Your produce() resolves only when RabbitMQ has it.',
+  },
+  {
+    icon: ListTree,
+    title: 'Explicit topology',
+    body: 'Exchanges, queues and bindings visible in code, in planTopology() output, and the CLI diff.',
+  },
+  {
+    icon: TerminalSquare,
+    title: 'CLI for ops',
+    body: 'Plan, validate, diff your topology; peek and redrive dead-letter queues from the terminal.',
+  },
+];
 
 const codeLines = [
   [
@@ -41,6 +87,90 @@ const codeLines = [
     { t: ' });', c: '' },
   ],
 ];
+
+const beforeCode = [
+  [
+    { t: 'const', c: 'text-fd-muted-foreground' },
+    { t: ' ch = ', c: '' },
+    { t: 'await', c: 'text-fd-muted-foreground' },
+    { t: ' conn.createChannel()', c: '' },
+  ],
+  [
+    { t: 'await', c: 'text-fd-muted-foreground' },
+    { t: ' ch.assertExchange(', c: '' },
+    { t: '"orders.ex"', c: 'text-fd-muted-foreground/70' },
+    { t: ', ', c: '' },
+    { t: '"topic"', c: 'text-fd-muted-foreground/70' },
+    { t: ')', c: '' },
+  ],
+  [
+    { t: 'await', c: 'text-fd-muted-foreground' },
+    { t: ' ch.assertQueue(', c: '' },
+    { t: '"orders.q"', c: 'text-fd-muted-foreground/70' },
+    { t: ')', c: '' },
+  ],
+  [
+    { t: 'await', c: 'text-fd-muted-foreground' },
+    { t: ' ch.bindQueue(', c: '' },
+    { t: '"orders.q"', c: 'text-fd-muted-foreground/70' },
+    { t: ', ', c: '' },
+    { t: '"orders.ex"', c: 'text-fd-muted-foreground/70' },
+    { t: ', ', c: '' },
+    { t: '"#"', c: 'text-fd-muted-foreground/70' },
+    { t: ')', c: '' },
+  ],
+  [
+    { t: 'ch.consume(', c: '' },
+    { t: '"orders.q"', c: 'text-fd-muted-foreground/70' },
+    { t: ', msg => {', c: '' },
+  ],
+  [
+    { t: '  ', c: '' },
+    { t: 'const', c: 'text-fd-muted-foreground' },
+    { t: ' data = ', c: '' },
+    { t: 'JSON.parse(', c: '' },
+    { t: 'msg.content', c: 'text-fd-muted-foreground/70' },
+    { t: ')', c: '' },
+  ],
+];
+
+const afterCode = [
+  [
+    { t: 'const', c: 'text-fd-primary' },
+    { t: ' api = ', c: '' },
+    { t: 'await', c: 'text-fd-primary' },
+    { t: ' broker', c: 'text-fd-foreground/80' },
+    { t: '.queue(', c: '' },
+    { t: '"orders.q"', c: 'text-emerald-400' },
+    { t: ')', c: '' },
+  ],
+  [
+    { t: '  .exchange<', c: '' },
+    { t: 'Event', c: 'text-sky-400' },
+    { t: '>(', c: '' },
+    { t: '"orders.ex"', c: 'text-emerald-400' },
+    { t: ', cfg)', c: '' },
+  ],
+  [{ t: '  .with({ orderCreated });', c: '' }],
+  [{ t: '', c: '' }],
+  [
+    { t: 'api.', c: '' },
+    { t: 'handle', c: 'text-fd-primary' },
+    { t: '(', c: '' },
+    { t: '"orderCreated"', c: 'text-emerald-400' },
+    { t: ', fulfill);', c: '' },
+  ],
+  [
+    { t: 'await', c: 'text-fd-primary' },
+    { t: ' api.', c: '' },
+    { t: 'consume', c: 'text-fd-primary' },
+    { t: '({ prefetch: ', c: '' },
+    { t: '20', c: 'text-orange-300' },
+    { t: ' });', c: '' },
+  ],
+];
+
+/* ─── page ────────────────────────────────────────────────────────────── */
 
 export default function HomePage() {
   return (
@@ -124,69 +254,172 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── how it works ──────────────────────────────────────────────── */}
-      <section className="px-6 py-16">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="text-2xl font-bold mb-6">How it works</h2>
-          <p className="text-fd-muted-foreground leading-relaxed mb-8">
-            Point your code at a <code>RabbitMQBroker</code> and declare your
-            topology with a fluent chain. The framework handles connection
-            management, channel pooling, retry queues, and dead-letter routing.
-            Every exchange, queue, and binding is visible in your code, never
-            hidden behind magic.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/docs/quickstart"
-              className="inline-flex items-center gap-2 rounded-full border bg-fd-card px-4 py-2 text-sm font-medium transition-colors hover:bg-fd-muted"
+      {/* ── trust badges ───────────────────────────────────────────────── */}
+      <section className="px-6 pb-16">
+        <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-center gap-3">
+          {[
+            { icon: Zap, text: 'At-least-once delivery', color: 'text-emerald-500' },
+            { icon: FileCode2, text: 'TypeScript-first', color: 'text-sky-500' },
+            { icon: ShieldCheck, text: 'MIT licensed', color: 'text-fd-muted-foreground' },
+            { icon: Rocket, text: 'Node ≥ 18', color: 'text-fd-muted-foreground' },
+          ].map((b) => (
+            <span
+              key={b.text}
+              className="inline-flex items-center gap-2 rounded-full border bg-fd-card px-4 py-2 text-sm font-medium text-fd-foreground shadow-sm"
             >
-              Quickstart <ArrowRight className="size-3.5" />
-            </Link>
-            <Link
-              href="/docs/configuration"
-              className="inline-flex items-center gap-2 rounded-full border bg-fd-card px-4 py-2 text-sm font-medium transition-colors hover:bg-fd-muted"
-            >
-              Configuration <ArrowRight className="size-3.5" />
-            </Link>
-            <Link
-              href="/docs/retry-dlq"
-              className="inline-flex items-center gap-2 rounded-full border bg-fd-card px-4 py-2 text-sm font-medium transition-colors hover:bg-fd-muted"
-            >
-              Retry &amp; DLQ <ArrowRight className="size-3.5" />
-            </Link>
+              <b.icon className={`size-4 ${b.color}`} />
+              {b.text}
+            </span>
+          ))}
+        </div>
+      </section>
+
+      {/* ── features grid ──────────────────────────────────────────────── */}
+      <section className="border-t bg-fd-muted/30 px-6 py-20">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="text-2xl font-bold text-center mb-12">
+            Everything you need, nothing you don&apos;t
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {features.map((f) => (
+              <div
+                key={f.title}
+                className="rounded-xl border bg-fd-card p-5 transition-all hover:shadow-md hover:border-fd-primary/30"
+              >
+                <f.icon className="size-5 text-fd-primary mb-3" />
+                <h3 className="font-semibold mb-1.5">{f.title}</h3>
+                <p className="text-sm text-fd-muted-foreground leading-relaxed">
+                  {f.body}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ── why rabbit relay ──────────────────────────────────────────── */}
-      <section className="border-t bg-fd-muted/30 px-6 py-16">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="text-2xl font-bold mb-8">Why Rabbit Relay?</h2>
-          <ul className="space-y-6">
+      {/* ── AI & Agent Tooling ─────────────────────────────────────────── */}
+      <section className="px-6 py-20">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="text-2xl font-bold text-center mb-4">
+            AI &amp; Agent Tooling
+          </h2>
+          <p className="text-center text-fd-muted-foreground mb-12 max-w-2xl mx-auto">
+            Built for coding agents and LLM-powered workflows. Every page is
+            machine-readable.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
               {
-                title: 'One integration',
-                body: 'Switch exchanges, queues, or retry strategies by changing a config object, not your code.',
+                icon: FileCode2,
+                title: 'llms.txt',
+                desc: 'Curated index of every docs page, optimized for LLM context windows.',
+                href: '/llms.txt',
               },
               {
-                title: 'Type safety',
-                body: 'Event factories and typed envelopes. Handlers get fully typed payloads, no casts.',
+                icon: BookOpen,
+                title: 'llms-full.txt',
+                desc: 'All docs as clean markdown in one file. Perfect for retrieval-augmented generation.',
+                href: '/llms-full.txt',
               },
               {
-                title: 'Reliability by default',
-                body: 'Bounded retries with fixed or exponential backoff, DLQs, publisher confirms.',
+                icon: Braces,
+                title: 'TypeScript types',
+                desc: 'Full type definitions shipped in the npm package. Agents can import and reason about types.',
+                href: '/docs/api/rabbitmq-broker',
               },
-              {
-                title: 'No lock-in',
-                body: 'Open source (MIT), single runtime dependency (amqplib), and every broker behavior stays explicit.',
-              },
-            ].map((item) => (
-              <li key={item.title}>
-                <h3 className="font-semibold mb-1">{item.title}</h3>
-                <p className="text-fd-muted-foreground">{item.body}</p>
-              </li>
+            ].map((c) => (
+              <a
+                key={c.title}
+                href={c.href}
+                className="group relative flex flex-col gap-3 rounded-xl border border-fd-border bg-fd-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-fd-primary/40"
+              >
+                <c.icon className="size-5 text-fd-primary" />
+                <h3 className="font-semibold">{c.title}</h3>
+                <p className="text-sm text-fd-muted-foreground leading-relaxed">
+                  {c.desc}
+                </p>
+              </a>
             ))}
-          </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* ── before / after ─────────────────────────────────────────────── */}
+      <section className="px-6 py-20">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="text-2xl font-bold text-center mb-4">
+            Why not just use amqplib?
+          </h2>
+          <p className="text-center text-fd-muted-foreground mb-12 max-w-2xl mx-auto">
+            Same amqplib under the hood. No magic, no hidden broker behavior.
+            Just the boilerplate you&apos;d write anyway, with type safety and
+            production patterns built in.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* before */}
+            <div className="rounded-xl border bg-fd-card overflow-hidden shadow-sm">
+              <div className="px-4 py-2.5 border-b bg-fd-muted/40 text-xs font-medium text-fd-muted-foreground uppercase tracking-wide">
+                Before, raw amqplib
+              </div>
+              <pre className="p-5 text-[13px] leading-relaxed overflow-hidden">
+                {beforeCode.map((line, i) => (
+                  <div key={i} className="whitespace-pre flex">
+                    <span className="select-none text-fd-muted-foreground/40 w-5 text-right mr-4 text-[11px]">
+                      {i + 1}
+                    </span>
+                    <span>
+                      {line.map((seg, j) => (
+                        <span key={j} className={seg.c}>
+                          {seg.t}
+                        </span>
+                      ))}
+                    </span>
+                  </div>
+                ))}
+              </pre>
+            </div>
+            {/* after */}
+            <div className="rounded-xl border-2 border-fd-primary/40 bg-fd-card overflow-hidden shadow-lg shadow-fd-primary/5">
+              <div className="px-4 py-2.5 border-b bg-fd-primary/5 text-xs font-medium text-fd-primary uppercase tracking-wide flex items-center gap-2">
+                <Check className="size-3.5" /> After, Rabbit Relay
+              </div>
+              <pre className="p-5 text-[13px] leading-relaxed overflow-hidden">
+                {afterCode.map((line, i) => (
+                  <div key={i} className="whitespace-pre flex">
+                    <span className="select-none text-fd-muted-foreground/40 w-5 text-right mr-4 text-[11px]">
+                      {i + 1}
+                    </span>
+                    <span>
+                      {line.map((seg, j) => (
+                        <span key={j} className={seg.c}>
+                          {seg.t}
+                        </span>
+                      ))}
+                    </span>
+                  </div>
+                ))}
+              </pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── stats strip ────────────────────────────────────────────────── */}
+      <section className="border-t bg-fd-muted/30 px-6 py-12">
+        <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 divide-x divide-fd-border rounded-xl border bg-fd-card overflow-hidden text-center">
+          {[
+            { k: 'v1.5.0', v: 'current release' },
+            { k: '1', v: 'runtime dependency' },
+            { k: 'MIT', v: 'license' },
+            { k: 'Node ≥ 18', v: 'supported' },
+          ].map((s) => (
+            <div key={s.k} className="px-4 py-4">
+              <div className="text-lg font-bold">{s.k}</div>
+              <div className="text-xs text-fd-muted-foreground mt-0.5">
+                {s.v}
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
