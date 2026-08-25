@@ -184,10 +184,20 @@ kbd {
 
 /* Accordion — compact spacing */
 
+[data-accordion] {
+  gap: 0;
+}
+
 [data-accordion] > div {
   margin-top: 0;
 }
 
 [data-accordion] > div + div {
   margin-top: 0;
+}
+
+/* Accordion item borders */
+
+[data-accordion] > div {
+  border-radius: 0.5rem;
 }
