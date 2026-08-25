@@ -201,3 +201,10 @@ kbd {
 [data-accordion] > div {
   border-radius: 0.5rem;
 }
+
+/* Accordion headings — override prose h3 spacing */
+
+[data-accordion] h3 {
+  margin-top: 0;
+  margin-bottom: 0;
+}
