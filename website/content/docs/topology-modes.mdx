@@ -10,22 +10,6 @@ They are useful when different environments have different ownership rules for R
 
 ---
 
-## Why topology modes exist
-
-In development, it is convenient for the application to create queues, exchanges, bindings, and retry/DLQ topology automatically.
-
-In production, RabbitMQ topology is often managed outside the application by infrastructure tooling such as:
-
-- Terraform
-- Helm
-- Kubernetes jobs
-- RabbitMQ definitions
-- DevOps setup scripts
-
-Topology modes let you choose the correct behavior explicitly.
-
----
-
 ## Modes
 
 ```ts
@@ -61,6 +45,10 @@ This mode calls RabbitMQ topology APIs such as:
 
 Use it when the application owns the topology.
 
+<Callout title="Good for local development">
+`assert` is convenient when running RabbitMQ locally or in disposable test environments.
+</Callout>
+
 ---
 
 ## Passive mode
@@ -81,7 +69,9 @@ Rabbit Relay checks that required exchanges and queues exist.
 
 If something is missing, startup fails early.
 
-This helps catch deployment/configuration problems without modifying RabbitMQ topology.
+<Callout title="Good for production">
+Use `topologyMode: "passive"` when Terraform, Helm, RabbitMQ definitions, or DevOps scripts own RabbitMQ topology.
+</Callout>
 
 ---
 
@@ -109,11 +99,15 @@ This is useful for:
 - generating expected RabbitMQ definitions
 - comparing app topology with infrastructure code
 
+<Callout title="Plan-only does not publish or consume" type="warn">
+`plan-only` skips topology setup calls. Normal publishing, consuming, validation, and redrive operations can still require RabbitMQ.
+</Callout>
+
 ---
 
-## Broker-level default
+## Where to set topology mode
 
-You can set a default topology mode on the broker.
+You can set a default topology mode on the broker:
 
 ```ts
 const broker = new RabbitMQBroker("orders-service", {
@@ -121,7 +115,7 @@ const broker = new RabbitMQBroker("orders-service", {
 });
 ```
 
-Exchange-level settings can override the broker default.
+Or override it per exchange:
 
 ```ts
 const sub = await broker
@@ -131,9 +125,11 @@ const sub = await broker
   });
 ```
 
+Exchange-level settings override broker-level defaults.
+
 ---
 
-## Recommended environment setup
+## Recommended setup
 
 | Environment | Recommended mode |
 |---|---|
@@ -225,14 +221,20 @@ This is clearer because it applies to the topology behavior as a whole.
 
 ---
 
-## Important notes
+## Queue arguments are immutable
 
-- `"passive"` checks exchanges and queues
-- AMQP does not provide a simple safe binding check through `amqplib`
-- bindings are still included in `planTopology()`
-- `"plan-only"` skips topology setup calls
-- normal publishing, consuming, validation, and redrive operations can still require a RabbitMQ connection
-- queue arguments are immutable in RabbitMQ; changing them may require a new queue or recreation
+RabbitMQ does not allow changing queue arguments after a queue already exists.
+
+Examples of immutable queue arguments include:
+
+- queue type
+- dead-letter exchange
+- dead-letter routing key
+- message TTL
+
+<Callout title="Local development reset" type="warn">
+If you change queue arguments locally and get a precondition error, recreate the queue or reset the RabbitMQ volume.
+</Callout>
 
 ---
 
@@ -242,4 +244,3 @@ This is clearer because it applies to the topology behavior as a whole.
 - Use `"passive"` when infrastructure owns topology
 - Use `"plan-only"` for CI/docs/review
 - Prefer `topologyMode` over `passiveQueue` for new infrastructure-managed setups
-

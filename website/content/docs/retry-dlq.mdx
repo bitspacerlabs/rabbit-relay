@@ -297,6 +297,30 @@ Fix by:
 - using a new queue name/version
 - managing topology externally and using `passiveQueue: true`
 
+---
+
+## Common mistakes
+
+### Infinite requeue
+
+Avoid using `onError: "requeue"` as a retry strategy.
+
+It can create a hot loop.
+
+### No DLQ
+
+If messages matter, configure a DLQ.
+
+### Redrive before fixing the bug
+
+If the consumer is still broken, redrive only fails again.
+
+### Large redrive without dry-run
+
+Always dry-run and start with a small limit.
+
+---
+
 ## Summary
 
 - DLQs isolate poison messages

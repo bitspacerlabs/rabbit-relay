@@ -10,6 +10,24 @@ When a handler throws, you choose what happens to the message.
 
 ---
 
+## RabbitMQ acknowledgements
+
+RabbitMQ uses acknowledgements to know whether a delivered message has been handled successfully.
+
+| Term | Meaning |
+|---|---|
+| `ACK` | The message was handled and RabbitMQ can remove it from the queue |
+| `NACK requeue=true` | The message was rejected and should be put back on the queue |
+| `NACK requeue=false` | The message was rejected and should not be requeued |
+| Dead-letter | RabbitMQ routes a rejected message to a configured DLQ |
+
+<Callout title="Rabbit Relay default">
+If a handler succeeds, Rabbit Relay ACKs the message.
+If a handler throws, Rabbit Relay follows the `onError` policy.
+</Callout>
+
+---
+
 ## Error modes
 
 ```ts
@@ -18,9 +36,16 @@ await sub.consume({
 });
 ```
 
+| `onError` | RabbitMQ behavior | Use case |
+|---|---|---|
+| `"ack"` | `ACK` even after handler error | Non-critical events, logs, metrics |
+| `"requeue"` | `NACK requeue=true` | Transient failures, use carefully |
+| `"dead-letter"` | `NACK requeue=false` | Poison messages, validation errors |
+| `"retry"` | Publish retry copy, then `ACK` original | Production consumers |
+
 ---
 
-## `ack` default
+## `ack` (default)
 
 ```ts
 await sub.consume({
@@ -35,6 +60,10 @@ Behavior:
 - no retry occurs
 
 Use for non-critical events, logs, metrics, or handlers where failure should not block the queue.
+
+<Callout title="Data loss risk" type="warn">
+`onError: "ack"` drops failed messages. Use it only when that is acceptable.
+</Callout>
 
 ---
 
@@ -52,7 +81,9 @@ Behavior:
 - message is requeued
 - RabbitMQ may redeliver it immediately
 
-Use carefully. This can create infinite loops if the error is not transient.
+<Callout title="Infinite loop risk" type="warn">
+Do not use `requeue` as your main retry strategy. If the error is not transient, the same message can be delivered repeatedly forever.
+</Callout>
 
 ---
 
@@ -98,6 +129,24 @@ Common final behavior:
 then: "dead-letter"
 ```
 
+<Callout title="Production default">
+For production consumers, prefer bounded retry followed by DLQ.
+</Callout>
+
+---
+
+## Why Rabbit Relay ACKs the original after retry publish
+
+When retry is enabled, Rabbit Relay does not leave the original message unacked forever.
+
+Instead:
+
+1. It republishes a retry copy with retry headers
+2. It ACKs the original only after the retry copy is published
+3. RabbitMQ later delivers the retry copy
+
+This avoids infinite immediate redelivery loops and keeps retry metadata explicit.
+
 ---
 
 ## Recommended production pattern
@@ -136,6 +185,23 @@ This gives you:
 
 ---
 
+## At-least-once delivery
+
+RabbitMQ delivery remains at-least-once.
+
+A message can be delivered more than once if:
+
+- a consumer crashes before ACK
+- the connection drops during processing
+- a retry or redrive publishes another copy
+- a publisher retries after an uncertain failure
+
+<Callout title="Design handlers to be idempotent" type="warn">
+Use stable IDs, unique constraints, de-duplication, or idempotent writes where duplicate processing would be harmful.
+</Callout>
+
+---
+
 ## Summary
 
 - `ack` drops failed messages
@@ -143,4 +209,3 @@ This gives you:
 - `dead-letter` parks them in a DLQ
 - `retry` retries a bounded number of times
 - Prefer retry + DLQ for production consumers
-

@@ -45,83 +45,52 @@ type EventMeta = {
 
 ---
 
-## Add headers
+## Metadata helpers
 
-```ts
-import { withHeaders } from "@bitspacerlabs/rabbit-relay";
+| Helper | Purpose |
+|---|---|
+| `withHeaders(ev, headers)` | Add application headers |
+| `withMeta(ev, meta)` | Full metadata control (merges headers) |
+| `withCorrelation(ev, corrId)` | Set root correlation ID |
+| `withCausation(ev, causationId)` | Set causation ID |
+| `traceFrom(parent, extra?)` | Create child event with inherited correlation and causation |
 
-const ev = withHeaders(orderCreated(data), {
-  tenantId: "tenant-1",
-  source: "orders-service",
-});
-```
-
-Headers are also copied into AMQP publish headers.
-
----
-
-## Add metadata
-
-```ts
-import { withMeta } from "@bitspacerlabs/rabbit-relay";
-
-const ev = withMeta(orderCreated(data), {
-  corrId: "corr-123",
-  headers: {
-    tenantId: "tenant-1",
-  },
-});
-```
-
-`withMeta()` preserves existing metadata and merges headers.
-
----
-
-## Correlation and causation helpers
+### Example
 
 ```ts
 import {
+  withHeaders,
   withCorrelation,
-  withCausation,
+  traceFrom,
 } from "@bitspacerlabs/rabbit-relay";
 
-const ev = withCorrelation(orderCreated(data), "corr-123");
+// Start of a flow
+const ev = withCorrelation(
+  withHeaders(orderCreated(data), {
+    tenantId: "tenant-1",
+    source: "orders-service",
+  }),
+  "corr-123"
+);
 
-const child = withCausation(paymentRequested(data), ev.id);
+// Inside consumers
+sub.handle("order.created", async (_id, ev) => {
+  const next = paymentRequested(data, traceFrom(ev));
+});
 ```
 
 ---
 
-## Trace from parent event
+## traceFrom(parent, extra?)
 
-Use `traceFrom()` when creating a child event from a parent event.
-
-```ts
-import { traceFrom } from "@bitspacerlabs/rabbit-relay";
-
-sub.handle("order.created", async (_id, ev) => {
-  await pub.produce(
-    paymentRequested(
-      {
-        orderId: ev.data.orderId,
-        amount: ev.data.amount,
-      },
-      traceFrom(ev)
-    )
-  );
-});
-```
-
-`traceFrom(parent)`:
+`traceFrom()` creates a child event from a parent event.
 
 - preserves `parent.meta.corrId` if present
 - otherwise uses `parent.id` as the correlation ID
 - sets `causationId` to `parent.id`
 - copies parent headers
 
----
-
-## Add extra metadata while tracing
+You can merge extra metadata:
 
 ```ts
 const child = paymentRequested(
@@ -135,28 +104,6 @@ const child = paymentRequested(
 ```
 
 Parent headers and child headers are merged.
-
----
-
-## Recommended usage
-
-At the start of a flow:
-
-```ts
-const ev = withCorrelation(
-  withHeaders(orderCreated(data), {
-    tenantId: "tenant-1",
-    source: "orders-service",
-  }),
-  "corr-123"
-);
-```
-
-Inside consumers:
-
-```ts
-const next = paymentRequested(data, traceFrom(ev));
-```
 
 ---
 
@@ -177,4 +124,3 @@ They work well together.
 - Use `withCorrelation()` for root correlation
 - Use `traceFrom()` for child events
 - Correlation and causation make event chains easier to debug
-

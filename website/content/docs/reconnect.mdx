@@ -51,33 +51,7 @@ Rabbit Relay supports explicit topology ownership modes.
 | `"passive"` | Checks required exchanges and queues exist without declaring them |
 | `"plan-only"` | Skips topology setup calls |
 
-Use app-owned topology:
-
-```ts
-const broker = new RabbitMQBroker("orders-service", {
-  topologyMode: "assert",
-});
-```
-
-Use infrastructure-owned topology:
-
-```ts
-const broker = new RabbitMQBroker("orders-service", {
-  topologyMode: "passive",
-});
-```
-
-Use CI/docs/review mode:
-
-```ts
-const broker = new RabbitMQBroker("orders-service", {
-  topologyMode: "plan-only",
-});
-```
-
-`passiveQueue` remains supported for queue-only passive checks, but `topologyMode: "passive"` is preferred for new infrastructure-managed setups.
-
-See [Topology Modes](/docs/topology-modes).
+See [Topology Modes](/docs/topology-modes) for configuration details.
 
 ---
 

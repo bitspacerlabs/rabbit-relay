@@ -14,7 +14,6 @@
     "rabbitmq-basics",
     "typed-events",
     "exchanges-queues-bindings",
-    "acknowledgements",
     "delivery-semantics",
 
     "---Reliability---",
@@ -37,7 +36,6 @@
 
     "---Topology & operations---",
     "topology-modes",
-    "topology-ownership",
     "topology-planner",
     "topology-validation",
     "cli-reference",
