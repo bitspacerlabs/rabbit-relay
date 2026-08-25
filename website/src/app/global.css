@@ -181,3 +181,13 @@ kbd {
 [data-toc] a:hover {
   color: var(--color-fd-foreground);
 }
+
+/* Accordion — compact spacing */
+
+[data-accordion] > div {
+  margin-top: 0;
+}
+
+[data-accordion] > div + div {
+  margin-top: 0;
+}
