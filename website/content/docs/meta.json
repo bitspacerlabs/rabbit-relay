@@ -38,7 +38,6 @@
     "topology-modes",
     "topology-planner",
     "topology-validation",
-    "cli-reference",
     "message-size-guard",
     "amqp-escape-hatch",
 
@@ -48,6 +47,7 @@
 
     "---Reference---",
     "api",
+    "cli-reference",
     "examples"
   ]
 }
