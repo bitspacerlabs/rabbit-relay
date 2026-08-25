@@ -31,27 +31,63 @@ await api.consume({ prefetch: 20 });
 
 ## Why Rabbit Relay?
 
-- **Type-safe event contracts**, event factories and typed envelopes, with wildcard handlers that narrow via discriminated unions.
-- **Reliability by default**, bounded retries with fixed or exponential backoff, DLQs, publisher confirms.
-- **Explicit topology**, exchanges, queues and bindings are visible in code, plans, and the CLI diff tool.
-- **At-least-once delivery**, idempotency helpers included; delivery semantics are never hidden.
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+  <div className="rounded-xl border bg-fd-card p-5">
+    <div className="text-fd-primary text-lg mb-2">🔒</div>
+    <h3 className="font-semibold mb-1">Type-safe event contracts</h3>
+    <p className="text-sm text-fd-muted-foreground">Event factories and typed envelopes. Wildcard handlers narrow via discriminated unions.</p>
+  </div>
+  <div className="rounded-xl border bg-fd-card p-5">
+    <div className="text-fd-primary text-lg mb-2">🔄</div>
+    <h3 className="font-semibold mb-1">Reliability by default</h3>
+    <p className="text-sm text-fd-muted-foreground">Bounded retries with fixed or exponential backoff, DLQs, publisher confirms.</p>
+  </div>
+  <div className="rounded-xl border bg-fd-card p-5">
+    <div className="text-fd-primary text-lg mb-2">📋</div>
+    <h3 className="font-semibold mb-1">Explicit topology</h3>
+    <p className="text-sm text-fd-muted-foreground">Exchanges, queues and bindings are visible in code, plans, and the CLI diff tool.</p>
+  </div>
+  <div className="rounded-xl border bg-fd-card p-5">
+    <div className="text-fd-primary text-lg mb-2">✅</div>
+    <h3 className="font-semibold mb-1">At-least-once delivery</h3>
+    <p className="text-sm text-fd-muted-foreground">Idempotency helpers included. Delivery semantics are never hidden.</p>
+  </div>
+</div>
 
-<Cards>
-  <Card title="Quickstart" description="Publish your first type-safe event in minutes." href="/docs/quickstart" />
-  <Card title="Retry & Dead-Letter Queues" description="Bounded retries, backoff strategies, and poison-pill handling." href="/docs/retry-dlq" />
-  <Card title="Exponential Backoff" description="Broker-native doubling waits for transient outages." href="/docs/exponential-backoff" />
-</Cards>
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+  <a href="/docs/quickstart" className="group rounded-xl border bg-fd-card p-5 transition-all hover:shadow-md hover:border-fd-primary/30">
+    <h3 className="font-semibold mb-1 group-hover:text-fd-primary transition-colors">Quickstart →</h3>
+    <p className="text-sm text-fd-muted-foreground">Publish your first type-safe event in minutes.</p>
+  </a>
+  <a href="/docs/retry-dlq" className="group rounded-xl border bg-fd-card p-5 transition-all hover:shadow-md hover:border-fd-primary/30">
+    <h3 className="font-semibold mb-1 group-hover:text-fd-primary transition-colors">Retry & DLQ →</h3>
+    <p className="text-sm text-fd-muted-foreground">Bounded retries, backoff strategies, and poison-pill handling.</p>
+  </a>
+  <a href="/docs/exponential-backoff" className="group rounded-xl border bg-fd-card p-5 transition-all hover:shadow-md hover:border-fd-primary/30">
+    <h3 className="font-semibold mb-1 group-hover:text-fd-primary transition-colors">Exponential Backoff →</h3>
+    <p className="text-sm text-fd-muted-foreground">Broker-native doubling waits for transient outages.</p>
+  </a>
+</div>
 
-<Callout title="At-least-once delivery" type="note">
-  Delivery is **at-least-once**: consumers should be idempotent. The framework gives you the tools; it never hides the broker.
-</Callout>
+<div className="rounded-xl border border-fd-primary/20 bg-fd-primary/5 p-4 text-sm text-fd-muted-foreground">
+  <strong className="text-fd-foreground">At-least-once delivery:</strong> Consumers should be idempotent. The framework gives you the tools; it never hides the broker.
+</div>
 
 ## AI & Agent Tooling
 
 Rabbit Relay ships its documentation for machines as well as humans:
 
-<Cards>
-  <Card title="llms.txt" description="Curated index of every docs page, optimized for LLM context windows." href="/llms.txt" />
-  <Card title="llms-full.txt" description="All docs as clean markdown in one file. Perfect for retrieval-augmented generation." href="/llms-full.txt" />
-  <Card title="TypeScript types" description="Full type definitions shipped in the npm package. Agents can import and reason about types." href="/docs/api/rabbitmq-broker" />
-</Cards>
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <a href="/llms.txt" className="group rounded-xl border bg-fd-card p-5 transition-all hover:shadow-md hover:border-fd-primary/30">
+    <h3 className="font-semibold mb-1 group-hover:text-fd-primary transition-colors">llms.txt →</h3>
+    <p className="text-sm text-fd-muted-foreground">Curated index of every docs page, optimized for LLM context windows.</p>
+  </a>
+  <a href="/llms-full.txt" className="group rounded-xl border bg-fd-card p-5 transition-all hover:shadow-md hover:border-fd-primary/30">
+    <h3 className="font-semibold mb-1 group-hover:text-fd-primary transition-colors">llms-full.txt →</h3>
+    <p className="text-sm text-fd-muted-foreground">All docs as clean markdown in one file. Perfect for RAG.</p>
+  </a>
+  <a href="/docs/api/rabbitmq-broker" className="group rounded-xl border bg-fd-card p-5 transition-all hover:shadow-md hover:border-fd-primary/30">
+    <h3 className="font-semibold mb-1 group-hover:text-fd-primary transition-colors">TypeScript types →</h3>
+    <p className="text-sm text-fd-muted-foreground">Full type definitions shipped in the npm package.</p>
+  </a>
+</div>
