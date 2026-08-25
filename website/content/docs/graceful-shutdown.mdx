@@ -1,0 +1,94 @@
+---
+title: Graceful Shutdown
+description: Clean shutdown through broker.close() for tests, Docker, Kubernetes, and production deploys.
+icon: Power
+---
+
+Rabbit Relay supports graceful shutdown through `broker.close()`.
+
+This is important for tests, Docker, Kubernetes, and production deploys.
+
+---
+
+## Basic usage
+
+```ts
+const broker = new RabbitMQBroker("orders-service");
+
+process.on("SIGTERM", async () => {
+  await broker.close();
+  process.exit(0);
+});
+```
+
+---
+
+## What close does
+
+`broker.close()` attempts to:
+
+- stop active consumers
+- cancel consumer subscriptions
+- wait for active handlers to finish, up to `shutdownTimeoutMs`
+- requeue deliveries that were pending locally but had not started
+- stop reconnect attempts
+- close the normal channel
+- close the confirm channel
+- close the RabbitMQ connection
+
+---
+
+## Why it matters
+
+Graceful shutdown helps prevent:
+
+- hanging Node.js processes
+- abandoned consumers
+- duplicate work during deploys
+- test processes that never exit
+
+---
+
+## Kubernetes example
+
+```ts
+process.on("SIGTERM", async () => {
+  console.log("Stopping RabbitMQ broker...");
+  await broker.close();
+  console.log("RabbitMQ broker stopped");
+  process.exit(0);
+});
+```
+
+---
+
+## Drain timeout
+
+The default drain timeout is 30 seconds. Configure it per broker:
+
+```ts
+const broker = new RabbitMQBroker("orders-service", {
+  shutdownTimeoutMs: 15_000,
+});
+```
+
+Each broker owns its RabbitMQ connection and channels. Closing one broker does
+not close other brokers in the same process.
+
+---
+
+## Summary
+
+- Use `broker.close()` during shutdown
+- Handles consumers, channels, and connection cleanup
+- Drains active handlers with a bounded timeout
+- Broker instances have isolated connection lifecycles
+- Useful for tests and production services
+- Safe to call during process termination
+
+## Next steps
+
+<Cards>
+  <Card title="Health Checks" description="Runtime health information for readiness endpoints and dashboards" href="/docs/health-checks" />
+  <Card title="Lifecycle Hooks" description="React to broker and consumer lifecycle events" href="/docs/lifecycle-hooks" />
+</Cards>
