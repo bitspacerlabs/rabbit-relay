@@ -112,7 +112,7 @@ kbd {
 /* Inline code */
 
 .prose :not(pre) > code {
-  border: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+  border: 1px solid var(--color-fd-border);
   border-radius: 0.4rem;
   padding: 0.12rem 0.35rem;
   font-size: 0.875em;
@@ -181,18 +181,4 @@ kbd {
 
 [data-toc] a:hover {
   color: var(--color-fd-foreground);
-}
-
-/* TypeTable — remove borders on property items */
-
-.fumadocs-type-table {
-  border: none !important;
-}
-
-.fumadocs-type-table [data-type] {
-  border: none !important;
-  box-shadow: none !important;
-  background: transparent !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
 }
