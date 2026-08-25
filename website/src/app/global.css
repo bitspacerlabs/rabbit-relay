@@ -182,3 +182,17 @@ kbd {
 [data-toc] a:hover {
   color: var(--color-fd-foreground);
 }
+
+/* TypeTable — remove borders on property items */
+
+.fumadocs-type-table {
+  border: none !important;
+}
+
+.fumadocs-type-table [data-type] {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
