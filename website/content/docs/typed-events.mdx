@@ -205,6 +205,10 @@ Versioning decouples producers and consumers.
 - Breaking changes → publish a new version.
 
 ```ts
+import { event } from "@bitspacerlabs/rabbit-relay";
+
+type OrderCreated = { orderId: string; total: number };
+
 const makeOrderCreatedV1 =
   event("orderCreated", "v1").of<{ orderId: string; total: number }>();
 

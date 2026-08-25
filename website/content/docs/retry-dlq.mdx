@@ -82,7 +82,7 @@ Every retry copy carries observability headers:
 | Header | Meaning |
 |---|---|
 | `x-rabbit-relay-retry-count` | Attempt number (1-based) |
-| `x-rabbit-relay-delay-ms` | Actual wait scheduled before this attempt |
+| `x-rabbit-relay-retry-delay-ms` | Actual wait scheduled before this attempt |
 | `x-rabbit-relay-first-failed-at` | ISO timestamp of the first failure |
 | `x-rabbit-relay-last-failed-at` | ISO timestamp of the latest failure |
 | `x-rabbit-relay-last-error` | Last error message (truncated to 500 chars) |

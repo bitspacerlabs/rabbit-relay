@@ -23,7 +23,7 @@ await sub.consume({
   concurrency: 5,
   dedupe: {
     enabled: true,
-    ttlMs: 60_000,
+    ttlMs: 10 * 60_000,
     maxKeys: 100_000,
   },
 });
