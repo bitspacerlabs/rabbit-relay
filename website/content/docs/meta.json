@@ -39,6 +39,8 @@
     "topology-planner",
     "topology-validation",
     "topology-cli",
+    "---API Reference---",
+    "api",
     "---Reference---",
     "examples"
   ]

@@ -1,0 +1,6 @@
+{
+  "title": "API Reference",
+  "icon": "BookMarked",
+  "defaultOpen": true,
+  "pages": ["rabbitmq-broker", "event-envelope", "plugin-manager"]
+}
