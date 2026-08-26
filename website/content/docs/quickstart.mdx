@@ -1,0 +1,107 @@
+---
+title: Quickstart
+description: Publish and consume your first typed event with Rabbit Relay
+icon: Rocket
+---
+
+This guide walks you through publishing and consuming your first typed event
+using Rabbit Relay.
+
+<Callout title="What you will build">
+  A small publisher creates a typed event and a consumer handles it from RabbitMQ.
+</Callout>
+
+## Install
+
+```bash
+npm install @bitspacerlabs/rabbit-relay
+```
+
+## Define an event contract
+
+```ts title="events.ts"
+export const SchedulerEvents = {
+  ScheduleTask: "scheduler.scheduleTask",
+} as const;
+
+export type ScheduleTaskData = {
+  id: string;
+  when: number;
+};
+```
+
+## Publish and consume
+
+<Tabs items={["publisher.ts", "consumer.ts"]}>
+  <Tab value="publisher.ts">
+
+```ts
+import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
+import { SchedulerEvents, type ScheduleTaskData } from "./events";
+
+const broker = new RabbitMQBroker("scheduler_service");
+
+const pub = await broker
+  .queue("scheduler_publish_queue")
+  .exchange("scheduler_exchange", {
+    exchangeType: "topic",
+    publisherConfirms: true,
+  });
+
+const scheduleTask = event(
+  SchedulerEvents.ScheduleTask,
+  "v1"
+).of<ScheduleTaskData>();
+
+await pub.produce(
+  scheduleTask({
+    id: "task-1",
+    when: Date.now() + 5000,
+  })
+);
+
+await broker.close();
+```
+
+  </Tab>
+  <Tab value="consumer.ts">
+
+```ts
+import {
+  RabbitMQBroker,
+  type EventEnvelope,
+} from "@bitspacerlabs/rabbit-relay";
+import { SchedulerEvents, type ScheduleTaskData } from "./events";
+
+const broker = new RabbitMQBroker("scheduler_worker");
+
+const sub = await broker
+  .queue("scheduler_worker_queue")
+  .exchange<{
+    [SchedulerEvents.ScheduleTask]: EventEnvelope<ScheduleTaskData>;
+  }>("scheduler_exchange", {
+    exchangeType: "topic",
+    routingKey: "scheduler.*",
+  });
+
+sub.handle(SchedulerEvents.ScheduleTask, async (_id, ev) => {
+  console.log("Task received:", ev.data);
+});
+
+await sub.consume({
+  prefetch: 10,
+  concurrency: 5,
+});
+```
+
+  </Tab>
+</Tabs>
+
+## Next steps
+
+Now that you have a basic publisher and consumer, explore:
+
+- [Typed Events](/docs/typed-events) — event factories, versioning, and schemas
+- [Error Handling](/docs/error-handling) — what happens when a handler throws
+- [Retry & DLQ](/docs/retry-dlq) — bounded retries and poison-pill handling
+- [Configuration](/docs/configuration) — broker options and topology modes

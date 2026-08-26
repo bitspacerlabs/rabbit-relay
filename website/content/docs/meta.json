@@ -1,0 +1,53 @@
+{
+  "title": "Documentation",
+  "icon": "BookOpen",
+  "defaultOpen": true,
+  "pages": [
+    "index",
+
+    "---Get started---",
+    "what-is-rabbit-relay",
+    "quickstart",
+    "configuration",
+
+    "---Core concepts---",
+    "rabbitmq-basics",
+    "typed-events",
+    "exchanges-queues-bindings",
+    "delivery-semantics",
+
+    "---Reliability---",
+    "publisher-confirms",
+    "error-handling",
+    "retry-dlq",
+    "exponential-backoff",
+    "ttl-dedupe",
+    "reconnect",
+    "graceful-shutdown",
+
+    "---Features---",
+    "middleware",
+    "plugins",
+    "lifecycle-hooks",
+    "headers-and-tracing",
+    "consumer-concurrency",
+    "health-checks",
+    "opentelemetry",
+
+    "---Topology & operations---",
+    "topology-modes",
+    "topology-planner",
+    "topology-validation",
+    "message-size-guard",
+    "amqp-escape-hatch",
+
+    "---AI & Agents---",
+    "ai",
+    "ai-skills",
+
+    "---Reference---",
+    "api",
+    "cli-reference",
+    "examples"
+  ]
+}

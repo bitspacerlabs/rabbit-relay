@@ -1,0 +1,67 @@
+---
+title: What is Rabbit Relay
+description: A type-safe RabbitMQ messaging framework for Node.js built on amqplib
+icon: Lightbulb
+---
+
+Rabbit Relay is a **type-safe RabbitMQ framework for Node.js** built on `amqplib`.
+
+It keeps exchanges, queues, routing keys, acknowledgements, retries, dead-letter queues, and publisher confirms **explicit** while adding the production patterns most teams build themselves.
+
+---
+
+## Why Rabbit Relay?
+
+Raw `amqplib` gives you full control, but in real services it often leads to:
+
+- publishing without broker confirms
+- retry logic implemented differently everywhere
+- dead-letter queues created manually
+- message contracts only failing at runtime
+- reconnect logic restoring only part of the topology
+
+Rabbit Relay gives these patterns a **clear, typed, reusable shape**.
+
+---
+
+## What you get
+
+| Feature | What it does |
+|---|---|
+| **Type-safe events** | Define message shapes once, checked by TypeScript everywhere |
+| **Publisher confirms** | Wait for RabbitMQ to accept critical messages |
+| **Retry + DLQ** | Bounded retries, delayed backoff, poison-pill handling |
+| **RPC** | Request/reply with correlation IDs and timeouts |
+| **Reconnect** | Auto-restore channels, topology, and consumers |
+| **Observability** | Lifecycle hooks, tracing, and metrics integration |
+
+---
+
+## Rabbit Relay vs amqplib
+
+| Need | amqplib | Rabbit Relay |
+|---|---|---|
+| Message contracts | Manual types | Typed event factories |
+| Reliable publishing | Confirm channels | Built-in confirms |
+| Consumer load | Manual prefetch | Prefetch + concurrency |
+| Failed messages | Custom queues | Retry/DLQ helpers |
+| RPC | Manual correlation | Built-in RPC |
+| Reconnect | Custom recovery | Auto topology restore |
+| Observability | Manual instrumentation | Lifecycle hooks |
+
+---
+
+## What it is not
+
+- Not a replacement for RabbitMQ knowledge
+- Not hiding exchanges, queues, or routing keys
+- Not promising exactly-once delivery by magic
+
+Rabbit Relay keeps RabbitMQ visible, but gives it safer defaults and clearer APIs.
+
+---
+
+## Next steps
+
+- [Quickstart](/docs/quickstart) — publish your first type-safe event
+- [Configuration](/docs/configuration) — broker defaults and topology ownership

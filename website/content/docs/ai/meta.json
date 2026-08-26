@@ -1,0 +1,6 @@
+{
+  "title": "AI & Agents",
+  "icon": "Bot",
+  "defaultOpen": false,
+  "pages": ["agent-guide", "common-recipes", "decision-guide"]
+}

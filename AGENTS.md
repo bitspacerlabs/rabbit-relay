@@ -16,7 +16,8 @@ explicit.
 - `lib/` - TypeScript package source and public runtime behavior
 - `lib/index.ts` - public exports
 - `bin/rabbit-relay.mjs` - topology and DLQ CLI (plan, validate, diff, dlq)
-- `docs/` - VitePress documentation; `docs/ai/` is optimized for code generation
+- `website/` - Fumadocs documentation site (Next.js)
+- `docs/` - Markdown files shipped with npm package (AI guides, API reference)
 - `examples/` - runnable patterns that should agree with the documentation
 - `scripts/test-package-usage.sh` - packed ESM/CommonJS consumer smoke test
 - `scripts/test-real-usage.sh` - end-to-end live RabbitMQ test

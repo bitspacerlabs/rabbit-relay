@@ -1,0 +1,217 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+
+:root {
+  --color-fd-primary: hsl(239 84% 67%);
+  --color-fd-primary-foreground: hsl(0 0% 100%);
+  --color-fd-accent: hsl(239 84% 95%);
+}
+
+.dark {
+  --color-fd-primary: hsl(239 84% 72%);
+  --color-fd-primary-foreground: hsl(240 10% 8%);
+  --color-fd-accent: hsl(239 30% 14%);
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}
+
+pre,
+code,
+kbd {
+  font-family: var(--font-code), ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+}
+
+@keyframes code-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.code-line {
+  animation: code-line-in 0.45s ease-out both;
+}
+
+@keyframes cursor-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.code-cursor {
+  animation: cursor-blink 1.1s step-end infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .code-line,
+  .code-cursor {
+    animation: none;
+  }
+}
+
+/* ----------------------------------------
+   Rabbit Relay docs — minimal / LLM Gateway style
+   ---------------------------------------- */
+
+:root {
+  --fd-layout-width: 96rem;
+  --fd-page-width: 47rem;
+}
+
+/* Content width */
+
+.prose {
+  max-width: 47rem;
+}
+
+/* Document title */
+
+[data-docs-page] h1 {
+  letter-spacing: -0.035em;
+}
+
+/* Headings — compact, dense */
+
+.prose h2 {
+  margin-top: 2.75rem;
+  margin-bottom: 1rem;
+  font-size: 1.35rem;
+  letter-spacing: -0.025em;
+}
+
+.prose h3 {
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+
+/* Paragraphs — softer line height */
+
+.prose p {
+  line-height: 1.7;
+}
+
+/* Inline code */
+
+.prose :not(pre) > code {
+  border-radius: 0.4rem;
+  padding: 0.12rem 0.35rem;
+  font-size: 0.875em;
+  font-weight: 500;
+}
+
+/* Code blocks — less visual weight */
+
+.prose pre {
+  border-radius: 0.65rem;
+  border: none;
+  box-shadow: none;
+}
+
+.prose pre code {
+  font-size: 0.82rem;
+}
+
+/* Tables */
+
+.prose table {
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.prose thead {
+  background: color-mix(
+    in srgb,
+    var(--color-fd-secondary) 65%,
+    transparent
+  );
+}
+
+/* Links inside body */
+
+.prose a {
+  text-underline-offset: 3px;
+}
+
+/* Sidebar — flat, no gradient */
+
+#nd-sidebar {
+  background: var(--color-fd-background);
+}
+
+#nd-sidebar [data-active="true"] {
+  background: var(--color-fd-accent);
+}
+
+#nd-sidebar p {
+  letter-spacing: 0;
+}
+
+/* TOC — compact, restrained */
+
+[data-toc] {
+  font-size: 0.8rem;
+}
+
+[data-toc] a {
+  color: var(--color-fd-muted-foreground);
+  transition:
+    color 150ms ease,
+    border-color 150ms ease;
+}
+
+[data-toc] a:hover {
+  color: var(--color-fd-foreground);
+}
+
+/* Accordion — compact spacing */
+
+[data-accordion] {
+  gap: 0;
+}
+
+[data-accordion] > div {
+  margin-top: 0;
+}
+
+[data-accordion] > div + div {
+  margin-top: 0;
+}
+
+/* Accordion item borders */
+
+[data-accordion] > div {
+  border-radius: 0.5rem;
+}
+
+/* Accordion trigger — compact padding */
+
+[data-accordion] button {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+/* Accordion content — compact padding */
+
+[data-accordion] [data-accordion-content] {
+  padding-top: 0;
+  padding-bottom: 0.5rem;
+}

@@ -3,3 +3,7 @@ dist
 docs/.vitepress/cache
 .vscode
 release.sh
+website/node_modules
+website/.next
+website/out
+site-dist

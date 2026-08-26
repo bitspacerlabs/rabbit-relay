@@ -72,9 +72,12 @@ jobs:
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: website/package-lock.json
 
-      - name: Install dependencies
+      - name: Install website dependencies
         run: npm ci
+        working-directory: website
 
       - name: Build documentation
-        run: npm run docs:build
+        run: npm run build
+        working-directory: website
