@@ -5,6 +5,7 @@ release.sh
 website/node_modules
 website/.next
 website/out
+website/.serve-local
 website/tsconfig.tsbuildinfo
 website/next-env.d.ts
 site-dist
