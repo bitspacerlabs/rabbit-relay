@@ -3,7 +3,7 @@ name: Deploy Rabbit Relay site to Pages
 
 on:
   push:
-    branches: [main, docs-fumadocs-trial]
+    branches: [main]
 
   workflow_dispatch:
 
