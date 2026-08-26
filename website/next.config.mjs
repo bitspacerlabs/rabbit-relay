@@ -9,8 +9,7 @@ const config = {
   reactStrictMode: true,
   ...(isExport && {
     output: 'export',
-    basePath: '/rabbit-relay/docs',
-    assetPrefix: '/rabbit-relay/docs',
+    basePath: '/rabbit-relay',
     images: {
       unoptimized: true,
     },

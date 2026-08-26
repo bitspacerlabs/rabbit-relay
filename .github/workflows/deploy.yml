@@ -49,40 +49,16 @@ jobs:
           rm -rf site-dist
           mkdir -p site-dist
 
-          # With basePath + docsRoute='', Next.js output:
-          # - _next/ at root (assets reference /rabbit-relay/docs/_next/...)
-          # - pages at root (e.g. quickstart.html, not docs/quickstart.html)
-          # - docs/ subdirectory contains page files
-          #
-          # We need _next/ inside docs/ for asset paths to resolve:
+          # basePath is /rabbit-relay, so output maps directly:
+          # out/_next/     → /rabbit-relay/_next/     → site-dist/_next/
+          # out/docs/      → /rabbit-relay/docs/      → site-dist/docs/
+          # out/og/        → /rabbit-relay/og/        → site-dist/og/
+          # out/index.html → /rabbit-relay/           → site-dist/index.html
           cp -r website/out/* site-dist/
-          mkdir -p site-dist/docs
-          mv site-dist/_next site-dist/docs/_next
 
-          # Move og/ into docs/ for OG image paths
-          if [ -d site-dist/og ]; then
-            mv site-dist/og site-dist/docs/og
-          fi
-
-          # Landing page at /rabbit-relay/
+          # Overwrite root index.html with landing page
           cp index.html site-dist/index.html
           cp llms.txt site-dist/
-
-          # Docs index redirect
-          cat > site-dist/docs/index.html << 'REDIRECT'
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Redirecting...</title>
-            <meta http-equiv="refresh" content="0;url=/rabbit-relay/docs/what-is-rabbit-relay">
-          </head>
-          <body>
-            <p>If you are not redirected automatically, <a href="/rabbit-relay/docs/what-is-rabbit-relay">click here</a>.</p>
-          </body>
-          </html>
-          REDIRECT
 
           # Landing page assets
           cp -r assets site-dist/assets

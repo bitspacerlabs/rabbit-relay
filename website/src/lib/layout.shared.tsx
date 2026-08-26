@@ -7,13 +7,13 @@ function Logo() {
       <span className="inline-flex items-center justify-center size-8 rounded-lg bg-zinc-200 dark:bg-zinc-700 p-1">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/rabbit-relay/rabbit-relay-mini.svg"
+          src="/rabbit-relay-mini.svg"
           alt=""
           className="size-full dark:hidden"
         />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/rabbit-relay/rabbit-relay-mini-dark.svg"
+          src="/rabbit-relay-mini-dark.svg"
           alt=""
           className="size-full hidden dark:block"
         />
