@@ -49,8 +49,12 @@ jobs:
           rm -rf site-dist
           mkdir -p site-dist
 
-          # Fumadocs output (includes docs/ subdirectory)
+          # Fumadocs static export outputs _next/ at root and docs/ pages
+          # but basePath means HTML references /rabbit-relay/docs/_next/...
+          # So move _next/ into docs/ subdirectory for correct asset paths
           cp -r website/out/* site-dist/
+          mkdir -p site-dist/docs
+          mv site-dist/_next site-dist/docs/_next
 
           # Landing page at /rabbit-relay/ (overwrites Fumadocs root index.html)
           cp index.html site-dist/index.html
