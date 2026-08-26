@@ -1,7 +1,6 @@
 import { RootProvider } from 'fumadocs-ui/provider/next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import type { Metadata } from 'next';
-import DefaultSearchDialog from '@/components/search';
 import './global.css';
 
 const inter = Inter({
@@ -27,13 +26,7 @@ export default function Layout({ children }: LayoutProps<'/'>) {
       suppressHydrationWarning
     >
       <body className="flex flex-col min-h-screen">
-        <RootProvider
-          search={{
-            SearchDialog: DefaultSearchDialog,
-          }}
-        >
-          {children}
-        </RootProvider>
+        <RootProvider>{children}</RootProvider>
       </body>
     </html>
   );
