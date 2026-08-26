@@ -49,43 +49,42 @@ jobs:
           rm -rf site-dist
           mkdir -p site-dist
 
-          # Fumadocs output uses assetPrefix but no basePath.
-          # Links: /docs/<slug>  Assets: /rabbit-relay/docs/_next/...
-          # Pages are at out/docs/<slug>.html and out/docs/<slug>/
-          # We need them at site-dist/docs/<slug>.html so GitHub Pages
-          # serves /rabbit-relay/docs/<slug> correctly.
-
+          # With basePath + docsRoute='', Next.js output:
+          # - _next/ at root (assets reference /rabbit-relay/docs/_next/...)
+          # - pages at root (e.g. quickstart.html, not docs/quickstart.html)
+          # - docs/ subdirectory contains page files
+          #
+          # We need _next/ inside docs/ for asset paths to resolve:
+          cp -r website/out/* site-dist/
           mkdir -p site-dist/docs
+          mv site-dist/_next site-dist/docs/_next
 
-          # Copy the entire docs/ directory contents
-          cp -r website/out/docs/* site-dist/docs/
-
-          # Copy docs.html as the docs index page
-          cp website/out/docs.html site-dist/docs/index.html
-
-          # Copy _next/ into docs/ for correct asset paths
-          cp -r website/out/_next site-dist/docs/_next
-
-          # Copy og/ into docs/ for correct OG image paths
-          if [ -d website/out/og ]; then
-            cp -r website/out/og site-dist/docs/og
+          # Move og/ into docs/ for OG image paths
+          if [ -d site-dist/og ]; then
+            mv site-dist/og site-dist/docs/og
           fi
 
-          # Move root-level llms files
-          cp website/out/llms.txt site-dist/
-          cp website/out/llms-full.txt site-dist/
-
-          # Move root-level static assets
-          cp website/out/favicon.svg site-dist/
-          cp website/out/favicon-light.svg site-dist/
-          cp website/out/favicon-dark.svg site-dist/
-          cp website/out/rabbit-relay-mini.svg site-dist/
-          cp website/out/rabbit-relay-mini-dark.svg site-dist/
-
-          # Landing page at /rabbit-relay/ (overwrites Fumadocs root)
+          # Landing page at /rabbit-relay/
           cp index.html site-dist/index.html
+          cp llms.txt site-dist/
 
-          # Landing page assets at /rabbit-relay/assets/
+          # Docs index redirect
+          cat > site-dist/docs/index.html << 'REDIRECT'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Redirecting...</title>
+            <meta http-equiv="refresh" content="0;url=/rabbit-relay/docs/what-is-rabbit-relay">
+          </head>
+          <body>
+            <p>If you are not redirected automatically, <a href="/rabbit-relay/docs/what-is-rabbit-relay">click here</a>.</p>
+          </body>
+          </html>
+          REDIRECT
+
+          # Landing page assets
           cp -r assets site-dist/assets
 
           # Generate redirect pages for old VitePress URLs
