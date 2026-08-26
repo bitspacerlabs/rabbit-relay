@@ -4,7 +4,7 @@ import { appName, gitConfig } from './shared';
 function Logo() {
   return (
     <span className="inline-flex items-center gap-2 font-bold tracking-tight text-[15px]">
-      <span className="inline-flex items-center justify-center size-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 p-1">
+      <span className="inline-flex items-center justify-center size-8 rounded-lg bg-zinc-200 dark:bg-zinc-700 p-1">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/rabbit-relay-mini.svg"
