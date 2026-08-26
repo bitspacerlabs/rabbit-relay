@@ -57,19 +57,18 @@ jobs:
 
           mkdir -p site-dist/docs
 
-          # Copy the entire docs/ directory contents up one level
-          # (out/docs/* -> site-dist/docs/*)
+          # Copy the entire docs/ directory contents
           cp -r website/out/docs/* site-dist/docs/
 
           # Copy docs.html as the docs index page
           cp website/out/docs.html site-dist/docs/index.html
 
-          # Move _next/ into docs/ for correct asset paths
-          mv site-dist/_next site-dist/docs/_next
+          # Copy _next/ into docs/ for correct asset paths
+          cp -r website/out/_next site-dist/docs/_next
 
-          # Move og/ into docs/ for correct OG image paths
-          if [ -d site-dist/og ]; then
-            mv site-dist/og site-dist/docs/og
+          # Copy og/ into docs/ for correct OG image paths
+          if [ -d website/out/og ]; then
+            cp -r website/out/og site-dist/docs/og
           fi
 
           # Move root-level llms files
