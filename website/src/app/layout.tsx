@@ -14,8 +14,20 @@ const code = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://bitspacerlabs.github.io/rabbit-relay'),
+  title: {
+    default: 'Rabbit Relay',
+    template: '%s | Rabbit Relay',
+  },
+  description:
+    'Type-safe RabbitMQ framework for Node.js with typed events, publisher confirms, retries, DLQs, RPC, reconnect, and OpenTelemetry.',
   icons: {
     icon: '/rabbit-relay/favicon.svg',
+  },
+  openGraph: {
+    type: 'website',
+    siteName: 'Rabbit Relay',
+    locale: 'en_US',
   },
 };
 
