@@ -9,6 +9,7 @@ type ToolCardProps = {
   href: string;
   icon: LucideIcon;
   className?: string;
+  external?: boolean;
 };
 
 export function ToolCard({
@@ -17,17 +18,22 @@ export function ToolCard({
   href,
   icon: Icon,
   className,
+  external,
 }: ToolCardProps) {
+  const props = {
+    className: cn(
+      'group flex min-w-0 items-start gap-3 rounded-lg border border-fd-border/70 px-4 py-3',
+      'bg-fd-background transition-colors',
+      'hover:bg-fd-accent/40',
+      className,
+    ),
+    ...(external ? { href, target: '_blank', rel: 'noopener noreferrer' } : { href }),
+  };
+
+  const Tag = external ? 'a' : Link;
+
   return (
-    <Link
-      href={href}
-      className={cn(
-        'group flex min-w-0 items-start gap-3 rounded-lg border border-fd-border/70 px-4 py-3',
-        'bg-fd-background transition-colors',
-        'hover:bg-fd-accent/40',
-        className,
-      )}
-    >
+    <Tag {...props}>
       <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border bg-fd-secondary/50 text-fd-muted-foreground">
         <Icon className="size-4" />
       </div>
@@ -45,6 +51,6 @@ export function ToolCard({
           {description}
         </p>
       </div>
-    </Link>
+    </Tag>
   );
 }
