@@ -52,6 +52,10 @@ jobs:
           cp -r website/out/* site-dist/
           cp llms.txt site-dist/
 
+          # Move API routes into basePath so they're served at /rabbit-relay/api/search
+          mkdir -p site-dist/rabbit-relay/api
+          mv site-dist/api/search site-dist/rabbit-relay/api/search 2>/dev/null || true
+
           # Generate redirect pages for old VitePress URLs
           ./scripts/generate-docs-redirects.sh site-dist
 
