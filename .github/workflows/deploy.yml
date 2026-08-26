@@ -67,17 +67,7 @@ jobs:
           ./scripts/generate-docs-redirects.sh site-dist
 
           # Generate docs root redirect to first doc page
-          cat > site-dist/docs/index.html <<'EOF'
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta http-equiv="refresh" content="0;url=/rabbit-relay/docs/what-is-rabbit-relay">
-  <title>Redirecting…</title>
-</head>
-<body></body>
-</html>
-EOF
+          printf '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta http-equiv="refresh" content="0;url=/rabbit-relay/docs/what-is-rabbit-relay">\n<title>Redirecting…</title>\n</head>\n<body></body>\n</html>\n' > site-dist/docs/index.html
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
