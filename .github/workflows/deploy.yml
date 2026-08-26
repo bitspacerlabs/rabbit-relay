@@ -49,24 +49,13 @@ jobs:
           rm -rf site-dist
           mkdir -p site-dist
 
-          # basePath is /rabbit-relay, so output maps directly:
-          # out/_next/     → /rabbit-relay/_next/     → site-dist/_next/
-          # out/docs/      → /rabbit-relay/docs/      → site-dist/docs/
-          # out/og/        → /rabbit-relay/og/        → site-dist/og/
-          # out/index.html → /rabbit-relay/           → site-dist/index.html
           cp -r website/out/* site-dist/
-
-          # Overwrite root index.html with landing page
-          cp index.html site-dist/index.html
           cp llms.txt site-dist/
-
-          # Landing page assets
-          cp -r assets site-dist/assets
 
           # Generate redirect pages for old VitePress URLs
           ./scripts/generate-docs-redirects.sh site-dist
 
-          # Generate docs root redirect to first doc page
+          # Docs root redirect to first doc page
           printf '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta http-equiv="refresh" content="0;url=/rabbit-relay/docs/what-is-rabbit-relay">\n<title>Redirecting…</title>\n</head>\n<body></body>\n</html>\n' > site-dist/docs/index.html
 
       - name: Upload artifact
