@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://bitspacerlabs.github.io/rabbit-relay/sitemap.xml
