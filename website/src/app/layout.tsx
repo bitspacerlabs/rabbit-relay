@@ -14,7 +14,7 @@ const code = JetBrains_Mono({
 
 export const metadata: Metadata = {
   icons: {
-    icon: '/favicon.svg',
+    icon: '/rabbit-relay/favicon.svg',
   },
 };
 
