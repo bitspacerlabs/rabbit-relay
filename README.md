@@ -85,7 +85,7 @@ await api.consume({ prefetch: 20, concurrency: 5 });
 await api.orderCreated({ orderId: "O-42", total: 99.5 });
 ```
 
-> Rabbit Relay uses **at-least-once delivery semantics**. Consumers must be idempotent because duplicates remain possible during retries, reconnects, and network failures. Read the [delivery-semantics guide](https://bitspacerlabs.github.io/rabbit-relay/docs/guide/delivery-semantics).
+> Rabbit Relay uses **at-least-once delivery semantics**. Consumers must be idempotent because duplicates remain possible during retries, reconnects, and network failures. Read the [delivery-semantics guide](https://bitspacerlabs.github.io/rabbit-relay/docs/delivery-semantics).
 
 ## Why Rabbit Relay?
 
@@ -104,8 +104,6 @@ Rabbit Relay provides that layer while keeping RabbitMQ concepts explicit:
 - **Operational visibility** through health state, lifecycle events, and OpenTelemetry
 - **Native AMQP escape hatches** when direct `amqplib` access is needed
 
-## Choose the right level
-
 | Need | Recommended approach |
 |---|---|
 | A few simple publishes or consumers with full low-level control | Use `amqplib` directly |
@@ -113,191 +111,27 @@ Rabbit Relay provides that layer while keeping RabbitMQ concepts explicit:
 | RabbitMQ Streams workloads | Use the RabbitMQ Streams client |
 | A heavily configuration-driven enterprise messaging framework | Evaluate Rascal |
 
-Rabbit Relay is designed for teams that want production-oriented conventions without replacing RabbitMQ with a proprietary abstraction.
-
-## What is included
-
-| Area | Capabilities |
-|---|---|
-| Events | Typed factories, versions, metadata, headers, correlation and causation IDs, tracing, runtime schemas |
-| Publishing | Typed APIs, publisher confirms, mandatory returns, backpressure, size guards |
-| Consuming | Prefetch, concurrency, middleware, wildcard handlers, explicit acknowledgement behavior |
-| Reliability | Immediate and delayed retries, DLQs, redrive, in-memory TTL deduplication |
-| RPC | Request/reply, correlation IDs, exclusive reply queues, timeouts |
-| Recovery | Automatic reconnect, topology restoration, consumer restoration |
-| Operations | Health checks, graceful shutdown, lifecycle hooks, topology planning, validation, and diff CLI |
-| Observability | OpenTelemetry adapter and lifecycle events such as `handler.completed` and `message.dead-lettered` |
-
-## Project status
-
-Rabbit Relay is stable on the **1.x** line and follows semantic versioning. The repository includes unit tests, live RabbitMQ integration tests, and packed-package ESM, CommonJS, and TypeScript smoke tests.
-
 > Using an AI coding agent? Give it [`llms.txt`](llms.txt) for a curated documentation map. Repository agents should begin with [`AGENTS.md`](AGENTS.md).
 
----
+## AI Coding Skills
 
-## Installation
-
-```bash
-npm i @bitspacerlabs/rabbit-relay
-```
-
-> Tip: Rabbit Relay ships TypeScript-first and supports both ESM and CommonJS builds.
-
----
-
-## Quickstart (typed events)
-
-```ts
-import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
-
-const broker = new RabbitMQBroker("example.service");
-
-// Create a publisher bound to your queue + exchange
-const pub = await broker
-  .queue("example.q")
-  .exchange("example.exchange", { exchangeType: "topic" });
-
-// Define typed events (name + version)
-const send = event("send", "v1").of<{ message: string }>();
-
-// Build a typed publish API.
-// Calling api.send(...) creates the event and publishes it.
-const api = pub.with({ send });
-await api.send({ message: "hello world" });
-```
-
-### Direct publish (produce)
-
-```ts
-import { RabbitMQBroker, event } from "@bitspacerlabs/rabbit-relay";
-
-const broker = new RabbitMQBroker("example.publisher");
-
-const pub = await broker
-  .queue("example.q")
-  .exchange("example.direct", { exchangeType: "direct" });
-
-const hello = event("hello", "v1").of<{ msg: string }>();
-
-await pub.produce(hello({ msg: "world" }));
-```
-
-### Routing keys
-
-By default, Rabbit Relay publishes using the event name as the routing key.
-
-```ts
-const hello = event("hello", "v1").of<{ msg: string }>();
-
-await pub.produce(
-  hello({ msg: "world" })
-); // routing key: "hello"
-```
-
-If you configure a concrete `routingKey` on the exchange, Rabbit Relay uses it when publishing:
-
-```ts
-const pub = await broker
-  .queue("orders.q")
-  .exchange("orders.exchange", {
-    exchangeType: "topic",
-    routingKey: "orders.created",
-  });
-```
-
-For topic wildcard bindings such as `#` or `demo.*`, Rabbit Relay treats the value as a binding pattern and continues publishing by event name.
-
-```ts
-const pub = await broker
-  .queue("plugins.q")
-  .exchange("plugins.exchange", {
-    exchangeType: "topic",
-    routingKey: "demo.*",
-  });
-
-const ping = event("demo.ping", "v1").of<{ seq: number }>();
-
-await pub.produce(
-  ping({ seq: 1 })
-); // routing key: "demo.ping"
-```
-
-You can always override the publish routing key explicitly:
-
-```ts
-await pub.publish(
-  hello({ msg: "world" }),
-  { routingKey: "custom.key" }
-);
-```
-
----
-
-## Examples
-
-See runnable examples in:  
-- `examples/` → https://github.com/bitspacerlabs/rabbit-relay/tree/main/examples
-
-Run all examples at once (requires Docker for RabbitMQ):
+Installable skills for AI coding agents that generate correct Rabbit Relay code:
 
 ```bash
-bash scripts/run-examples.sh
+npx skills add bitspacerlabs/rabbit-relay-skills
 ```
 
----
+Includes skills for core API patterns, typed events, retries/DLQ, topology, RPC, and observability. Works with Claude Code, Cursor, Windsurf, GitHub Copilot, OpenCode, and Gemini CLI. See [`rabbit-relay-skills`](https://github.com/bitspacerlabs/rabbit-relay-skills) for details.
 
-## When to use Rabbit Relay
+## Stability
 
-Rabbit Relay is a good fit when your services depend on RabbitMQ for real
-application behavior and you want:
-
-- **typed message contracts** checked by TypeScript, not just at runtime
-- **reliable publishing** with publisher confirms and message-size guards
-- **predictable consumers** with prefetch, concurrency, and explicit acks
-- **consistent retry, DLQ, and redrive** flows instead of per-service glue
-- **RPC over RabbitMQ** without hand-rolling correlation IDs
-- **reconnect recovery** that restores channels, topology, and consumers
-- **production observability** via lifecycle hooks and OpenTelemetry
-- **explicit topology ownership** - app-asserted, infra-owned (passive), or
-  plan-only for CI/review, with a topology diff CLI
-
-If you only publish a few fire-and-forget messages, raw `amqplib` may be
-enough. For a feature-by-feature decision, see the
-[decision guide](https://bitspacerlabs.github.io/rabbit-relay/docs/ai/decision-guide).
-
----
-
-## Stability and testing
-
-Rabbit Relay is **stable** on the 1.x line and follows semantic versioning.
-The public API for publishing, consuming, retry, DLQ, RPC, topology, and
-operations is stable, and the project ships an extensive test suite (unit,
-live RabbitMQ integration, and packed-package ESM/CJS/TypeScript smoke
-tests) running on Node.js 18, 20, 22, and 24 in CI.
+Rabbit Relay is **stable** on the 1.x line and follows semantic versioning. The repository includes unit tests, live RabbitMQ integration tests, and packed-package ESM, CommonJS, and TypeScript smoke tests.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for release history.
 
-If something is unclear or missing, please open an issue (or start a
-discussion) with:
-
-- what you’re trying to build
-- the RabbitMQ pattern you’re using (pub/sub, work queue, RPC, etc.)
-- a small code snippet
-
----
-
 ## Contributing
 
-Contributions are welcome ❤️
-
-- Read: [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- Code of Conduct: [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
-- Security: [`SECURITY.md`](SECURITY.md)
-
-If you want to help but don’t know where to start, check issues labeled **good first issue**.
-
----
+Contributions are welcome. Read [`CONTRIBUTING.md`](CONTRIBUTING.md), [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), and [`SECURITY.md`](SECURITY.md).
 
 ## License
 
