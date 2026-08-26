@@ -60,6 +60,23 @@ jobs:
           cp index.html site-dist/index.html
           cp llms.txt site-dist/
 
+          # Docs index page - redirect to first doc
+          cat > site-dist/docs/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Redirecting...</title>
+            <meta http-equiv="refresh" content="0;url=/rabbit-relay/docs/what-is-rabbit-relay">
+            <link rel="canonical" href="https://bitspacerlabs.github.io/rabbit-relay/docs/what-is-rabbit-relay">
+          </head>
+          <body>
+            <p>If you are not redirected automatically, <a href="/rabbit-relay/docs/what-is-rabbit-relay">click here</a>.</p>
+          </body>
+          </html>
+          EOF
+
           # Landing page assets at /rabbit-relay/assets/
           cp -r assets site-dist/assets
 
