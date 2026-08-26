@@ -1,6 +1,7 @@
 import { source } from '@/lib/source';
 import { DocsLayout } from 'fumadocs-ui/layouts/docs';
 import { baseOptions } from '@/lib/layout.shared';
+import { ScrollToTop } from '@/components/scroll-to-top';
 
 export default function Layout({ children }: LayoutProps<'/docs'>) {
   return (
@@ -9,6 +10,7 @@ export default function Layout({ children }: LayoutProps<'/docs'>) {
       tabMode="top"
       {...baseOptions()}
     >
+      <ScrollToTop />
       {children}
     </DocsLayout>
   );
