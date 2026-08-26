@@ -4,22 +4,20 @@ import { appName, gitConfig } from './shared';
 function Logo() {
   return (
     <span className="inline-flex items-center gap-2 font-bold tracking-tight text-[15px]">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/rabbit-relay-mini.svg"
-        alt=""
-        className="size-6 rounded-md dark:hidden"
-        width={24}
-        height={24}
-      />
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/rabbit-relay-mini-dark.svg"
-        alt=""
-        className="size-6 rounded-md hidden dark:block"
-        width={24}
-        height={24}
-      />
+      <span className="inline-flex items-center justify-center size-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 p-1">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/rabbit-relay-mini.svg"
+          alt=""
+          className="size-full dark:hidden"
+        />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/rabbit-relay-mini-dark.svg"
+          alt=""
+          className="size-full hidden dark:block"
+        />
+      </span>
       {appName}
     </span>
   );
