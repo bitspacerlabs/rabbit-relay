@@ -47,9 +47,9 @@
     "build:cjs": "tsc -p tsconfig.cjs.json",
     "build:esm": "tsc -p tsconfig.esm.json && node scripts/write-esm-package.cjs",
     "prepublishOnly": "npm run build",
-    "docs:dev": "vitepress dev docs",
-    "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs",
+    "docs:dev": "cd website && npm run dev",
+    "docs:build": "cd website && npm run build",
+    "docs:preview": "cd website && npm run start",
     "test:package": "bash scripts/test-package-usage.sh",
     "test:real-usage": "bash scripts/test-real-usage.sh",
     "test:unit": "npm run build && node --test test/unit/*.test.cjs",
@@ -88,8 +88,7 @@
   "devDependencies": {
     "@types/amqplib": "^0.10.8",
     "tsx": "^4.23.1",
-    "typescript": "^5.8.3",
-    "vitepress": "^2.0.0-alpha.12"
+    "typescript": "^5.8.3"
   },
   "overrides": {
     "esbuild": "^0.28.1"

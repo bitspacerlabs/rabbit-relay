@@ -1,5 +1,4 @@
-# Sample workflow for building and deploying Rabbit Relay landing page + VitePress docs to GitHub Pages
-#
+# Build and deploy Rabbit Relay landing page + Fumadocs docs to GitHub Pages
 name: Deploy Rabbit Relay site to Pages
 
 on:
@@ -27,42 +26,41 @@ jobs:
         with:
           fetch-depth: 0
 
-      # - uses: pnpm/action-setup@v4
-      #   with:
-      #     version: 9
-
-      # - uses: oven-sh/setup-bun@v1
-
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: website/package-lock.json
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      - name: Install dependencies
+      - name: Install website dependencies
         run: npm ci
+        working-directory: website
 
-      - name: Build docs with VitePress
-        run: npm run docs:build
+      - name: Build Fumadocs
+        run: npm run build
+        working-directory: website
 
       - name: Prepare final site
         run: |
           rm -rf site-dist
           mkdir -p site-dist
 
-          # Landing page at /rabbit-relay/
+          # Fumadocs output (includes docs/ subdirectory)
+          cp -r website/out/* site-dist/
+
+          # Landing page at /rabbit-relay/ (overwrites Fumadocs root index.html)
           cp index.html site-dist/index.html
           cp llms.txt site-dist/
 
           # Landing page assets at /rabbit-relay/assets/
           cp -r assets site-dist/assets
 
-          # VitePress docs at /rabbit-relay/docs/
-          mkdir -p site-dist/docs
-          cp -r docs/.vitepress/dist/* site-dist/docs/
+          # Generate redirect pages for old VitePress URLs
+          ./scripts/generate-docs-redirects.sh site-dist
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

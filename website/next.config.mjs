@@ -5,6 +5,11 @@ const withMDX = createMDX();
 /** @type {import('next').NextConfig} */
 const config = {
   reactStrictMode: true,
+  output: 'export',
+  basePath: '/rabbit-relay/docs',
+  images: {
+    unoptimized: true,
+  },
 };
 
 export default withMDX(config);
