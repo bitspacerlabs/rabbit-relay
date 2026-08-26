@@ -55,6 +55,8 @@ jobs:
           # We need them at site-dist/docs/<slug>.html so GitHub Pages
           # serves /rabbit-relay/docs/<slug> correctly.
 
+          mkdir -p site-dist/docs
+
           # Copy the entire docs/ directory contents up one level
           # (out/docs/* -> site-dist/docs/*)
           cp -r website/out/docs/* site-dist/docs/
