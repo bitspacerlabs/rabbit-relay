@@ -6,6 +6,36 @@ This project follows semantic versioning.
 
 ---
 
+## [Unreleased]
+
+### Documentation
+
+- Replaced VitePress documentation site with Fumadocs (Next.js 16 +
+  Tailwind 4) deployed to GitHub Pages at `/rabbit-relay/docs/`.
+- Redesigned docs with LLM Gateway-inspired layout: compact cards, Clerk-
+  style table of contents, indigo theme, responsive sidebar.
+- Added `llms.txt` and `llms-full.txt` route handlers for machine-readable
+  documentation.
+- Added OpenGraph image generation for all doc pages.
+- Generated redirect pages for old VitePress URLs for backward
+  compatibility.
+- Added installable AI coding skills package reference (`ai-skills` page).
+- Removed old VitePress configuration, theme, and unused public assets.
+
+### Changed
+
+- CI workflow now builds Fumadocs from `website/` directory.
+- Deploy workflow builds Fumadocs static export and restructures for
+  GitHub Pages with `basePath: /rabbit-relay`.
+- Updated `package.json` docs scripts to use Fumadocs (`docs:dev`,
+  `docs:build`, `docs:preview`).
+- Updated `.gitignore` for website build artifacts (`website/.next`,
+  `website/out`, `website/tsconfig.tsbuildinfo`).
+- Removed dead files: `website/proxy.ts`, `website/src/components/ai/search.tsx`,
+  stale VitePress cache entry from `.gitignore`.
+
+---
+
 ## [1.5.0] - 2026-08-24
 
 ### Added
