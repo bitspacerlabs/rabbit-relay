@@ -8,6 +8,8 @@ This project follows semantic versioning.
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-08-27
+
 ### Documentation
 
 - Replaced VitePress documentation site with Fumadocs (Next.js 16 +
@@ -56,6 +58,17 @@ This project follows semantic versioning.
   exchange with no queue, binding, or consumer. `consume()` throws on an
   exchange-only interface. Useful for producers that only publish and
   don't need to own queue topology.
+
+### Fixed
+
+- `broker.close()` no longer deadlocks when awaited from inside a message
+  handler (drains active handlers correctly). (#55)
+- Dispatch now warns (and emits a `handler.not-found` lifecycle event) when
+  a message arrives with no matching handler instead of silently dropping
+  it. Also warns when a `.with()` map key doesn't match the event factory
+  name. (#61)
+- Fixed `getRetryCount()` ignoring Buffer-form retry headers, and passive
+  mode now asserts bindings instead of silently dropping messages. (#60, #63)
 
 ---
 
