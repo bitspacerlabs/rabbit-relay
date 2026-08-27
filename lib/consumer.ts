@@ -183,6 +183,11 @@ export function createConsumer(params: {
       return Number.isFinite(parsed) ? parsed : 0;
     }
 
+    if (Buffer.isBuffer(raw)) {
+      const parsed = Number(raw.toString());
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
     return 0;
   }
 
@@ -286,6 +291,7 @@ export function createConsumer(params: {
       try {
         await ch.checkExchange(retryExchange);
         await ch.checkQueue(retryQueue);
+        await ch.bindQueue(retryQueue, retryExchange, "#");
       } catch (err) {
         throw new Error(
           `[broker] topologyMode='passive' delayed retry topology check failed for ` +
