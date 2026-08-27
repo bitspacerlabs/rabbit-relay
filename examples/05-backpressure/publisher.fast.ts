@@ -6,7 +6,6 @@ type BpEvent = EventEnvelope<Payload>;
 
 (async () => {
   const EX = "bp.demo";
-  const Q  = "bp_queue";
   const KEY = "#";
 
   // Big messages help trigger socket backpressure sooner
@@ -14,14 +13,12 @@ type BpEvent = EventEnvelope<Payload>;
   const TOTAL = Number(process.env.BP_TOTAL ?? 50_000);     // how many to try
 
   const broker = new RabbitMQBroker("bp.publisher");
-  const pub = await broker
-    .queue(Q)
-    .exchange<{ "bp.msg": BpEvent }>(EX, {
-      exchangeType: "topic",
-      routingKey: KEY,
-      // IMPORTANT: leave publisherConfirms=false to maximize send rate and reveal backpressure
-      publisherConfirms: false,
-    });
+  const pub = await broker.exchange<{ "bp.msg": BpEvent }>(EX, {
+    exchangeType: "topic",
+    routingKey: KEY,
+    // IMPORTANT: leave publisherConfirms=false to maximize send rate and reveal backpressure
+    publisherConfirms: false,
+  });
 
   const make = event("bp.msg", "v1").of<Payload>();
   const pad = "x".repeat(BYTES);

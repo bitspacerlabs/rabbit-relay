@@ -41,12 +41,10 @@ import { SchedulerEvents, type ScheduleTaskData } from "./events";
 
 const broker = new RabbitMQBroker("scheduler_service");
 
-const pub = await broker
-  .queue("scheduler_publish_queue")
-  .exchange("scheduler_exchange", {
-    exchangeType: "topic",
-    publisherConfirms: true,
-  });
+const pub = await broker.exchange("scheduler_exchange", {
+  exchangeType: "topic",
+  publisherConfirms: true,
+});
 
 const scheduleTask = event(
   SchedulerEvents.ScheduleTask,
@@ -118,12 +116,10 @@ forwards the common registration methods (`with`, `handle`, `use`, `on`,
 `consume`), so fluent chains need only one final `await`:
 
 ```ts
-const api = await broker
-  .queue("scheduler_publish_queue")
-  .exchange("scheduler_exchange", {
-    exchangeType: "topic",
-    publisherConfirms: true,
-  })
+const api = await broker.exchange("scheduler_exchange", {
+  exchangeType: "topic",
+  publisherConfirms: true,
+})
   .with({ scheduleTask });
 
 await api.scheduleTask({

@@ -34,6 +34,14 @@ This project follows semantic versioning.
 - Removed dead files: `website/proxy.ts`, `website/src/components/ai/search.tsx`,
   stale VitePress cache entry from `.gitignore`.
 
+### Added
+
+- `broker.exchange(name, config)` is now public and creates an
+  exchange-only (publisher-only) broker interface: declares just the
+  exchange with no queue, binding, or consumer. `consume()` throws on an
+  exchange-only interface. Useful for producers that only publish and
+  don't need to own queue topology.
+
 ---
 
 ## [1.5.0] - 2026-08-24

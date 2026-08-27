@@ -41,15 +41,13 @@ type Pong = {
       maxMessageBytes: 256 * 1024,
     });
 
-  const payments = await broker
-    .queue("dx.payments.publisher.q")
-    .exchange<{
-      "dx.payment.requested": EventEnvelope<PaymentRequested>;
-    }>("dx.payments.ex", {
-      exchangeType: "topic",
-      routingKey: "dx.payment.requested",
-      publisherConfirms: true,
-    });
+  const payments = await broker.exchange<{
+    "dx.payment.requested": EventEnvelope<PaymentRequested>;
+  }>("dx.payments.ex", {
+    exchangeType: "topic",
+    routingKey: "dx.payment.requested",
+    publisherConfirms: true,
+  });
 
   const paymentRequested = event("dx.payment.requested", "v1").of<PaymentRequested>();
 

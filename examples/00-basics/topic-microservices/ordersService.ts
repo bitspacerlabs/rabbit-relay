@@ -8,10 +8,10 @@ type Ev = EventEnvelope<Order>;
   const EX = "orders_exchange";
   const broker = new RabbitMQBroker("orders_service");
 
-  // We'll publish to EX; queue here is only to get a publisher interface.
-  const pub = await broker
-    .queue("orders_publish_queue")
-    .exchange<{ orderCreated: Ev }>(EX, { exchangeType: "topic" });
+  // Exchange-only: publish to EX without declaring any queue or binding
+  const pub = await broker.exchange<{ orderCreated: Ev }>(EX, {
+    exchangeType: "topic",
+  });
 
   const mkOrderCreated = event("orderCreated", "v1").of<Order>();
 

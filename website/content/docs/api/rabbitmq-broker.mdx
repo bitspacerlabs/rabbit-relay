@@ -76,6 +76,42 @@ By default, Rabbit Relay asserts the exchange, queue, and binding.
 
 ---
 
+## Creating an exchange-only interface (publisher)
+
+For producers that only publish and don't consume, use `broker.exchange()` to declare
+just the exchange — no queue, no binding, no consumer. This keeps topology ownership
+clean in multi-process setups: the producer owns the exchange; the consumer owns the
+queue and bindings.
+
+```ts
+const pub = await broker.exchange("orders.ex", {
+  exchangeType: "topic",
+});
+
+await pub.produce(eventFactory(data));
+```
+
+The plan for an exchange-only interface contains `queues: []` and `bindings: []`:
+
+```ts
+pub.planTopology();
+// {
+//   exchanges: [{ name: "orders.ex", type: "topic", ... }],
+//   queues: [],
+//   bindings: [],
+// }
+```
+
+Notes:
+
+- `produce()`, `publish()`, and `request()` are fully available on an exchange-only
+  interface.
+- `consume()` is **not** available — it throws. Use `.queue(...).exchange(...)` to consume.
+- `handle()` is not useful here (there is no consumer to dispatch to); register handlers
+  on the consumer's queue/exchange interface instead.
+
+---
+
 ## Exchange options
 
 ```ts

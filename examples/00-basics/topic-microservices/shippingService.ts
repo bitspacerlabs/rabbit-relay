@@ -17,9 +17,9 @@ type ShipEv    = EventEnvelope<Ship>;
     .queue("shipping_queue")
     .exchange<{ paymentProcessed: PaymentEv }>(PAY_EX, { exchangeType: "topic" });
 
-  const pub = await broker
-    .queue("shipping_publish_queue")
-    .exchange<{ shippingStarted: ShipEv }>(SHIP_EX, { exchangeType: "topic" });
+  const pub = await broker.exchange<{ shippingStarted: ShipEv }>(SHIP_EX, {
+    exchangeType: "topic",
+  });
 
   const mkShippingStarted = event("shippingStarted", "v1").of<Ship>();
 

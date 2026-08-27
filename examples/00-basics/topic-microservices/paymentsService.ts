@@ -17,9 +17,9 @@ type PaymentEv = EventEnvelope<Payment>;
     .queue("payments_queue")
     .exchange<{ orderCreated: OrderEv }>(ORDERS_EX, { exchangeType: "topic" });
 
-  const payPub = await broker
-    .queue("payments_publish_queue")
-    .exchange<{ paymentProcessed: PaymentEv }>(PAY_EX, { exchangeType: "topic" });
+  const payPub = await broker.exchange<{ paymentProcessed: PaymentEv }>(PAY_EX, {
+    exchangeType: "topic",
+  });
 
   const mkPaymentProcessed = event("paymentProcessed", "v1").of<Payment>();
 

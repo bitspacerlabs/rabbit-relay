@@ -316,12 +316,10 @@
 
 <span class="keyword">const</span> broker = <span class="keyword">new</span> RabbitMQBroker(<span class="string">'scheduler_service'</span>)
 
-<span class="keyword">const</span> pub = <span class="keyword">await</span> broker
-  .queue(<span class="string">'scheduler_publish_queue'</span>)
-  .exchange(<span class="string">'scheduler_exchange'</span>, {
-    <span class="prop">exchangeType</span>: <span class="string">'topic'</span>,
-    <span class="prop">publisherConfirms</span>: <span class="keyword">true</span>
-  })
+<span class="keyword">const</span> pub = <span class="keyword">await</span> broker.exchange(<span class="string">'scheduler_exchange'</span>, {
+  <span class="prop">exchangeType</span>: <span class="string">'topic'</span>,
+  <span class="prop">publisherConfirms</span>: <span class="keyword">true</span>
+})
 
 <span class="keyword">await</span> pub.produce(
   scheduleTask({ <span class="prop">id</span>: <span class="string">'task_123'</span>, <span class="prop">when</span>: Date.now() })

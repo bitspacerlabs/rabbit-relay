@@ -96,11 +96,9 @@ const orderCreated = event("orders.created", "v1").of<{
   amount: number;
 }>();
 
-const pub = await broker
-  .queue("orders.publisher.q")
-  .exchange("orders.ex", {
-    exchangeType: "topic",
-  });
+const pub = await broker.exchange("orders.ex", {
+  exchangeType: "topic",
+});
 
 await pub.produce(
   orderCreated({

@@ -15,31 +15,20 @@ type Payload = {
     await ch.assertExchange("escape.unrouted.ex", "fanout", { durable: true });
   });
 
-  const pub = await broker
-    .queue("escape.orders.q", {
+  const pub = await broker.exchange<{ "escape.order.created": EventEnvelope<Payload> }>(
+    "escape.orders.ex",
+    {
+      exchangeType: "topic",
+      routingKey: "escape.order.created",
+      publisherConfirms: true,
       amqp: {
-        queue: {
+        exchange: {
           durable: true,
-          arguments: {
-            "x-message-ttl": 60_000,
-          },
+          alternateExchange: "escape.unrouted.ex",
         },
       },
-    })
-    .exchange<{ "escape.order.created": EventEnvelope<Payload> }>(
-      "escape.orders.ex",
-      {
-        exchangeType: "topic",
-        routingKey: "escape.order.created",
-        publisherConfirms: true,
-        amqp: {
-          exchange: {
-            durable: true,
-            alternateExchange: "escape.unrouted.ex",
-          },
-        },
-      }
-    );
+    }
+  );
 
   const makeOrder = event("escape.order.created", "v1").of<Payload>();
 

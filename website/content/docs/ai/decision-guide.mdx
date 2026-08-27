@@ -39,11 +39,9 @@ It is optimized for developers and AI coding agents.
 Use publisher confirms when the publisher must know RabbitMQ accepted the message.
 
 ```ts
-const pub = await broker
-  .queue("orders.publisher.q")
-  .exchange("orders.ex", {
-    publisherConfirms: true,
-  });
+const pub = await broker.exchange("orders.ex", {
+  publisherConfirms: true,
+});
 ```
 
 Use for:

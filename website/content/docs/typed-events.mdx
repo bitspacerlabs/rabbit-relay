@@ -28,11 +28,10 @@ async function produce() {
   // 3) Create a broker
   const broker = new RabbitMQBroker("orders.publisher");
 
-  // 4) Create queue + exchange
-  const pub = await broker.queue("orders.publisher.q")
-    .exchange("orders.exchange", {
-      exchangeType: "topic",
-    });
+  // 4) Create the exchange (publisher-only)
+  const pub = await broker.exchange("orders.exchange", {
+    exchangeType: "topic",
+  });
 
   // 5) Publish the event
   await pub.produce(
@@ -108,12 +107,10 @@ import { makePaymentProcessed } from "./events";
 
 const broker = new RabbitMQBroker("payments_service");
 
-const iface = await broker
-  .queue("payments_publish_queue")
-  .exchange("payments_exchange", {
-    exchangeType: "topic",
-    publisherConfirms: true,
-  });
+const iface = await broker.exchange("payments_exchange", {
+  exchangeType: "topic",
+  publisherConfirms: true,
+});
 
 await iface.produce(
   makePaymentProcessed({ orderId: "O-1", status: "paid", txnId: "txn_123" })
@@ -131,9 +128,7 @@ type ShippingStarted = { orderId: string; trackingId: string };
 const makeShippingStarted = event("shippingStarted", "v1").of<ShippingStarted>();
 
 const broker = new RabbitMQBroker("shipping_service");
-const pub = await broker
-  .queue("shipping_publish_queue")
-  .exchange("shipping_exchange", { exchangeType: "topic", publisherConfirms: true });
+const pub = await broker.exchange("shipping_exchange", { exchangeType: "topic", publisherConfirms: true });
 
 const api = pub.with({ shippingStarted: makeShippingStarted });
 
