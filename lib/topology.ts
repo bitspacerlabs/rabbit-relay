@@ -160,7 +160,7 @@ export function mergeInternalCfg(
 
 export function createTopologyPlan(params: {
   exchangeName: string;
-  queueName: string;
+  queueName?: string;
   queueConfig?: QueueConfig;
   defaultCfg: InternalCfg;
   exchangeConfig: ExchangeConfig;
@@ -240,20 +240,22 @@ export function createTopologyPlan(params: {
     queueConfig?.amqp?.queue?.arguments
   );
 
-  queues.push({
-    name: queueName,
-    durable: cfg.durable,
-    passive: cfg.passiveQueue || undefined,
-    arguments: toRecord(mergedArgs),
-    options: omitKeys(
-      queueAmqpOptions as Record<string, unknown>,
-      ["durable", "arguments"]
-    ),
-  });
+  if (queueName) {
+    queues.push({
+      name: queueName,
+      durable: cfg.durable,
+      passive: cfg.passiveQueue || undefined,
+      arguments: toRecord(mergedArgs),
+      options: omitKeys(
+        queueAmqpOptions as Record<string, unknown>,
+        ["durable", "arguments"]
+      ),
+    });
+  }
 
   const bindArgs = mergeBindArguments(cfg.amqp?.bind);
 
-  if (cfg.binding !== false) {
+  if (queueName && cfg.binding !== false) {
     bindings.push({
       queue: queueName,
       exchange: exchangeName,
@@ -271,7 +273,7 @@ export function createTopologyPlan(params: {
 
 export function createAssertTopology(params: {
   exchangeName: string;
-  queueName: string;
+  queueName?: string;
   queueConfig?: QueueConfig;
   defaultCfg: InternalCfg;
   exchangeConfig: ExchangeConfig;
@@ -301,6 +303,10 @@ export function createAssertTopology(params: {
     } as Options.AssertQueue;
 
     const deadLetterArgs = buildDeadLetterQueueArguments(cfg.deadLetter);
+
+    if (!queueName) {
+      return;
+    }
 
     if (cfg.passiveQueue) {
       if (cfg.queueArgs || queueAmqpOptions.arguments || deadLetterArgs) {

@@ -42,6 +42,8 @@ npx tsx examples/<example-folder>/<file>.ts
 | `15-dlq-redrive` | Moving messages from DLQ back to a target exchange |
 | `16-topology-modes` | `assert`, `passive`, and `plan-only` topology modes |
 | `17-idempotent-consumer` | Idempotent consumer using event `id` as idempotency key |
+| `18-exponential-backoff` | Exponential backoff retries with DLQ |
+| `19-exchange-only-producer` | Producer declares only the exchange (no queue) via public `broker.exchange()` |
 
 ---
 

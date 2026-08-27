@@ -306,7 +306,7 @@ export class RabbitMQBroker {
         exchangeName: string,
         exchangeConfig: ExchangeConfig = {}
       ): AwaitableBrokerInterface<TEvents> => {
-        const promise = this.exchange<TEvents>(
+        const promise = this.doExchange<TEvents>(
           exchangeName,
           queueName,
           queueConfig,
@@ -317,9 +317,22 @@ export class RabbitMQBroker {
     };
   }
 
-  private async exchange<TEvents extends Record<string, EventEnvelope>>(
+  public exchange<TEvents extends Record<string, EventEnvelope>>(
     exchangeName: string,
-    queueName: string,
+    exchangeConfig: ExchangeConfig = {}
+  ): AwaitableBrokerInterface<TEvents> {
+    const promise = this.doExchange<TEvents>(
+      exchangeName,
+      undefined,
+      {},
+      exchangeConfig
+    );
+    return asAwaitableBroker(promise);
+  }
+
+  private async doExchange<TEvents extends Record<string, EventEnvelope>>(
+    exchangeName: string,
+    queueName: string | undefined,
     queueConfig: QueueConfig = {},
     exchangeConfig: ExchangeConfig = {}
   ): Promise<BrokerInterface<TEvents>> {
@@ -372,7 +385,7 @@ export class RabbitMQBroker {
           await this.lifecycle.emit("topology.failed", {
             peerName: this.peerName,
             exchange: exchangeName,
-            queue: queueName,
+            queue: queueName ?? "",
             error: err,
           });
           throw err;
@@ -387,13 +400,13 @@ export class RabbitMQBroker {
         await this.lifecycle.emit("topology.asserted", {
           peerName: this.peerName,
           exchange: exchangeName,
-          queue: queueName,
+          queue: queueName ?? "",
         });
       } catch (err) {
         await this.lifecycle.emit("topology.failed", {
           peerName: this.peerName,
           exchange: exchangeName,
-          queue: queueName,
+          queue: queueName ?? "",
           error: err,
         });
         throw err;
@@ -412,22 +425,26 @@ export class RabbitMQBroker {
 
     const middlewares: ConsumeMiddleware[] = [];
 
-    const consumer = createConsumer({
-      peerName: this.peerName,
-      queueName,
-      exchangeName,
-      topologyMode: cfg.topologyMode,
-      handlers,
-      middlewares,
-      emitLifecycle: (eventName, event) =>
-        this.lifecycle.emit(eventName, event),
-      shutdownTimeoutMs: this.shutdownTimeoutMs,
-    });
+    const consumer = queueName
+      ? createConsumer({
+          peerName: this.peerName,
+          queueName,
+          exchangeName,
+          topologyMode: cfg.topologyMode,
+          handlers,
+          middlewares,
+          emitLifecycle: (eventName, event) =>
+            this.lifecycle.emit(eventName, event),
+          shutdownTimeoutMs: this.shutdownTimeoutMs,
+        })
+      : null;
 
-    this.registeredConsumers.push({
-      queueName,
-      getState: consumer.getState,
-    });
+    if (queueName && consumer) {
+      this.registeredConsumers.push({
+        queueName,
+        getState: consumer.getState,
+      });
+    }
 
     const publisher = createPublisher({
       peerName: this.peerName,
@@ -444,12 +461,14 @@ export class RabbitMQBroker {
     this.onReconnect(async (ch) => {
       await applyTopology(ch);
 
-      await consumer.resumeOnReconnect(ch);
+      if (consumer) {
+        await consumer.resumeOnReconnect(ch);
+      }
 
       await this.lifecycle.emit("topology.restored", {
         peerName: this.peerName,
         exchange: exchangeName,
-        queue: queueName,
+        queue: queueName ?? "",
       });
     });
 
@@ -489,6 +508,12 @@ export class RabbitMQBroker {
     };
 
     const consume = async (opts?: ConsumeOptions): Promise<{ stop(): Promise<void> }> => {
+      if (!consumer) {
+        throw new Error(
+          `[broker] consume() is not available for exchange-only topology '${exchangeName}'. ` +
+            `Use .queue('...').exchange('...') to consume.`
+        );
+      }
       const consumerHandle = await consumer.startConsume(() => this.getChannel(), opts);
       this.activeConsumers.push(consumerHandle);
 
