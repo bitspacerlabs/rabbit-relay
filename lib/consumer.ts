@@ -1,4 +1,5 @@
 import { Channel, ConsumeMessage, Options } from "amqplib";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { pluginManager } from "./pluginManager.js";
 import { EventEnvelope, getEventSchema } from "./eventFactories.js";
 import { SchemaValidationError } from "./errors.js";
@@ -21,6 +22,12 @@ export type HandlerMap = Map<
   string,
   (id: string | number, event: EventEnvelope) => Promise<unknown>
 >;
+
+export const handlerContext = new AsyncLocalStorage<true>();
+
+export function isCalledFromHandler(): boolean {
+  return handlerContext.getStore() === true;
+}
 
 const RETRY_COUNT_HEADER = "x-rabbit-relay-retry-count";
 const RETRY_DELAY_HEADER = "x-rabbit-relay-retry-delay-ms";
@@ -647,7 +654,7 @@ export function createConsumer(params: {
         },
         async () => {
           if (handler) {
-            result = await handler(id, payload as any);
+            result = await handlerContext.run(true, () => handler(id, payload as any));
           }
         }
       );
@@ -846,7 +853,7 @@ export function createConsumer(params: {
           }
         }
 
-        if (!closing) {
+        if (!closing || !isCalledFromHandler()) {
           await waitForActiveHandlers();
         }
 
