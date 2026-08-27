@@ -9,19 +9,11 @@ type Job = {
 (async () => {
   const broker = new RabbitMQBroker("retry.publisher");
 
-  const pub = await broker
-    .queue("retry.jobs.queue")
-    .exchange<{ "jobs.process": EventEnvelope<Job> }>("retry.jobs.exchange", {
-      exchangeType: "topic",
-      routingKey: "jobs.process",
-      publisherConfirms: true,
-      deadLetter: {
-        exchange: "retry.jobs.dlx",
-        queue: "retry.jobs.dlq",
-        routingKey: "jobs.dead",
-        autoDeclare: true,
-      },
-    });
+  const pub = await broker.exchange<{ "jobs.process": EventEnvelope<Job> }>("retry.jobs.exchange", {
+    exchangeType: "topic",
+    routingKey: "jobs.process",
+    publisherConfirms: true,
+  });
 
   const makeJob = event("jobs.process", "v1").of<Job>();
 

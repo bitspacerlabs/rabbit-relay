@@ -12,17 +12,14 @@ type JobEvent = EventEnvelope<Job>;
 
 (async () => {
   const EXCHANGE = "delayed.jobs.ex";
-  const QUEUE = "delayed.jobs.publisher.q";
 
   const broker = new RabbitMQBroker("delayed-retry.publisher");
 
-  const pub = await broker
-    .queue(QUEUE)
-    .exchange<{ "jobs.process.delayed": JobEvent }>(EXCHANGE, {
-      exchangeType: "topic",
-      routingKey: "jobs.process.delayed",
-      publisherConfirms: true,
-    });
+  const pub = await broker.exchange<{ "jobs.process.delayed": JobEvent }>(EXCHANGE, {
+    exchangeType: "topic",
+    routingKey: "jobs.process.delayed",
+    publisherConfirms: true,
+  });
 
   const processJob = event("jobs.process.delayed", "v1").of<Job>();
 

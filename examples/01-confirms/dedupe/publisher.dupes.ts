@@ -6,17 +6,14 @@ type DemoEvent = EventEnvelope<Payload>;
 
 (async () => {
   const EXCHANGE = "confirms.demo";
-  const QUEUE = "confirms_demo_q";
 
   const broker = new RabbitMQBroker("dedupe.publisher.dupes");
 
-  const pub = await broker
-    .queue(QUEUE)
-    .exchange<{ "demo.dupe": DemoEvent }>(EXCHANGE, {
-      exchangeType: "topic",
-      routingKey: "#",
-      publisherConfirms: true,
-    });
+  const pub = await broker.exchange<{ "demo.dupe": DemoEvent }>(EXCHANGE, {
+    exchangeType: "topic",
+    routingKey: "#",
+    publisherConfirms: true,
+  });
 
   const makeDupe = event("demo.dupe", "v1").of<Payload>();
 

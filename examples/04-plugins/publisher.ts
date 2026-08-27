@@ -10,13 +10,11 @@ type Ev = EventEnvelope<Payload>;
 (async () => {
   const broker = new RabbitMQBroker("plugins.publisher");
 
-  const pub = await broker
-    .queue("plugins_demo_q") // queue is irrelevant for publishing; still asserted/bound
-    .exchange<{ "demo.ping": Ev }>("plugins_demo_ex", {
-      exchangeType: "topic",
-      routingKey: "demo.*",
-      publisherConfirms: true,
-    });
+  const pub = await broker.exchange<{ "demo.ping": Ev }>("plugins_demo_ex", {
+    exchangeType: "topic",
+    routingKey: "demo.*",
+    publisherConfirms: true,
+  });
 
   const mk = event("demo.ping", "v1").of<Payload>();
 

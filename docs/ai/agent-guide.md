@@ -123,6 +123,9 @@ sub.handle("orders.created", async (_id, ev) => {
 `handle`, `use`, `on`, and `consume`, so a fluent chain needs one final
 `await`:
 
+For publish-only producers that don't consume, use `broker.exchange()` directly
+(see [Publishing](#publishing)).
+
 ```ts
 const api = await broker
   .queue("orders.q")
@@ -183,13 +186,14 @@ pub.produce(orderCreated(data));
 Use `publisherConfirms: true` for important messages.
 
 ```ts
-const pub = await broker
-  .queue("orders.publisher.q")
-  .exchange("orders.ex", {
-    exchangeType: "topic",
-    publisherConfirms: true,
-  });
+const pub = await broker.exchange("orders.ex", {
+  exchangeType: "topic",
+  publisherConfirms: true,
+});
 ```
+
+Use `broker.exchange()` (not `.queue().exchange()`) when the process only publishes and
+does not consume. It declares just the exchange — no queue, no binding, no consumer.
 
 Explain that publisher confirms acknowledge broker acceptance, not consumer success.
 
@@ -570,14 +574,12 @@ const orders = await broker
     },
   });
 
-const payments = await broker
-  .queue("payments.publisher.q")
-  .exchange<{
-    "payments.requested": EventEnvelope<PaymentRequested>;
-  }>("payments.ex", {
-    exchangeType: "topic",
-    publisherConfirms: true,
-  });
+const payments = await broker.exchange<{
+  "payments.requested": EventEnvelope<PaymentRequested>;
+}>("payments.ex", {
+  exchangeType: "topic",
+  publisherConfirms: true,
+});
 
 orders.handle("orders.created", async (_id, ev) => {
   await payments.produce(

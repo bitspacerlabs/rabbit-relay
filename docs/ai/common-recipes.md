@@ -25,12 +25,10 @@ const broker = new RabbitMQBroker("orders.publisher");
 const orderCreated = event("orders.created", "v1")
   .of<OrderCreated>();
 
-const pub = await broker
-  .queue("orders.publisher.q")
-  .exchange("orders.ex", {
-    exchangeType: "topic",
-    publisherConfirms: true, // [!code focus]
-  });
+const pub = await broker.exchange("orders.ex", {
+  exchangeType: "topic",
+  publisherConfirms: true, // [!code focus]
+});
 
 await pub.produce(
   orderCreated({

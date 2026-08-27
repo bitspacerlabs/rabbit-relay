@@ -9,21 +9,14 @@ type OrderCreated = {
 (async () => {
   const broker = new RabbitMQBroker("orders.publisher");
 
-  const pub = await broker
-    .queue("orders.queue")
-    .exchange<{ "order.created": EventEnvelope<OrderCreated> }>(
-      "orders.exchange",
-      {
-        exchangeType: "topic",
-        routingKey: "order.created",
-        deadLetter: {
-          exchange: "orders.dlx",
-          queue: "orders.dlq",
-          routingKey: "orders.dead",
-          autoDeclare: true,
-        },
-      }
-    );
+  const pub = await broker.exchange<{ "order.created": EventEnvelope<OrderCreated> }>(
+    "orders.exchange",
+    {
+      exchangeType: "topic",
+      routingKey: "order.created",
+      publisherConfirms: true,
+    }
+  );
 
   const makeOrder = event("order.created", "v1").of<OrderCreated>();
 

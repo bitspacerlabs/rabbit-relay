@@ -6,18 +6,15 @@ type DemoEvent = EventEnvelope<Payload>;
 
 (async () => {
   const EXCHANGE = "confirms.demo";
-  const QUEUE = "confirms_demo_q";
   const ROUTING_KEY = "demo.tick";
 
   const broker = new RabbitMQBroker("confirms.publisher");
 
-  const pub = await broker
-    .queue(QUEUE)
-    .exchange<{ "demo.tick": DemoEvent }>(EXCHANGE, {
-      exchangeType: "topic",
-      routingKey: ROUTING_KEY,
-      publisherConfirms: true, // enable publisher confirms
-    });
+  const pub = await broker.exchange<{ "demo.tick": DemoEvent }>(EXCHANGE, {
+    exchangeType: "topic",
+    routingKey: ROUTING_KEY,
+    publisherConfirms: true, // enable publisher confirms
+  });
 
   const makeTick = event("demo.tick", "v1").of<Payload>();
 

@@ -8,9 +8,9 @@ type Ev = EventEnvelope<Payload>;
   const EX = "fanout.basic";
   const broker = new RabbitMQBroker("fanout.publisher");
 
-  const pub = await broker
-    .queue("fanout.publisher.q")
-    .exchange<{ broadcast: Ev }>(EX, { exchangeType: "fanout" });
+  const pub = await broker.exchange<{ broadcast: Ev }>(EX, {
+    exchangeType: "fanout",
+  });
 
   const mk = event("broadcast", "v1").of<Payload>();
 

@@ -10,17 +10,14 @@ type JobEvent = EventEnvelope<Job>;
 
 (async () => {
   const EXCHANGE = "redrive.jobs.ex";
-  const QUEUE = "redrive.jobs.publisher.q";
 
   const broker = new RabbitMQBroker("dlq-redrive.publisher");
 
-  const pub = await broker
-    .queue(QUEUE)
-    .exchange<{ "redrive.job": JobEvent }>(EXCHANGE, {
-      exchangeType: "topic",
-      routingKey: "redrive.job",
-      publisherConfirms: true,
-    });
+  const pub = await broker.exchange<{ "redrive.job": JobEvent }>(EXCHANGE, {
+    exchangeType: "topic",
+    routingKey: "redrive.job",
+    publisherConfirms: true,
+  });
 
   const makeJob = event("redrive.job", "v1").of<Job>();
 

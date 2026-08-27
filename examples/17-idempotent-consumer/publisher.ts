@@ -2,7 +2,6 @@ import { event } from "../../lib/index.js";
 import { RabbitMQBroker } from "../../lib/index.js";
 
 const EXCHANGE = "idempotent.demo.ex";
-const QUEUE = "idempotent.demo.q";
 
 const orderCreated = event("order.created", "v1").schema(
   // Use Zod or any validator in production; plain object here for zero-dependency example
@@ -12,7 +11,7 @@ const orderCreated = event("order.created", "v1").schema(
 (async () => {
   const broker = new RabbitMQBroker("idempotent.publisher");
 
-  const pub = await broker.queue("idempotent.publisher.q").exchange(EXCHANGE, {
+  const pub = await broker.exchange(EXCHANGE, {
     exchangeType: "topic",
     publisherConfirms: true,
   });

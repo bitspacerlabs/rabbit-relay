@@ -196,19 +196,28 @@ This is useful for command-like routing.
 
 In RabbitMQ, producers publish to exchanges, not queues.
 
-Rabbit Relay still asks for a queue because one broker interface combines the publishing and consuming shape.
-
-For publisher-only code, the queue can be a publisher interface queue.
+For publisher-only code, use `broker.exchange()` to declare just the exchange — no
+queue, no binding, no consumer. This keeps topology ownership clean in multi-process
+setups: the producer owns the exchange; the consumer owns the queue and bindings.
 
 ```ts
-const pub = await broker
-  .queue("orders.publisher.q")
-  .exchange("orders.ex", {
-    exchangeType: "topic",
-  });
+const pub = await broker.exchange("orders.ex", {
+  exchangeType: "topic",
+});
+
+await pub.produce(orderCreated(data));
 ```
 
-The important part for publishing is the exchange.
+The important part for publishing is the exchange. A publisher interface has an empty
+queue and binding plan:
+
+```ts
+pub.planTopology();
+// { exchanges: [...], queues: [], bindings: [] }
+```
+
+> Only use `.queue(...).exchange(...)` when the same process also consumes from the
+> queue via `consume()`.
 
 ---
 
@@ -244,6 +253,7 @@ does not match.
 - Bindings connect exchanges to queues
 - Routing keys decide where messages go
 - Rabbit Relay maps `.queue(...).exchange(...)` directly to RabbitMQ topology
+- Use `broker.exchange(...)` for exchange-only (publisher-only) topology
 
 ---
 

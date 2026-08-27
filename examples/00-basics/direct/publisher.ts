@@ -8,10 +8,10 @@ type Ev = EventEnvelope<Payload>;
   const EX = "direct.basic";
   const broker = new RabbitMQBroker("direct.publisher");
 
-  // Bind a dummy queue; we only use the interface to publish
-  const pub = await broker
-    .queue("direct.publisher.q")
-    .exchange<{ alpha: Ev; beta: Ev }>(EX, { exchangeType: "direct" });
+  // Exchange-only: the producer declares just the exchange it publishes to
+  const pub = await broker.exchange<{ alpha: Ev; beta: Ev }>(EX, {
+    exchangeType: "direct",
+  });
 
   const mkAlpha = event("alpha", "v1").of<Payload>();
   const mkBeta  = event("beta",  "v1").of<Payload>();
