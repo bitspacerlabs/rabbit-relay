@@ -74,6 +74,60 @@ export function resolveTopologyMode(
   );
 }
 
+/**
+ * Extract the specific inequivalent argument/attribute and resource name from
+ * an amqplib 406 PRECONDITION_FAILED error so we can give actionable advice.
+ *
+ * amqplib errors look like, e.g.:
+ *   PRECONDITION_FAILED - inequivalent arg 'x-dead-letter-exchange' for queue
+ *   'tasks.q' in vhost '/': received 'none' but current is the value 'dlx' of
+ *   type 'longstr'
+ *   PRECONDITION_FAILED - inequivalent arg 'type' for exchange 'orders.ex' in
+ *   vhost '/': received 'topic' but current is the value 'direct' of type 'longstr'
+ */
+function extractPreconditionDetail(
+  err: unknown
+): { attribute: string; resourceType: string; resourceName: string } | null {
+  if (!err || typeof err !== "object") return null;
+
+  const msg = typeof (err as any).message === "string" ? (err as any).message : "";
+
+  const argMatch = msg.match(
+    /inequivalent arg '([^']+)' for (queue|exchange) '([^']+)'/
+  );
+
+  if (argMatch) {
+    return {
+      attribute: argMatch[1],
+      resourceType: argMatch[2],
+      resourceName: argMatch[3],
+    };
+  }
+
+  return null;
+}
+
+function buildPreconditionMessage(
+  detail: { attribute: string; resourceType: string; resourceName: string } | null,
+  fallbackResourceName: string,
+  resourceType: "queue" | "exchange"
+): string {
+  const name = detail?.resourceName ?? fallbackResourceName;
+  const attribute = detail?.attribute;
+
+  const what = attribute
+    ? `because it declares a different value for '${attribute}'`
+    : `because its arguments/options differ`;
+
+  return (
+    `[broker] ${resourceType === "queue" ? "Queue" : "Exchange"} '${name}' already exists in RabbitMQ with different properties ` +
+    `${what}. This usually happens when two processes declare the same ` +
+    `${resourceType} with mismatched arguments.` +
+    `\n  Fix: match the existing ${resourceType} arguments, switch to { topologyMode: "passive" } ` +
+    `for one process, or delete the existing ${resourceType} first.`
+  );
+}
+
 function buildDeadLetterQueueArguments(
   deadLetter?: DeadLetterConfig
 ): Options.AssertQueue["arguments"] | undefined {
@@ -289,7 +343,20 @@ export function createAssertTopology(params: {
       ...(cfg.amqp?.exchange ?? {}),
     };
 
-    await channel.assertExchange(exchangeName, cfg.exchangeType, exchangeOpts);
+    try {
+      await channel.assertExchange(exchangeName, cfg.exchangeType, exchangeOpts);
+    } catch (err: any) {
+      if (err?.code === 406) {
+        throw new Error(
+          buildPreconditionMessage(
+            extractPreconditionDetail(err),
+            exchangeName,
+            "exchange"
+          )
+        );
+      }
+      throw err;
+    }
 
     await assertDeadLetterTopology({
       channel,
@@ -349,9 +416,11 @@ export function createAssertTopology(params: {
       } catch (err: any) {
         if (err?.code === 406) {
           throw new Error(
-            `[broker] QueueDeclare PRECONDITION_FAILED for '${queueName}'. ` +
-              `Existing queue has different arguments. ` +
-              `Fix: delete the queue or switch to { passiveQueue: true } if you're using a setup step.`
+            buildPreconditionMessage(
+              extractPreconditionDetail(err),
+              queueName,
+              "queue"
+            )
           );
         }
 

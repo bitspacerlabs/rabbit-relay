@@ -24,6 +24,12 @@ This project follows semantic versioning.
 
 ### Changed
 
+- Improved AMQP `406 PRECONDITION_FAILED` errors on queue/exchange
+  assertion: the library now extracts the offending argument (e.g.
+  `x-dead-letter-exchange` or exchange `type`) and the resource name,
+  and emits an actionable message explaining the likely mismatch and the
+  fixes (match arguments, use `topologyMode: "passive"`, or delete the
+  existing resource). (#64)
 - CI workflow now builds Fumadocs from `website/` directory.
 - Deploy workflow builds Fumadocs static export and restructures for
   GitHub Pages with `basePath: /rabbit-relay`.
