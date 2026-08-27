@@ -821,7 +821,7 @@ export function createConsumer(params: {
     });
 
     return {
-      stop: async (): Promise<void> => {
+      stop: async (closing = false): Promise<void> => {
         isConsuming = false;
         stopping = true;
 
@@ -846,7 +846,9 @@ export function createConsumer(params: {
           }
         }
 
-        await waitForActiveHandlers();
+        if (!closing) {
+          await waitForActiveHandlers();
+        }
 
         await emitLifecycle("consumer.stopped", {
           peerName,
