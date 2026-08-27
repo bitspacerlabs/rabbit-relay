@@ -357,6 +357,15 @@ export class RabbitMQBroker {
                 formatTopologyValidationIssues(blockingIssues)
             );
           }
+
+          for (const binding of topologyPlan.bindings) {
+            await channel.bindQueue(
+              binding.queue,
+              binding.exchange,
+              binding.routingKey,
+              binding.arguments
+            );
+          }
         } catch (err) {
           await this.lifecycle.emit("topology.failed", {
             peerName: this.peerName,
