@@ -136,7 +136,7 @@ const api = await broker
   })
   .with({ orderCreated });
 
-api.handle("orderCreated", async (_id, ev) => {
+api.handle("orders.created", async (_id, ev) => {
   console.log(ev.data.orderId);
 });
 await api.consume({ prefetch: 20 });

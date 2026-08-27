@@ -12,7 +12,6 @@ type AuthorizeRes = {
 (async () => {
   const EX = "rpc.demo";
   const REQ_KEY = "payments.authorize";
-  const DUMMY_Q = "orders_rpc_client_queue";
 
   const TOTAL = Number(process.env.TOTAL ?? 20);
   const CONCURRENCY = Number(process.env.CONCURRENCY ?? 5);
@@ -20,13 +19,11 @@ type AuthorizeRes = {
 
   const broker = new RabbitMQBroker("rpc.requester.advanced");
 
-  const rpc = await broker
-    .queue(DUMMY_Q)
-    .exchange<{ [REQ_KEY]: EventEnvelope<AuthorizeReq> }>(EX, {
-      exchangeType: "topic",
-      routingKey: REQ_KEY,
-      publisherConfirms: true,
-    });
+  const rpc = await broker.exchange<{ [REQ_KEY]: EventEnvelope<AuthorizeReq> }>(EX, {
+    exchangeType: "topic",
+    routingKey: REQ_KEY,
+    publisherConfirms: true,
+  });
 
   const makeAuthorize = event(REQ_KEY, "v1").of<AuthorizeReq>();
 

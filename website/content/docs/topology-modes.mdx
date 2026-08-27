@@ -234,6 +234,11 @@ Examples of immutable queue arguments include:
 
 <Callout title="Local development reset" type="warn">
 If you change queue arguments locally and get a precondition error, recreate the queue or reset the RabbitMQ volume.
+
+Rabbit Relay reports these AMQP `406 PRECONDITION_FAILED` errors with an actionable
+message that names the offending argument (e.g. `x-dead-letter-exchange`) and the
+resource, and suggests matching the arguments, using `topologyMode: "passive"`, or
+deleting the existing resource first.
 </Callout>
 
 ---

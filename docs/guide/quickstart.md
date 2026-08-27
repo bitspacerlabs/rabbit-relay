@@ -171,6 +171,11 @@ await sub.consume({
 ::: warning Queue arguments are immutable
 RabbitMQ does not allow changing queue arguments after a queue already exists.
 If you change DLQ settings, retry delay, or queue type in local development, recreate the queue or reset the local RabbitMQ volume.
+
+Rabbit Relay reports these AMQP `406 PRECONDITION_FAILED` errors with an actionable
+message that names the offending argument (e.g. `x-dead-letter-exchange`) and the
+resource, and suggests matching the arguments, using `topologyMode: "passive"`, or
+deleting the existing resource first.
 :::
 
 `delayMs` uses RabbitMQ TTL + DLX delayed retry queues. If you omit `delayMs`, retry remains immediate.

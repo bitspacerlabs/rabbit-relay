@@ -87,6 +87,16 @@ await api.orderCreated({ orderId: "O-42", total: 99.5 });
 
 > Rabbit Relay uses **at-least-once delivery semantics**. Consumers must be idempotent because duplicates remain possible during retries, reconnects, and network failures. Read the [delivery-semantics guide](https://bitspacerlabs.github.io/rabbit-relay/docs/delivery-semantics).
 
+For **publish-only producers** that don't consume, use `broker.exchange()` to declare just the exchange (no queue, binding, or consumer):
+
+```ts
+const pub = await broker.exchange("orders.events", {
+  exchangeType: "topic",
+  publisherConfirms: true,
+});
+await pub.produce(orderCreated({ orderId: "O-42", total: 99.5 }));
+```
+
 ## Why Rabbit Relay?
 
 [`amqplib`](https://github.com/amqp-node/amqplib) provides the essential AMQP primitives for Node.js. Production services commonly need an application layer around those primitives for recovery, typed contracts, retry policies, shutdown coordination, topology ownership, and observability.
