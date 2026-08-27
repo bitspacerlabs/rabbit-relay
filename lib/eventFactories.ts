@@ -22,10 +22,10 @@ export interface EventEnvelope<T = unknown> {
   meta?: EventMeta;
 }
 
-export type EnvelopeFactory<T> = (
+export type EnvelopeFactory<T> = ((
   data: T,
   meta?: EventMeta
-) => EventEnvelope<T>;
+) => EventEnvelope<T>) & { readonly eventName?: string };
 
 /**
  * @deprecated Use `request()` on the broker interface for RPC instead of manually setting `meta.expectsReply`.
@@ -152,29 +152,37 @@ export function getEventSchema(
 export function event(name: string, v: string = "1.0.0") {
   return {
     of:
-      <T = unknown>(): EnvelopeFactory<T> =>
-      (data: T, meta?: EventMeta): EventEnvelope<T> => ({
-        id: generateUuid(),
-        name,
-        v,
-        time: Date.now(),
-        data,
-        meta,
-      }),
+      <T = unknown>(): EnvelopeFactory<T> => {
+        const factory: EnvelopeFactory<T> = (data: T, meta?: EventMeta) => ({
+          id: generateUuid(),
+          name,
+          v,
+          time: Date.now(),
+          data,
+          meta,
+        });
+        Object.defineProperty(factory, "eventName", { value: name });
+        return factory;
+      },
 
     schema: <S extends EventPayloadSchema>(
       s: S
     ): EnvelopeFactory<SchemaOutput<S>> => {
       registerEventSchema(name, s);
 
-      return ((data: SchemaOutput<S>, meta?: EventMeta) => ({
+      const factory: EnvelopeFactory<SchemaOutput<S>> = (
+        data: SchemaOutput<S>,
+        meta?: EventMeta
+      ) => ({
         id: generateUuid(),
         name,
         v,
         time: Date.now(),
         data,
         meta,
-      })) as EnvelopeFactory<SchemaOutput<S>>;
+      });
+      Object.defineProperty(factory, "eventName", { value: name });
+      return factory;
     },
   };
 }
@@ -185,29 +193,37 @@ export function event(name: string, v: string = "1.0.0") {
 export function eventWithReply(name: string, v: string = "1.0.0") {
   return {
     of:
-      <T = unknown>(): EnvelopeFactory<T> =>
-      (data: T, meta?: EventMeta): EventEnvelope<T> => ({
-        id: generateUuid(),
-        name,
-        v,
-        time: Date.now(),
-        data,
-        meta: { ...(meta ?? {}), expectsReply: true },
-      }),
+      <T = unknown>(): EnvelopeFactory<T> => {
+        const factory: EnvelopeFactory<T> = (data: T, meta?: EventMeta) => ({
+          id: generateUuid(),
+          name,
+          v,
+          time: Date.now(),
+          data,
+          meta: { ...(meta ?? {}), expectsReply: true },
+        });
+        Object.defineProperty(factory, "eventName", { value: name });
+        return factory;
+      },
 
     schema: <S extends EventPayloadSchema>(
       s: S
     ): EnvelopeFactory<SchemaOutput<S>> => {
       registerEventSchema(name, s);
 
-      return ((data: SchemaOutput<S>, meta?: EventMeta) => ({
+      const factory: EnvelopeFactory<SchemaOutput<S>> = (
+        data: SchemaOutput<S>,
+        meta?: EventMeta
+      ) => ({
         id: generateUuid(),
         name,
         v,
         time: Date.now(),
         data,
         meta: { ...(meta ?? {}), expectsReply: true },
-      })) as EnvelopeFactory<SchemaOutput<S>>;
+      });
+      Object.defineProperty(factory, "eventName", { value: name });
+      return factory;
     },
   };
 }
@@ -222,8 +238,15 @@ export function augmentEvents<T extends object>(
   const augmented: any = { ...events, ...broker };
 
   for (const key of Object.keys(events)) {
-    const factory = events[key];
+    const factory = events[key] as any;
     augmented[key] = async (...args: any[]) => broker.produce(factory(...args));
+
+    if (factory.eventName && factory.eventName !== key) {
+      console.warn(
+        `[rabbit-relay] .with() key "${key}" does not match event factory name "${factory.eventName}". ` +
+          `Consumers must handle "${factory.eventName}" (the envelope name), not "${key}".`
+      );
+    }
   }
 
   return augmented;

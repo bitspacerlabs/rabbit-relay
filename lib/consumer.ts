@@ -640,6 +640,19 @@ export function createConsumer(params: {
     const handler =
       (handlers.get(payload.name) as any) || (handlers.get("*") as any);
 
+    if (!handler) {
+      console.warn(
+        `[peer=${peerName}, queue=${queueName}] No handler registered for event "${payload.name}". ` +
+          `Message will be acknowledged but not processed. ` +
+          `Register a handler with .handle("${payload.name}", ...) or use .handle("*", ...) for a catch-all.`
+      );
+      await emitLifecycle("handler.not-found", {
+        peerName,
+        queue: queueName,
+        eventName: payload.name,
+      });
+    }
+
     const handlerStart = Date.now();
     const handlerEventName = payload.name;
 
