@@ -41,12 +41,10 @@ This applies to publishers created by this broker unless overridden.
 ## Exchange-level setting
 
 ```ts
-const pub = await broker
-  .queue("orders.q")
-  .exchange("orders.ex", {
-    exchangeType: "topic",
-    maxMessageBytes: 128 * 1024,
-  });
+const pub = await broker.exchange("orders.ex", {
+  exchangeType: "topic",
+  maxMessageBytes: 128 * 1024,
+});
 ```
 
 ---

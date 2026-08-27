@@ -27,12 +27,10 @@ Use confirms when your code must:
 Publisher confirms are enabled **per exchange**.
 
 ```ts
-const pub = await broker
-  .queue("orders_queue")
-  .exchange("orders_exchange", {
-    exchangeType: "topic",
-    publisherConfirms: true, // enable confirms
-  });
+const pub = await broker.exchange("orders_exchange", {
+  exchangeType: "topic",
+  publisherConfirms: true, // enable confirms
+});
 ```
 
 That's it.

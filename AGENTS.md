@@ -29,6 +29,8 @@ explicit.
 - Do not hide RabbitMQ behavior behind implicit abstractions.
 - Do not add dependencies or public APIs without a clear need.
 - Always await `produce()`, `publish()`, and `request()` in examples.
+- For publish-only producers, use `broker.exchange()` (declares just the
+  exchange); use `.queue(...).exchange(...)` only when binding/consuming.
 - Prefer typed event factories, bounded retries, DLQs, publisher confirms for
   important messages, explicit prefetch/concurrency, and graceful shutdown.
 - Treat delivery as at-least-once and make idempotency requirements clear.

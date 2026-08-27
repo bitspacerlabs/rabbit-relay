@@ -158,9 +158,7 @@ Disabled by default. Enable when the publisher must know that RabbitMQ
 accepted the message:
 
 ```ts
-const pub = await broker
-  .queue("orders.q")
-  .exchange("orders.ex", { publisherConfirms: true });
+const pub = await broker.exchange("orders.ex", { publisherConfirms: true });
 ```
 
 ## Message size guard

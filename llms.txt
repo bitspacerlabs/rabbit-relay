@@ -38,6 +38,7 @@ Package: `@bitspacerlabs/rabbit-relay`
 - Prefer `event(name, version).of<T>()` over hand-built envelopes.
 - Always await publish and request calls.
 - Use `EventEnvelope<T>` maps for typed consumers.
+- For publish-only producers that don't consume, use `broker.exchange(name, config)` to declare just the exchange (no queue, binding, or consumer); reserve `.queue(...).exchange(...)` for code that consumes or binds a queue.
 - In production examples, set `prefetch` and `concurrency` explicitly.
 - Prefer bounded retry followed by DLQ; do not create infinite requeue loops.
 - Use `publisherConfirms: true` when losing a message is unacceptable.

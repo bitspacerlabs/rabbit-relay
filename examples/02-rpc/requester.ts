@@ -7,17 +7,14 @@ type ChargeEvent = EventEnvelope<Req>;
 
 (async () => {
   const EX = "rpc.payments";
-  const Q = "orders_rpc_client_queue";
   const TIMEOUT_MS = 5000;
 
   const broker = new RabbitMQBroker("rpc.requester");
 
-  const cli = await broker
-    .queue(Q)
-    .exchange<{ "payments.charge": ChargeEvent }>(EX, {
-      exchangeType: "topic",
-      routingKey: "#",
-    });
+  const cli = await broker.exchange<{ "payments.charge": ChargeEvent }>(EX, {
+    exchangeType: "topic",
+    routingKey: "#",
+  });
 
   const charge = event("payments.charge", "v1").of<Req>();
 

@@ -21,6 +21,15 @@ This project follows semantic versioning.
   compatibility.
 - Added installable AI coding skills package reference (`ai-skills` page).
 - Removed old VitePress configuration, theme, and unused public assets.
+- Synchronized docs, examples, README, `llms.txt`, and `AGENTS.md` with the
+  new `broker.exchange()` API: remaining publish-only producers (RPC
+  requesters and the developer-experience publisher) now use
+  `broker.exchange()` instead of declaring a dummy queue.
+- Documented the actionable AMQP `406 PRECONDITION_FAILED` error messages in
+  the quickstart and topology-modes guides.
+- Fixed a `docs/ai/agent-guide.md` example that registered a handler under a
+  key (`orderCreated`) that never matched the runtime envelope name
+  (`orders.created`).
 
 ### Changed
 

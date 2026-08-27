@@ -27,17 +27,15 @@ type Pong = {
     maxMessageBytes: 256 * 1024,
   });
 
-  const pub = await broker
-    .queue("dx.publisher.q")
-    .exchange<{
-      "dx.order.created": EventEnvelope<OrderCreated>;
-      "dx.ping": EventEnvelope<Ping>;
-    }>("dx.orders.ex", {
-      exchangeType: "topic",
-      routingKey: "dx.order.created",
-      publisherConfirms: true,
-      maxMessageBytes: 256 * 1024,
-    });
+  const pub = await broker.exchange<{
+    "dx.order.created": EventEnvelope<OrderCreated>;
+    "dx.ping": EventEnvelope<Ping>;
+  }>("dx.orders.ex", {
+    exchangeType: "topic",
+    routingKey: "dx.order.created",
+    publisherConfirms: true,
+    maxMessageBytes: 256 * 1024,
+  });
 
   const orderCreated = event("dx.order.created", "v1").of<OrderCreated>();
   const ping = event("dx.ping", "v1").of<Ping>();

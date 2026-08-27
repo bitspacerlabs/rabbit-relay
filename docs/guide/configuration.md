@@ -215,11 +215,9 @@ Publisher confirms are disabled by default.
 Enable them when the publisher must know that RabbitMQ accepted the message.
 
 ```ts
-const pub = await broker
-  .queue("orders.q")
-  .exchange("orders.ex", {
-    publisherConfirms: true,
-  });
+const pub = await broker.exchange("orders.ex", {
+  publisherConfirms: true,
+});
 ```
 
 See [Publisher Confirms](/features/publisher-confirms).
@@ -333,7 +331,7 @@ import type { ExchangeType } from "@bitspacerlabs/rabbit-relay";
 
 const type: ExchangeType = EXCHANGES[0].type;
 
-await broker.queue("orders.q").exchange("orders.events", {
+await broker.exchange("orders.events", {
   exchangeType: type,
 });
 ```
