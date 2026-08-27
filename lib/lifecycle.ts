@@ -83,6 +83,12 @@ export type LifecycleEventMap = {
     eventName: string;
     reason: unknown;
   };
+
+  "handler.not-found": {
+    peerName: string;
+    queue: string;
+    eventName: string;
+  };
 };
 
 export type LifecycleEventName = keyof LifecycleEventMap;
