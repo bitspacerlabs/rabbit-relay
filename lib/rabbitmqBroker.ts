@@ -113,10 +113,11 @@ export class RabbitMQBroker {
   private connection: RabbitMQConnectionManager;
   private shutdownTimeoutMs: number;
   private closePromise: Promise<void> | undefined;
+  private closing = false;
   private lifecycle = new LifecycleEmitter();
   private topologyPlan: TopologyPlan = emptyTopologyPlan();
 
-  private activeConsumers: Array<{ stop(): Promise<void> }> = [];
+  private activeConsumers: Array<{ stop(closing?: boolean): Promise<void> }> = [];
   private registeredConsumers: RegisteredConsumer[] = [];
 
   constructor(peerName: string, config: BrokerConfig = {}) {
@@ -191,6 +192,7 @@ export class RabbitMQBroker {
 
   public close(): Promise<void> {
     if (!this.closePromise) {
+      this.closing = true;
       this.closePromise = this.performClose();
     }
 
@@ -202,7 +204,7 @@ export class RabbitMQBroker {
     this.activeConsumers = [];
 
     await Promise.all(
-      consumers.map((consumer) => consumer.stop().catch(() => undefined))
+      consumers.map((consumer) => consumer.stop(this.closing).catch(() => undefined))
     );
 
     this.reconnect.close();
