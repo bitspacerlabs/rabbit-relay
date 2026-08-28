@@ -101,7 +101,10 @@ function blockingTopologyIssues(
   result: TopologyValidationResult
 ): TopologyValidationIssue[] {
   return result.issues.filter(
-    (issue) => issue.type !== "binding_not_validated"
+    (issue) =>
+      issue.type !== "binding_not_validated" &&
+      issue.type !== "recovery_advisory" &&
+      issue.type !== "recovery_advisory_severe"
   );
 }
 
@@ -292,7 +295,12 @@ export class RabbitMQBroker {
       }
 
       return {
-        valid: issues.every((issue) => issue.type === "binding_not_validated"),
+        valid: issues.every(
+          (issue) =>
+            issue.type === "binding_not_validated" ||
+            issue.type === "recovery_advisory" ||
+            issue.type === "recovery_advisory_severe"
+        ),
         issues,
       };
     } finally {

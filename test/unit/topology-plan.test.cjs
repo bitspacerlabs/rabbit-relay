@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const {
   emptyTopologyPlan,
   mergeTopologyPlans,
+  buildRecoveryAdvisories,
 } = require("../../dist/cjs/index.js");
 
 test("emptyTopologyPlan returns an empty plan", () => {
@@ -159,4 +160,52 @@ test("mergeTopologyPlans handles plans with binding arguments for dedupe", () =>
 
   const merged = mergeTopologyPlans(planA, planB, planC);
   assert.equal(merged.bindings.length, 2);
+});
+
+test("buildRecoveryAdvisories emits mild advisory for durable classic queue", () => {
+  const issues = buildRecoveryAdvisories({
+    exchanges: [],
+    queues: [{ name: "q1", durable: true }],
+    bindings: [],
+  });
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].type, "recovery_advisory");
+  assert.equal(issues[0].queue, "q1");
+});
+
+test("buildRecoveryAdvisories emits severe advisory for durable classic with DLQ/retry args", () => {
+  const issues = buildRecoveryAdvisories({
+    exchanges: [],
+    queues: [
+      {
+        name: "q1",
+        durable: true,
+        arguments: { "x-dead-letter-exchange": "dlx.exchange" },
+      },
+    ],
+    bindings: [],
+  });
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].type, "recovery_advisory_severe");
+  assert.equal(issues[0].queue, "q1");
+});
+
+test("buildRecoveryAdvisories ignores durable quorum queues", () => {
+  const issues = buildRecoveryAdvisories({
+    exchanges: [],
+    queues: [
+      { name: "q1", durable: true, arguments: { "x-queue-type": "quorum" } },
+    ],
+    bindings: [],
+  });
+  assert.equal(issues.length, 0);
+});
+
+test("buildRecoveryAdvisories ignores non-durable classic queues", () => {
+  const issues = buildRecoveryAdvisories({
+    exchanges: [],
+    queues: [{ name: "q1", durable: false }],
+    bindings: [],
+  });
+  assert.equal(issues.length, 0);
 });

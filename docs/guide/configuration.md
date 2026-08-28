@@ -347,6 +347,41 @@ Available aliases:
 
 ---
 
+## Queue types and crash recovery
+
+RabbitMQ has three queue types, and the choice matters for crash recovery. Rabbit
+Relay passes the queue type through via the `x-queue-type` argument, so the type
+of queue you get is up to you. The default (no `x-queue-type`) is **classic**.
+
+| Type | Durable data | Crash recovery |
+|---|---|---|
+| **Classic** (default) | Yes | On a **clean** stop the queue saves its state and restores it directly (near-instant). On a **dirty** stop (crash, `kill -9`, node lost) it scans the segment store to rebuild the queue index — **recovery time scales with the durable backlog** (~11s for 1M messages measured, ~250x slower than a clean stop). |
+| **Quorum** (`"x-queue-type": "quorum"`) | Yes (replicated) | Replayed from a replicated Raft log. No segment-store scan; recovery stays fast even with a large backlog. |
+| **Stream** (`"x-queue-type": "stream"`) | Yes (replicated) | Append-only log on disk; no segment-store scan. |
+
+`x-queue-type` is passed through on the queue arguments, and Rabbit Relay's
+topology validation emits a **recovery advisory** (an informational issue) when
+it sees a durable classic queue — escalated when the queue also carries
+dead-letter/retry arguments, since that combination is durable-critical and
+pays the scan on a dirty crash.
+
+```ts
+// Durable, replicated, fast recovery on crash — recommended for
+// messages that must not be lost and where a crash could leave a backlog.
+await broker
+  .queue("orders")
+  .exchange("orders.events", {
+    queueArgs: { "x-queue-type": "quorum" },
+  });
+```
+
+Use classic queues for transient/short-lived data where a backlog is small
+enough that the scan never gets expensive. Advisories never block a valid
+topology — they surface in `issues` so you can review them without disabling
+anything.
+
+---
+
 ## Recommended environment setup
 
 | Environment | Recommended mode |

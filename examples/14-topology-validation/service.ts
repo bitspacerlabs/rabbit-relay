@@ -39,7 +39,11 @@ function printValidation(title: string, result: TopologyValidationResult) {
       amqp: {
         queue: {
           arguments: {
-            "x-queue-type": "classic",
+            // Durable with a DLQ is a reliability-critical combination. Use a
+            // quorum queue so crash recovery does not require a segment-store
+            // scan (classic queues scan the store on a dirty shutdown and
+            // recovery time scales with the durable backlog).
+            "x-queue-type": "quorum",
           },
         },
       },

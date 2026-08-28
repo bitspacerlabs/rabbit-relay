@@ -1879,8 +1879,16 @@ test("broker.validateTopology succeeds for existing resources", { timeout: timeo
 
       const result = await validator.validateTopology();
       assert.equal(result.valid, true);
-      // Only binding_not_validated issues are non-blocking
-      assert.ok(result.issues.every((i) => i.type === "binding_not_validated"));
+      // Only non-blocking issue types are present: binding_not_validated and
+      // the recovery advisory (durable classic queue).
+      assert.ok(
+        result.issues.every(
+          (i) =>
+            i.type === "binding_not_validated" ||
+            i.type === "recovery_advisory" ||
+            i.type === "recovery_advisory_severe"
+        )
+      );
     } finally {
       await validator.close();
     }
