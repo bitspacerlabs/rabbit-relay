@@ -44,14 +44,12 @@ export function buildRecoveryAdvisories(
         type: severe ? "recovery_advisory_severe" : "recovery_advisory",
         queue: queue.name,
         message: severe
-          ? `Durable classic queue '${queue.name}' combined with dead-lettering/retry arguments. ` +
-            `On a dirty shutdown RabbitMQ scans the classic queue segment store to rebuild the index; ` +
-            `recovery scales with backlog (~11s for 1M messages, ~250x slower than a clean stop). ` +
-            `If you need durable, replicated data with fast recovery, consider a quorum queue ` +
-            `(set "x-queue-type": "quorum"), which has no segment store scan.`
-          : `Durable classic queue '${queue.name}' recovers by scanning the segment store after a ` +
-            `dirty shutdown; recovery time scales with backlog. If you need fast recovery after a ` +
-            `crash, consider a quorum queue (set "x-queue-type": "quorum") — it has no segment scan.`,
+          ? `Durable classic queue '${queue.name}' with DLQ/retry re-scans segment files on a ` +
+            `dirty restart (~250x slower recovery than clean stop, scales with backlog). ` +
+            `Use "x-queue-type": "quorum" for fast, replicated crash recovery.`
+          : `Durable classic queue '${queue.name}' recovers by scanning segment files after a ` +
+            `dirty restart; recovery scales with backlog. Use "x-queue-type": "quorum" for ` +
+            `faster crash recovery (no segment scan).`,
       });
     }
   }
