@@ -66,6 +66,17 @@ export interface DlqRedriveResult {
   failed: number;
 
   /**
+   * Number of messages read from the DLQ that were detected as redrive
+   * echoes: copies of a message redriven earlier that were dead-lettered
+   * back into this same queue (e.g. by a still-failing consumer) before
+   * they could be consumed on the next get().
+   *
+   * Echoes are acknowledged to drain the DLQ but are never republished, so
+   * `republished` reflects distinct arrivals rather than inflated loops.
+   */
+  redrivenEchoes: number;
+
+  /**
    * True if the DLQ was empty or became empty before reaching the limit.
    */
   empty: boolean;
@@ -104,6 +115,22 @@ function getRedriveCount(msg: GetMessage): number {
   }
 
   return 0;
+}
+
+/**
+ * Detect a redrive echo: a message that was already redriven (count >= 1)
+ * and whose `redriven-from-queue` header points back at the queue we are
+ * currently reading from.
+ *
+ * Such a message is a copy of something we republished earlier that was
+ * dead-lettered back into this same queue (e.g. by a still-failing target
+ * consumer). Republishing it again would loop forever on the same physical
+ * message, so redrive stops instead.
+ */
+function isRedriveEcho(msg: GetMessage, fromQueue: string): boolean {
+  if (getRedriveCount(msg) < 1) return false;
+
+  return msg.properties.headers?.[REDRIVEN_FROM_QUEUE_HEADER] === fromQueue;
 }
 
 function buildRedrivePublishOptions(params: {
@@ -155,6 +182,9 @@ function normalizeLimit(limit: number | undefined): number {
  * - dryRun does not consume messages
  * - ACKs original DLQ message only after successful republish
  * - preserves message body and AMQP properties
+ * - stops on redrive echoes: messages already redriven from this queue that
+ *   were dead-lettered back (e.g. by a still-failing target) are acked but
+ *   not republished, preventing an infinite redrive loop
  */
 export async function redriveDlq(
   channel: Channel,
@@ -175,6 +205,7 @@ export async function redriveDlq(
     republished: 0,
     acked: 0,
     failed: 0,
+    redrivenEchoes: 0,
     empty: queueInfo.messageCount === 0,
     errors: [],
   };
@@ -190,6 +221,16 @@ export async function redriveDlq(
 
     if (!msg) {
       result.empty = true;
+      break;
+    }
+
+    if (isRedriveEcho(msg, options.fromQueue)) {
+      result.redrivenEchoes++;
+
+      // Drain the echo so the DLQ can reach empty, but never republish a
+      // copy that was already redriven from this same queue. Stop the loop
+      // rather than bouncing the same physical message up to the limit.
+      channel.ack(msg);
       break;
     }
 
