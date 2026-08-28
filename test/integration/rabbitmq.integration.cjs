@@ -143,6 +143,96 @@ test("retries, dead-letters, dry-runs, and redrives safely", { timeout: timeoutM
   }
 });
 
+test("detects redrive echoes and stops instead of busy-looping", { timeout: timeoutMs }, async () => {
+  const id = unique("redrive-echo");
+  const eventName = `${id}.failed`;
+  const makeEvent = event(eventName, "v1").of();
+  const broker = new RabbitMQBroker(`${id}.broker`);
+
+  try {
+    const relay = await broker
+      .queue(`${id}.q`)
+      .exchange(`${id}.ex`, {
+        exchangeType: "topic",
+        routingKey: `${id}.#`,
+        publisherConfirms: true,
+        deadLetter: {
+          exchange: `${id}.dlx`,
+          queue: `${id}.dlq`,
+          routingKey: `${id}.dead`,
+          autoDeclare: true,
+        },
+      });
+
+    relay.handle(eventName, async () => {
+      throw new Error("intentional integration failure");
+    });
+
+    // Consumer deliberately left running: it keeps failing and dead-letters
+    // the redriven copy back into the DLQ, recreating the echo-loop repro.
+    await relay.consume({
+      prefetch: 1,
+      concurrency: 1,
+      onError: "retry",
+      retry: { attempts: 1, delayMs: 100, then: "dead-letter" },
+    });
+
+    await relay.produce(makeEvent({ value: "poison" }));
+
+    await waitFor(
+      () => broker.withChannel(async (channel) => {
+        const info = await channel.checkQueue(`${id}.dlq`);
+        return info.messageCount === 1;
+      }),
+      "message did not reach the DLQ"
+    );
+
+    // First redrive succeeds: republishes the one DLQ message, which the
+    // still-failing consumer dead-letters back into the same DLQ as an echo.
+    const first = await broker.redriveDlq({
+      fromQueue: `${id}.dlq`,
+      toExchange: `${id}.ex`,
+      routingKey: eventName,
+      limit: 1,
+    });
+    assert.equal(first.republished, 1);
+    assert.equal(first.redrivenEchoes, 0);
+
+    // Wait for the echo to arrive back in the DLQ.
+    await waitFor(
+      () => broker.withChannel(async (channel) => {
+        const info = await channel.checkQueue(`${id}.dlq`);
+        return info.messageCount === 1;
+      }),
+      "redrive echo did not return to the DLQ"
+    );
+
+    // Second redrive reads the echo: it must NOT republish it again, and
+    // should stop the loop instead of bouncing up to the limit.
+    const second = await broker.redriveDlq({
+      fromQueue: `${id}.dlq`,
+      toExchange: `${id}.ex`,
+      routingKey: eventName,
+      limit: 10,
+    });
+    assert.equal(second.redrivenEchoes, 1);
+    assert.equal(second.attempted, 0);
+    assert.equal(second.republished, 0);
+    assert.notEqual(second.republished, 10);
+
+    // The echo was acked, so the DLQ drains.
+    await waitFor(
+      () => broker.withChannel(async (channel) => {
+        const info = await channel.checkQueue(`${id}.dlq`);
+        return info.messageCount === 0;
+      }),
+      "DLQ did not drain after echo was acked"
+    );
+  } finally {
+    await broker.close();
+  }
+});
+
 test("supports request and reply with timeout configuration", { timeout: timeoutMs }, async () => {
   const id = unique("rpc");
   const eventName = `${id}.request`;

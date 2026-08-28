@@ -469,6 +469,14 @@ const result = await broker.redriveDlq({
 });
 ```
 
+Redrive stops on redrive echoes: if a target is still failing, the redriven
+copy can be dead-lettered straight back into the same DLQ. That copy carries
+`x-rabbit-relay-redrive-count` and `x-rabbit-relay-redriven-from-queue`
+headers, so redrive detects the echo, acknowledges it to drain the queue, and
+stops instead of busy-looping to `limit`. The result's `redrivenEchoes` field
+counts such echoes, keeping `republished` an honest count of distinct
+arrivals.
+
 ---
 
 ## Message size

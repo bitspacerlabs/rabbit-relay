@@ -403,6 +403,14 @@ const result = await broker.redriveDlq({
 
 The original DLQ message is acknowledged only after republish succeeds.
 
+The result includes a `redrivenEchoes` count. When the target is still failing,
+a redriven copy can be dead-lettered directly back into the same DLQ; redrive
+detects that echo (via the `x-rabbit-relay-redrive-count` /
+`x-rabbit-relay-redriven-from-queue` headers it stamps on republish),
+acknowledges the echo to drain the queue, and stops rather than re-publishing
+the same message up to the `limit`. `republished` therefore counts distinct
+arrivals, not the loop iterations.
+
 ---
 
 ## Health
