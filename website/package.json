@@ -30,7 +30,7 @@
     "remark-gfm": "^4.0.1",
     "remark-rehype": "^11.1.2",
     "unist-util-visit": "^5.1.0",
-    "zod": "^4.4.3"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
